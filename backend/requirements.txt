@@ -1,0 +1,40 @@
+# Web framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+
+# Database
+sqlalchemy==2.0.36
+alembic==1.14.0
+asyncpg==0.30.0          # async PostgreSQL driver
+psycopg2-binary==2.9.10  # sync driver (Alembic)
+
+# Data validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+email-validator==2.2.0
+
+# Authentication (Clerk)
+PyJWT==2.10.1
+cryptography==44.0.0
+
+# AI
+anthropic==0.40.0
+
+# Async tasks (document processing)
+celery==5.4.0
+redis==5.2.1
+
+# File handling
+python-multipart==0.0.19  # file uploads
+boto3==1.35.81            # AWS S3
+
+# HTTP client
+httpx==0.28.1
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.28.1             # TestClient async
+
+# Dev utilities
+python-dotenv==1.0.1
