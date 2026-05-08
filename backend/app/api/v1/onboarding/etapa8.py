@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.onboarding_session import OnboardingSession
 from app.schemas.etapa8 import (
@@ -95,6 +97,7 @@ async def submit_etapa8(
     # Guardar bloque de visión y configs de agentes
     buf.update(build_etapa8_memory(body))
     session.memory_buffer = buf
+    flag_modified(session, "memory_buffer")
 
     completed = list(session.completed_stages or [])
     if 8 not in completed:

@@ -11,6 +11,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.document import Document
 from app.models.onboarding_session import OnboardingSession
@@ -109,6 +111,7 @@ async def upload_document(
     })
     buf["documents"] = docs_list
     session.memory_buffer = buf
+    flag_modified(session, "memory_buffer")
 
     await db.flush()
     await db.commit()

@@ -59,7 +59,7 @@ def build_mefi(
         if q.is_external:
             continue
         response = responses.get(q.question_id)
-        if not response:
+        if not response or response == "skipped":
             continue
 
         weight = _get_weight(q.area, priority_areas)
@@ -88,7 +88,7 @@ def build_mefe(
         if not q.is_external:
             continue
         response = responses.get(q.question_id)
-        if not response:
+        if not response or response == "skipped":
             continue
 
         weight = 0.20  # cada factor externo tiene peso igual
@@ -227,11 +227,63 @@ def generate_matrices(
     )
 
 
+_AREA_LABELS: dict[str, str] = {
+    "strategy":    "Estrategia",
+    "commercial":  "Comercial",
+    "operations":  "Operaciones",
+    "hr":          "Capital Humano",
+    "finance":     "Finanzas",
+    "legal":       "Legal",
+    "family":      "Empresa Familiar",
+    "competition": "Competencia",
+    "technology":  "Tecnología",
+    "regulation":  "Regulación",
+    "economic":    "Entorno Económico",
+    "social":      "Entorno Social",
+}
+
+
+def _build_area_completion(
+    questions: list[DiagnosticQuestion],
+    responses: dict[str, str],
+) -> dict:
+    areas: dict[str, dict] = {}
+    for q in questions:
+        area = q.area
+        if area not in areas:
+            areas[area] = {
+                "label": _AREA_LABELS.get(area, area.title()),
+                "is_external": q.is_external,
+                "total": 0,
+                "answered": 0,
+                "skipped": 0,
+                "questions": [],
+            }
+        response = responses.get(q.question_id, "skipped")
+        areas[area]["total"] += 1
+        if response == "skipped":
+            areas[area]["skipped"] += 1
+        else:
+            areas[area]["answered"] += 1
+        areas[area]["questions"].append({
+            "question_id": q.question_id,
+            "text": q.text,
+            "response": response,
+        })
+
+    for data in areas.values():
+        total = data["total"]
+        data["pct"] = round(data["answered"] / total * 100) if total else 0
+
+    return areas
+
+
 def build_etapa4_memory(
     questions: list[DiagnosticQuestion],
     responses_input: list[DiagnosticResponseInput],
     matrices: DiagnosticMatrices,
 ) -> dict:
+    responses = {r.question_id: r.response for r in responses_input}
     return {
         "diagnostic_responses": [
             {
@@ -242,6 +294,7 @@ def build_etapa4_memory(
             }
             for r in responses_input
         ],
+        "diagnostic_area_completion": _build_area_completion(questions, responses),
         "matrices": {
             "mefi": {
                 "strengths": [f.model_dump() for f in matrices.mefi.get("strengths", [])],

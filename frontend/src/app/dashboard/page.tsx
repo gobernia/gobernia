@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
   ArrowRight, LogOut, Play, ChevronRight,
-  CheckCircle2, Circle, ArrowUpRight, X, Loader2,
+  CheckCircle2, Circle, ArrowUpRight, X, Loader2, ChevronDown,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
@@ -41,11 +41,28 @@ const MONTH_NAMES = [
 ]
 
 // ── Types ─────────────────────────────────────────────────
+interface AreaQuestion {
+  question_id: string
+  text: string
+  response: string
+}
+
+interface AreaCompletion {
+  label: string
+  is_external: boolean
+  total: number
+  answered: number
+  skipped: number
+  pct: number
+  questions: AreaQuestion[]
+}
+
 interface CompanySummary {
   company_name: string
   industry: string
   governance_score?: number
   activated_modules: string[]
+  diagnostic_area_completion?: Record<string, AreaCompletion>
 }
 
 interface BoardSession {
@@ -89,6 +106,8 @@ export default function DashboardPage() {
   const [summary,     setSummary]     = useState<CompanySummary | null>(null)
   const [sessions,    setSessions]    = useState<BoardSession[]>([])
   const [sessLoading, setSessLoading] = useState(true)
+
+  const [expandedArea, setExpandedArea] = useState<string | null>(null)
 
   // Nova sesión modal state
   const [showModal,    setShowModal]   = useState(false)
@@ -381,6 +400,93 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Diagnostic area completion ───────────────── */}
+          {completedStages.includes(4) && summary?.diagnostic_area_completion && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: EASE, delay: 0.15 }}
+              className="space-y-4"
+            >
+              <div>
+                <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-1">Etapa 4</p>
+                <h2 className="text-2xl font-bold text-black tracking-tight">Diagnóstico por área</h2>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Object.entries(summary.diagnostic_area_completion).map(([key, area]) => {
+                  const isExpanded = expandedArea === key
+                  const RESPONSE_LABELS: Record<string, string> = {
+                    yes: "Sí", partial: "Parcialmente", no: "No",
+                    unknown: "No lo sé", skipped: "Omitida",
+                  }
+                  return (
+                    <div key={key} className="border border-gray-100 rounded-2xl overflow-hidden">
+                      <button
+                        onClick={() => setExpandedArea(isExpanded ? null : key)}
+                        className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors text-left"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-black truncate">{area.label}</span>
+                            <span className="text-xs font-bold text-gray-500 ml-2 flex-shrink-0">{area.pct}%</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${area.pct}%`,
+                                backgroundColor: area.pct >= 80 ? "#16a34a" : area.pct >= 50 ? "#ca8a04" : "#dc2626",
+                              }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1.5">
+                            {area.answered} respondidas · {area.skipped} omitidas
+                          </p>
+                        </div>
+                        <ChevronDown
+                          className={`h-4 w-4 text-gray-300 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                        />
+                      </button>
+
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
+                              {area.questions.map(q => (
+                                <div key={q.question_id} className="flex items-start gap-2.5">
+                                  <span className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                    q.response === "yes"     ? "bg-green-500" :
+                                    q.response === "partial" ? "bg-yellow-500" :
+                                    q.response === "no"      ? "bg-red-500" :
+                                    q.response === "unknown" ? "bg-blue-400" :
+                                                               "bg-gray-300"
+                                  }`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-gray-700 leading-snug">{q.text}</p>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">
+                                      {RESPONSE_LABELS[q.response] ?? q.response}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )
+                })}
               </div>
             </motion.div>
           )}

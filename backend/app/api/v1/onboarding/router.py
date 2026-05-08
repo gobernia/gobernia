@@ -87,6 +87,35 @@ async def get_session(
     }
 
 
+@router.get("/{session_id}/summary")
+async def get_session_summary(
+    session_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retorna el resumen de la sesión para el dashboard."""
+    result = await db.execute(
+        select(OnboardingSession).where(
+            OnboardingSession.id == session_id,
+            OnboardingSession.user_id == user_id,
+        )
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+
+    buf = session.memory_buffer or {}
+    company = buf.get("company", {})
+    return {
+        "company_name": company.get("name"),
+        "industry": company.get("industry"),
+        "governance_score": session.governance_score,
+        "activated_modules": buf.get("activated_modules", []),
+        "completed_stages": session.completed_stages or [],
+        "diagnostic_area_completion": buf.get("diagnostic_area_completion", {}),
+    }
+
+
 @router.get("/session/{session_id}/progress")
 async def get_progress(
     session_id: uuid.UUID,

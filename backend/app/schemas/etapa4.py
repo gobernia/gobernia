@@ -20,6 +20,7 @@ class DiagnosticQuestion(BaseModel):
     question_id: str
     area: str
     text: str
+    description: str = ""
     is_base: bool = False
     is_external: bool = False
     is_conditional: bool = False

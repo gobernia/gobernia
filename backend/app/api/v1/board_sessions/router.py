@@ -52,7 +52,7 @@ async def _get_onboarding_or_404(
     session = result.scalars().first()
     if not session:
         raise HTTPException(status_code=404, detail="Perfil de empresa no encontrado. Completa el onboarding primero.")
-    if 1 not in (session.completed_stages or []):
+    if 8 not in (session.completed_stages or []):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Debes completar el onboarding antes de crear una sesión de consejo.",

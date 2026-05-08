@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.onboarding_session import OnboardingSession
 from app.schemas.etapa6 import Etapa6Input, Etapa6ItemsOutput, Etapa6Output
@@ -89,6 +91,7 @@ async def submit_etapa6(
     new_buf = dict(buf)
     new_buf.update(build_etapa6_memory(score, level, dim_scores, gaps))
     session.memory_buffer = new_buf
+    flag_modified(session, "memory_buffer")
 
     # Guardar en columna dedicada del modelo (visible en dashboard)
     session.governance_score = score

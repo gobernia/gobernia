@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
-import { ChevronRight, ClipboardList, Loader2 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { ChevronRight, ClipboardList, Loader2, Info } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
 import StepWrapper from "@/components/onboarding/StepWrapper"
 import GoberniaButton from "@/components/ui/GoberniaButton"
@@ -15,6 +15,7 @@ interface Question {
   question_id: string
   area: string
   text: string
+  description?: string
   response_options: string[]
 }
 
@@ -23,6 +24,50 @@ const OPTION_LABELS: Record<string, string> = {
   partial: "Parcialmente",
   no: "No",
   unknown: "No lo sé",
+}
+
+function InfoTooltip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [open])
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        ref={ref}
+        type="button"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onClick={() => setOpen(v => !v)}
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+        aria-label="Más información"
+      >
+        <Info className="w-2.5 h-2.5" />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.97 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-64 bg-gray-900 text-white text-xs leading-relaxed rounded-xl px-3 py-2.5 shadow-lg pointer-events-none"
+          >
+            {text}
+            <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-900" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </span>
+  )
 }
 
 export default function Etapa4Page() {
@@ -52,17 +97,23 @@ export default function Etapa4Page() {
     setAnswers(prev => ({ ...prev, [qid]: value }))
   }
 
-  const goNext = () => {
-    if (isLast) handleSubmit()
+  const skipQuestion = () => {
+    setAnswers(prev => ({ ...prev, [q.question_id]: "skipped" }))
+    if (isLast) handleSubmit({ ...answers, [q.question_id]: "skipped" })
     else setCurrent(c => c + 1)
   }
 
-  const handleSubmit = async () => {
+  const goNext = () => {
+    if (isLast) handleSubmit(answers)
+    else setCurrent(c => c + 1)
+  }
+
+  const handleSubmit = async (finalAnswers: Record<string, string>) => {
     setLoading(true)
     setError(null)
     try {
       await api.post(`/onboarding/${sessionId}/etapa-4`, {
-        responses: Object.entries(answers).map(([question_id, response]) => ({
+        responses: Object.entries(finalAnswers).map(([question_id, response]) => ({
           question_id,
           response,
         })),
@@ -129,9 +180,12 @@ export default function Etapa4Page() {
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {q.area}
               </p>
-              <h1 className="text-xl font-bold text-foreground leading-snug mt-1">
-                {q.text}
-              </h1>
+              <div className="flex items-start gap-2 mt-1">
+                <h1 className="text-xl font-bold text-foreground leading-snug flex-1">
+                  {q.text}
+                </h1>
+                {q.description && <InfoTooltip text={q.description} />}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-2">
@@ -181,6 +235,13 @@ export default function Etapa4Page() {
                 className="flex-1"
               >
                 Atrás
+              </GoberniaButton>
+              <GoberniaButton
+                variant="ghost"
+                onClick={skipQuestion}
+                className="flex-1 text-gray-400 hover:text-gray-600"
+              >
+                Saltar
               </GoberniaButton>
               <GoberniaButton
                 onClick={goNext}

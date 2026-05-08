@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.onboarding_session import OnboardingSession
 from app.schemas.etapa4 import Etapa4Input, Etapa4Output, Etapa4QuestionsOutput
@@ -80,6 +82,7 @@ async def submit_etapa4(
         completed.append(STAGE_NUMBER)
 
     session.memory_buffer = buffer
+    flag_modified(session, "memory_buffer")
     session.completed_stages = completed
     await db.flush()
 

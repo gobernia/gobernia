@@ -30,6 +30,22 @@ def _build_company_context(memory_buffer: dict) -> str:
     governance = memory_buffer.get("governance", {})
 
     parts = [narrative] if narrative else []
+
+    if company:
+        details = []
+        if company.get("industry"):
+            details.append(f"Industria: {company['industry']}")
+        if company.get("employees"):
+            details.append(f"Empleados: {company['employees']}")
+        if company.get("annual_revenue"):
+            details.append(f"Ingresos anuales: {company['annual_revenue']} USD")
+        if company.get("years_operating"):
+            details.append(f"Años de operación: {company['years_operating']}")
+        if company.get("has_board"):
+            details.append(f"Consejo formal: {company['has_board']}")
+        if details:
+            parts.append("DATOS DE LA EMPRESA: " + " | ".join(details))
+
     if vision.get("statement"):
         parts.append(f"VISIÓN: {vision['statement']}")
     if governance.get("score"):
@@ -39,7 +55,9 @@ def _build_company_context(memory_buffer: dict) -> str:
     return "\n".join(parts)
 
 
-def _build_kpi_context(kpi_snapshot: dict | None) -> str:
+def _build_kpi_context(kpi_snapshot: dict | None, memory_buffer: dict | None = None) -> str:
+    if not kpi_snapshot and memory_buffer:
+        kpi_snapshot = memory_buffer.get("kpis")
     if not kpi_snapshot:
         return "KPIs del periodo: No ingresados aún."
     lines = ["KPIs DEL PERIODO:"]
@@ -119,7 +137,7 @@ def run_agent_analysis(
         return _placeholder_analysis(agent, period_year, period_month)
 
     company_ctx = _build_company_context(memory_buffer)
-    kpi_ctx = _build_kpi_context(kpi_snapshot)
+    kpi_ctx = _build_kpi_context(kpi_snapshot, memory_buffer)
     history_ctx = _build_history_context(previous_analyses or [])
 
     system_prompt = (
@@ -169,7 +187,7 @@ def run_agent_chat(
         return f"[{agent} Agent] Análisis disponible cuando se configure ANTHROPIC_API_KEY."
 
     company_ctx = _build_company_context(memory_buffer)
-    kpi_ctx = _build_kpi_context(kpi_snapshot)
+    kpi_ctx = _build_kpi_context(kpi_snapshot, memory_buffer)
 
     system_prompt = (
         f"{AGENT_SYSTEM_PROMPTS[agent]}\n\n"

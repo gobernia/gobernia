@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.onboarding_session import OnboardingSession
 from app.schemas.etapa5 import Etapa5Input, Etapa5KPIsOutput, Etapa5Output
@@ -90,6 +92,7 @@ async def submit_etapa5(
     new_buf = dict(buf)
     new_buf.update(build_etapa5_memory(results, alerts))
     session.memory_buffer = new_buf
+    flag_modified(session, "memory_buffer")
 
     completed = list(session.completed_stages or [])
     if 5 not in completed:
