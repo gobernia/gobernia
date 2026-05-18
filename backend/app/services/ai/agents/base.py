@@ -189,7 +189,7 @@ def run_challenger_critique(
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = client.messages.create(
         model=settings.AI_MODEL,
-        max_tokens=1200,
+        max_tokens=2048,
         system=CHALLENGER_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     )
@@ -262,24 +262,79 @@ def run_agent_revision(
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = client.messages.create(
         model=settings.AI_MODEL,
-        max_tokens=1200,
+        max_tokens=2048,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
     )
     raw = response.content[0].text
-    return _parse_json(raw, agent, period_year, period_month)
+    # Si la revisión falla parseo, devolver el análisis original en lugar de placeholder
+    parsed_raw = _extract_json_object(raw)
+    return parsed_raw if parsed_raw is not None else initial_analysis
 
 
 def _parse_json_loose(raw: str) -> dict:
     """Parseo permisivo de JSON. Si falla, retorna dict vacío."""
+    parsed = _extract_json_object(raw)
+    return parsed if parsed is not None else {}
+
+
+def _extract_json_object(raw: str) -> dict | None:
+    """
+    Extrae el primer objeto JSON válido de un texto. Maneja:
+    - JSON envuelto en markdown ```json ... ```
+    - Texto explicativo antes/después del JSON
+    - JSON truncado al final (intenta cerrar llaves faltantes)
+    """
     import re
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
-    if match:
+    if not raw:
+        return None
+
+    # Quitar wrapper de markdown si existe
+    md = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
+    candidate = md.group(1) if md else None
+
+    # Si no había markdown, buscar el primer { y emparejar llaves
+    if candidate is None:
+        start = raw.find("{")
+        if start == -1:
+            return None
+        depth = 0
+        in_str = False
+        escape = False
+        end = -1
+        for i in range(start, len(raw)):
+            ch = raw[i]
+            if escape:
+                escape = False
+                continue
+            if ch == "\\":
+                escape = True
+                continue
+            if ch == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+        candidate = raw[start:end] if end > 0 else raw[start:] + "}" * max(depth, 0)
+
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        # Último intento: cerrar llaves faltantes si la respuesta quedó truncada
         try:
-            return json.loads(match.group())
+            missing = candidate.count("{") - candidate.count("}")
+            if missing > 0:
+                return json.loads(candidate + "}" * missing)
         except json.JSONDecodeError:
-            return {}
-    return {}
+            pass
+    return None
 
 
 def run_agent_analysis(
@@ -327,7 +382,7 @@ def run_agent_analysis(
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = client.messages.create(
         model=settings.AI_MODEL,
-        max_tokens=1024,
+        max_tokens=2048,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
     )
@@ -387,23 +442,31 @@ def run_agent_chat(
 
 
 def _placeholder_analysis(agent: str, year: int, month: int) -> dict:
+    """Placeholder cuando la API key no está configurada O cuando el parseo falla."""
+    if not settings.ANTHROPIC_API_KEY:
+        return {
+            "summary": (
+                f"{agent} Agent listo para {_period_label(year, month)}. "
+                "Configura ANTHROPIC_API_KEY para activar el análisis con IA."
+            ),
+            "findings": ["Datos recibidos correctamente."],
+            "alerts": [],
+            "recommendations": ["Ingresa los KPIs del periodo para recibir análisis."],
+        }
+    # API key sí está, pero el modelo devolvió algo no parseable
     return {
         "summary": (
-            f"{agent} Agent listo para {_period_label(year, month)}. "
-            "Configura ANTHROPIC_API_KEY para activar el análisis con IA."
+            f"El {agent} Agent recibió tu información para {_period_label(year, month)} pero "
+            "no logró formatear la respuesta. Vuelve a generar el análisis."
         ),
-        "findings": ["Datos recibidos correctamente."],
+        "findings": [],
         "alerts": [],
-        "recommendations": ["Ingresa los KPIs del periodo para recibir análisis."],
+        "recommendations": ["Da click en 'Generar análisis' nuevamente."],
     }
 
 
 def _parse_json(raw: str, agent: str, year: int, month: int) -> dict:
-    import re
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            pass
+    parsed = _extract_json_object(raw)
+    if parsed is not None:
+        return parsed
     return _placeholder_analysis(agent, year, month)
