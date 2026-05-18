@@ -8,6 +8,7 @@ from app.api.v1.onboarding.router import router as onboarding_router
 from app.api.v1.agents.router import router as agents_router
 from app.api.v1.documents.router import router as documents_router
 from app.api.v1.board_sessions.router import router as board_sessions_router
+from app.api.v1.action_plans.router import router as action_plans_router
 
 
 @asynccontextmanager
@@ -41,6 +42,7 @@ app.include_router(onboarding_router, prefix="/api/v1/onboarding", tags=["onboar
 app.include_router(agents_router, prefix="/api/v1/agents", tags=["agents"])
 app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
 app.include_router(board_sessions_router, prefix="/api/v1", tags=["board-sessions"])
+app.include_router(action_plans_router, prefix="/api/v1", tags=["action-plans"])
 
 
 @app.get("/health", tags=["system"])

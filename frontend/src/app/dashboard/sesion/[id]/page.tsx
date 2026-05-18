@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, Loader2, Send, RotateCcw } from "lucide-react"
+import { ArrowLeft, Loader2, Send, RotateCcw, ListChecks } from "lucide-react"
+import Link from "next/link"
 import api from "@/lib/api"
 
 // ── Easing ────────────────────────────────────────────────
@@ -494,6 +495,24 @@ export default function SessionPage() {
                       Actualizar análisis
                     </button>
                   </div>
+
+                  <Link
+                    href={`/dashboard/sesion/${id}/plan`}
+                    className="group flex items-center justify-between bg-black hover:bg-gray-900 text-white px-6 py-4 rounded-2xl transition-colors"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                        <ListChecks className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Generar plan de acción</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Convierte los hallazgos en tareas ejecutables tipo Kanban
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-300 group-hover:text-white transition-colors">→</span>
+                  </Link>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {AGENTS.map((a, i) => {
