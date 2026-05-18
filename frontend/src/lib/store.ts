@@ -8,6 +8,7 @@ interface OnboardingState {
   setSessionId: (id: string) => void
   setToken: (token: string) => void
   markStageComplete: (stage: number) => void
+  hydrate: (sessionId: string, completedStages: number[]) => void
   reset: () => void
 }
 
@@ -25,6 +26,8 @@ export const useOnboardingStore = create<OnboardingState>()(
             ? s.completedStages
             : [...s.completedStages, stage],
         })),
+      hydrate: (sessionId, completedStages) =>
+        set({ sessionId, completedStages: [...completedStages].sort((a, b) => a - b) }),
       reset: () => set({ sessionId: null, token: null, completedStages: [] }),
     }),
     { name: "gobernia-onboarding" }

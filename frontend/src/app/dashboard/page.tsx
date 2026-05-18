@@ -101,7 +101,7 @@ function statusLabel(s: string) {
 // ── Page ──────────────────────────────────────────────────
 export default function DashboardPage() {
   const router = useRouter()
-  const { sessionId, completedStages, reset } = useOnboardingStore()
+  const { sessionId, completedStages, hydrate, reset } = useOnboardingStore()
 
   const [userEmail,   setUserEmail]   = useState<string | null>(null)
   const [summary,     setSummary]     = useState<CompanySummary | null>(null)
@@ -122,16 +122,37 @@ export default function DashboardPage() {
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null)
     })
-    if (sessionId) {
+
+    // Si no hay sessionId en local (usuario en navegador nuevo / cleared storage),
+    // pregunta al backend si ya hay una sesión y la hidrata.
+    if (!sessionId) {
+      api.get("/onboarding/my-session")
+        .then(r => {
+          if (r.data?.session_id) {
+            hydrate(r.data.session_id, r.data.completed_stages ?? [])
+          }
+        })
+        .catch(() => {})
+    } else {
       api.get(`/onboarding/${sessionId}/summary`)
         .then(r => setSummary(r.data))
         .catch(() => {})
+      // Re-sincroniza completed_stages del backend por si difieren
+      api.get(`/onboarding/session/${sessionId}`)
+        .then(r => {
+          const backendStages = r.data?.completed_stages ?? []
+          if (Array.isArray(backendStages)) {
+            hydrate(sessionId, backendStages)
+          }
+        })
+        .catch(() => {})
     }
+
     api.get("/board-sessions")
       .then(r => setSessions(r.data))
       .catch(() => {})
       .finally(() => setSessLoading(false))
-  }, [sessionId])
+  }, [sessionId, hydrate])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

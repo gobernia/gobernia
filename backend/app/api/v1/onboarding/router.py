@@ -87,6 +87,34 @@ async def get_session(
     }
 
 
+@router.get("/my-session")
+async def get_my_session(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Retorna la sesión de onboarding más reciente del usuario, o 204 si no hay.
+    Usado por el dashboard para hidratar el store cuando el usuario entra
+    desde un dispositivo / navegador nuevo.
+    """
+    result = await db.execute(
+        select(OnboardingSession)
+        .where(OnboardingSession.user_id == user_id)
+        .order_by(OnboardingSession.created_at.desc())
+        .limit(1)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        from fastapi import Response
+        return Response(status_code=204)
+    return {
+        "session_id": str(session.id),
+        "completed_stages": session.completed_stages or [],
+        "governance_score": session.governance_score,
+        "completed_at": session.completed_at,
+    }
+
+
 @router.get("/{session_id}/summary")
 async def get_session_summary(
     session_id: uuid.UUID,
