@@ -48,3 +48,4 @@ backend/app/db/migrations/versions/*.pyc
 # Uploads temporales
 uploads/
 tmp/
+Contendido/_extracted/
