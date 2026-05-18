@@ -33,6 +33,7 @@ from app.schemas.board_session import (
 from app.services.ai.agents.base import (
     run_agent_analysis,
     run_agent_chat,
+    run_agent_chat_stream,
     run_challenger_critique,
     run_agent_revision,
 )
@@ -400,6 +401,95 @@ async def send_chat_message(
         agent=target_agent,
         content=reply_text,
         created_at=agent_msg.created_at,
+    )
+
+
+# ── POST /board-sessions/{id}/chat/stream ────────────────────────────────────
+
+@router.post("/{board_session_id}/chat/stream")
+async def send_chat_message_stream(
+    board_session_id: uuid.UUID,
+    body: ChatMessageInput,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Igual que /chat pero retorna la respuesta del agente como un stream
+    text/plain, para que el frontend pueda mostrarla apareciendo en tiempo real.
+    """
+    from fastapi.responses import StreamingResponse
+
+    bs = await _get_board_session_or_404(board_session_id, user_id, db)
+    target_agent = body.agent or "CFO"
+    if target_agent not in VALID_AGENTS:
+        raise HTTPException(status_code=400, detail=f"Agente '{target_agent}' no válido.")
+
+    # Guardar mensaje del usuario
+    user_msg = ChatMessage(
+        board_session_id=board_session_id,
+        user_id=user_id,
+        role="user",
+        agent=None,
+        content=body.content,
+    )
+    db.add(user_msg)
+    await db.flush()
+
+    # Capturar historial y contexto ANTES de cerrar la transacción
+    onboarding_result = await db.execute(
+        select(OnboardingSession).where(OnboardingSession.id == bs.onboarding_session_id)
+    )
+    onboarding = onboarding_result.scalar_one_or_none()
+    memory_buffer = onboarding.memory_buffer if onboarding else {}
+
+    history = [
+        {"role": m.role, "content": m.content, "agent": m.agent}
+        for m in (bs.messages or [])
+        if m.id != user_msg.id
+    ]
+
+    # Snapshot de campos a usar dentro del generador
+    period_year = bs.period_year
+    period_month = bs.period_month
+    kpi_snapshot = bs.kpi_snapshot
+    bs_id = board_session_id
+
+    # Commit del mensaje del usuario antes de empezar el stream
+    await db.commit()
+
+    async def event_generator():
+        from app.db.session import AsyncSessionLocal
+        accumulated = ""
+        try:
+            async for chunk in run_agent_chat_stream(
+                agent=target_agent,
+                user_message=body.content,
+                memory_buffer=memory_buffer,
+                kpi_snapshot=kpi_snapshot,
+                chat_history=history,
+                period_year=period_year,
+                period_month=period_month,
+            ):
+                accumulated += chunk
+                yield chunk
+        finally:
+            # Persistir la respuesta del agente cuando termine el stream
+            if accumulated:
+                async with AsyncSessionLocal() as new_db:
+                    agent_msg = ChatMessage(
+                        board_session_id=bs_id,
+                        user_id=user_id,
+                        role="assistant",
+                        agent=target_agent,
+                        content=accumulated,
+                    )
+                    new_db.add(agent_msg)
+                    await new_db.commit()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/plain; charset=utf-8",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
 
 

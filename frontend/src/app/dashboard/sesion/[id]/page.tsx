@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import { ArrowLeft, Loader2, Send, RotateCcw, ListChecks } from "lucide-react"
 import Link from "next/link"
 import api from "@/lib/api"
+import { supabase } from "@/lib/supabase"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -325,23 +326,50 @@ export default function SessionPage() {
     const content = input.trim()
     setInput("")
     setSending(true)
-    const tempId = `temp-${Date.now()}`
-    const userMsg: ChatMsg = {
-      message_id: tempId,
-      role: "user",
-      agent: null,
-      content,
-      created_at: new Date().toISOString(),
-    }
-    setMessages(prev => [...prev, userMsg])
+
+    const tempUserId = `temp-${Date.now()}`
+    const tempAssistantId = `temp-asst-${Date.now()}`
+    const nowIso = new Date().toISOString()
+
+    setMessages(prev => [
+      ...prev,
+      { message_id: tempUserId,      role: "user",      agent: null,        content,        created_at: nowIso },
+      { message_id: tempAssistantId, role: "assistant", agent: activeAgent, content: "",    created_at: nowIso },
+    ])
+
     try {
-      const r = await api.post(`/board-sessions/${id}/chat`, {
-        content,
-        agent: activeAgent,
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"
+      const res = await fetch(`${baseUrl}/board-sessions/${id}/chat/stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type":  "application/json",
+          "Authorization": token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({ content, agent: activeAgent }),
       })
-      setMessages(prev => [...prev.filter(m => m.message_id !== tempId), r.data])
+
+      if (!res.ok || !res.body) throw new Error(`stream failed: ${res.status}`)
+
+      const reader  = res.body.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        if (!chunk) continue
+        setMessages(prev => prev.map(m =>
+          m.message_id === tempAssistantId
+            ? { ...m, content: m.content + chunk }
+            : m
+        ))
+      }
     } catch {
-      setMessages(prev => prev.filter(m => m.message_id !== tempId))
+      setMessages(prev => prev.filter(m =>
+        m.message_id !== tempUserId && m.message_id !== tempAssistantId
+      ))
     } finally {
       setSending(false)
     }
@@ -697,32 +725,28 @@ export default function SessionPage() {
                             : "bg-gray-50 border border-gray-100 text-gray-800"
                         }`}
                       >
-                        {msg.content.split("\n").filter(Boolean).map((line, i) => (
-                          <p key={i} className={i > 0 ? "mt-2" : ""}>{line}</p>
-                        ))}
+                        {msg.role === "assistant" && !msg.content ? (
+                          <div className="flex items-center gap-1.5 py-1">
+                            {[0, 1, 2].map(i => (
+                              <motion.div
+                                key={i}
+                                className="w-1.5 h-1.5 rounded-full bg-gray-400"
+                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          msg.content.split("\n").filter(Boolean).map((line, i) => (
+                            <p key={i} className={i > 0 ? "mt-2" : ""}>{line}</p>
+                          ))
+                        )}
                       </div>
                     </div>
                   ))
                 )}
 
-                {/* Typing indicator */}
-                {sending && (
-                  <div className="flex gap-3 justify-start">
-                    <div className="w-7 h-7 rounded-lg bg-black flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-white text-[10px] font-bold">{activeAgent[0]}</span>
-                    </div>
-                    <div className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-4 flex items-center gap-1.5">
-                      {[0, 1, 2].map(i => (
-                        <motion.div
-                          key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-gray-400"
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
+
 
                 <div ref={bottomRef} />
               </div>

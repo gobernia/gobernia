@@ -3,6 +3,8 @@ Base del agente IA — construye el prompt del sistema y llama a Claude.
 Cada agente (CFO, CSO, CRO, Auditor) hereda de aquí.
 """
 import json
+from typing import AsyncIterator
+
 import anthropic
 
 from app.core.config import settings
@@ -439,6 +441,59 @@ def run_agent_chat(
         messages=messages,
     )
     return response.content[0].text
+
+
+async def run_agent_chat_stream(
+    agent: str,
+    user_message: str,
+    memory_buffer: dict,
+    kpi_snapshot: dict | None,
+    chat_history: list[dict],
+    period_year: int,
+    period_month: int,
+) -> AsyncIterator[str]:
+    """
+    Versión streaming de run_agent_chat. Yields cada fragmento de texto
+    a medida que Claude lo va generando, para mostrar la respuesta
+    apareciendo en tiempo real al usuario.
+    """
+    if not settings.ANTHROPIC_API_KEY:
+        yield f"[{agent} Agent] Análisis disponible cuando se configure ANTHROPIC_API_KEY."
+        return
+
+    agent_cfg = _get_agent_config(memory_buffer, agent)
+    tone = agent_cfg.get("tone", "formal")
+    custom = agent_cfg.get("custom_instructions") or ""
+
+    company_ctx = _build_company_context(memory_buffer)
+    kpi_ctx = _build_kpi_context(kpi_snapshot, memory_buffer)
+    is_family = bool(memory_buffer.get("company", {}).get("is_family_business"))
+    knowledge_ctx = build_knowledge_for_agent(agent, is_family_business=is_family)
+
+    system_prompt = (
+        f"{AGENT_SYSTEM_PROMPTS[agent]}\n\n"
+        f"TONO: {tone}. Periodo actual: {_period_label(period_year, period_month)}.\n"
+        f"{company_ctx}\n\n{kpi_ctx}\n"
+        + (f"INSTRUCCIONES ADICIONALES: {custom}\n" if custom else "")
+        + f"\n{knowledge_ctx}\n"
+        + "\nResponde de forma concisa y accionable. No uses JSON, responde en prosa."
+    )
+
+    messages = []
+    for msg in chat_history[-10:]:
+        role = "user" if msg["role"] == "user" else "assistant"
+        messages.append({"role": role, "content": msg["content"]})
+    messages.append({"role": "user", "content": user_message})
+
+    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    async with client.messages.stream(
+        model=settings.AI_MODEL,
+        max_tokens=800,
+        system=system_prompt,
+        messages=messages,
+    ) as stream:
+        async for text in stream.text_stream:
+            yield text
 
 
 def _placeholder_analysis(agent: str, year: int, month: int) -> dict:
