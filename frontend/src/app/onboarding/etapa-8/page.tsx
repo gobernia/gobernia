@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { ChevronRight, Sparkles, Plus, X, Bot } from "lucide-react"
@@ -65,6 +65,37 @@ export default function Etapa8Page() {
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!sessionId) return
+    api.get(`/onboarding/session/${sessionId}`).then(r => {
+      const buf = r.data.memory_buffer ?? {}
+      const v = buf.vision
+      if (v?.statement) setVisionStatement(String(v.statement))
+      if (Array.isArray(v?.goals) && v.goals.length > 0) {
+        setMainGoals(v.goals.map((g: unknown) => String(g)))
+      }
+      const exp = v?.board_expectations
+      if (exp?.session_frequency) setFrequency(String(exp.session_frequency))
+      if (Array.isArray(exp?.priority_topics) && exp.priority_topics.length > 0) {
+        setPriorityTopics(exp.priority_topics.map((t: unknown) => String(t)))
+      }
+      if (exp?.success_definition) setSuccessDef(String(exp.success_definition))
+      const cfgs = buf.agent_configs
+      if (cfgs && typeof cfgs === "object") {
+        setAgentConfigs(prev => prev.map(c => {
+          const saved = (cfgs as Record<string, Record<string, unknown>>)[c.agent]
+          if (!saved) return c
+          return {
+            agent: c.agent,
+            tone:                String(saved.tone ?? c.tone),
+            alert_sensitivity:   String(saved.alert_sensitivity ?? c.alert_sensitivity),
+            custom_instructions: String(saved.custom_instructions ?? ""),
+          }
+        }))
+      }
+    }).catch(() => {})
+  }, [sessionId])
 
   const next = (to: SubStep) => { setError(null); setSubStep(to) }
 

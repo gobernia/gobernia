@@ -48,12 +48,38 @@ export default function Etapa5Page() {
 
   useEffect(() => {
     if (!sessionId) return
-    api.get(`/onboarding/${sessionId}/etapa-5/kpis`)
-      .then(r => {
-        setTemplates(r.data.kpi_templates)
+    Promise.all([
+      api.get(`/onboarding/${sessionId}/etapa-5/kpis`),
+      api.get(`/onboarding/session/${sessionId}`),
+    ])
+      .then(([kRes, sRes]) => {
+        setTemplates(kRes.data.kpi_templates)
         const init: Record<string, KPIValue> = {}
-        r.data.kpi_templates.forEach((t: KPITemplate) => {
-          init[t.key] = { key: t.key, current_value: "", target_value: "", unknown: false }
+        // Flatten saved kpis (grouped by dimension) into a lookup by key
+        const savedKpis = sRes.data.memory_buffer?.kpis ?? {}
+        const saved: Record<string, Record<string, unknown>> = {}
+        Object.values(savedKpis as Record<string, unknown[]>).forEach(arr => {
+          if (Array.isArray(arr)) {
+            arr.forEach((kpi) => {
+              const k = kpi as Record<string, unknown>
+              if (k.key) saved[String(k.key)] = k
+            })
+          }
+        })
+        kRes.data.kpi_templates.forEach((t: KPITemplate) => {
+          const prev = saved[t.key]
+          if (prev) {
+            const cv = prev.current_value
+            const tv = prev.target_value
+            init[t.key] = {
+              key: t.key,
+              current_value: cv === null || cv === undefined ? "" : String(cv),
+              target_value:  tv === null || tv === undefined ? "" : String(tv),
+              unknown:       Boolean(prev.unknown),
+            }
+          } else {
+            init[t.key] = { key: t.key, current_value: "", target_value: "", unknown: false }
+          }
         })
         setValues(init)
       })

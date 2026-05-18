@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, Target, X, GripVertical } from "lucide-react"
@@ -42,6 +42,23 @@ export default function Etapa3Page() {
   const [customText, setCustomText] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!sessionId) return
+    api.get(`/onboarding/session/${sessionId}`).then(r => {
+      const priorities = r.data.memory_buffer?.priorities
+      if (!Array.isArray(priorities) || priorities.length === 0) return
+      const sorted = [...priorities].sort(
+        (a: Record<string, unknown>, b: Record<string, unknown>) =>
+          ((a.rank as number) ?? 99) - ((b.rank as number) ?? 99)
+      )
+      setSelected(sorted.map((p: Record<string, unknown>, i: number) => ({
+        challenge:        String(p.challenge ?? ""),
+        challenge_custom: String(p.challenge_custom ?? ""),
+        rank:             i + 1,
+      })))
+    }).catch(() => {})
+  }, [sessionId])
 
   const toggle = (value: string) => {
     const exists = selected.find(s => s.challenge === value)

@@ -82,6 +82,25 @@ Endpoint adicional: `GET /{sid}/summary` → devuelve company_name, governance_s
 - ~2,600 tokens por invocación. Prompt cache de Claude minimiza costo en llamadas repetidas
 - Decisión: NO usamos RAG/embeddings — Opción C (resumen estructurado). Si se queda corto en el futuro, migrar a Supabase pgvector
 
+### Flujo onboarding desacoplado del sign-up (mayo 2026)
+- Sign-up redirige a `/dashboard` (no a etapa-1 forzosamente)
+- Dashboard funciona sin onboarding completo. CTAs muestran modal "Configura primero" si no hay datos
+- Nueva página `/dashboard/datos` muestra resumen de las 8 etapas con preview pulled de memory_buffer y botón "Editar"/"Completar" por sección
+- Etapa pages aceptan `?from=datos`; al guardar regresan a `/dashboard/datos` (en lugar de avanzar a la siguiente etapa)
+- Layout `/onboarding/layout.tsx` con `dynamic = "force-dynamic"` para evitar bailout de `useSearchParams`
+- **Etapa-1 con pre-población completa** desde memory_buffer.company (incluye `location.{city,state,country}` anidado)
+- Etapas 2-8: el redirect funciona pero forms inician vacíos — pendiente agregar pre-población a c/u
+
+### Challenger Agent (5to agente pre-mortem, mayo 2026)
+- Invisible al usuario, aplica método pre-mortem a cada análisis antes de mostrarse
+- Flujo: agente analiza → Challenger critica → agente revisa → usuario ve revisión
+- Detecta: supuestos débiles, riesgos omitidos, recomendaciones vagas, datos ignorados, puntos ciegos, brechas frente a CCE
+- Reglas anti-sycophancy: Challenger no inventa problemas; agentes pueden rechazar críticas equivocadas
+- Crítica persiste en `board_sessions.agent_critiques` (JSONB) para auditoría
+- 3x llamadas LLM por agente; prompt cache de Claude mitiga costo
+- Implementado en `agents/base.py`: `run_challenger_critique`, `run_agent_revision`
+- Orquestado en `board_sessions/router.py` en endpoint `/analyse`
+
 ## Pendiente / próximas mejoras
 
 - Claude API calls async (actualmente síncronas, bloquean el event loop — usar `AsyncAnthropic`)

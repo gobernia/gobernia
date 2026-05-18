@@ -208,6 +208,7 @@ def build_etapa6_memory(
     level: str,
     dimension_scores: list[GovernanceDimensionScore],
     gaps: list[str],
+    answers: list[GovernanceItemInput] | None = None,
 ) -> dict:
     return {
         "governance": {
@@ -215,5 +216,9 @@ def build_etapa6_memory(
             "level": level,
             "dimensions": [d.model_dump() for d in dimension_scores],
             "gaps": gaps,
+            "answers": [
+                {"key": a.key, "response": a.response.value if hasattr(a.response, "value") else a.response}
+                for a in (answers or [])
+            ],
         }
     }

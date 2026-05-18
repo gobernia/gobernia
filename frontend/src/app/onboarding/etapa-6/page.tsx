@@ -46,8 +46,23 @@ export default function Etapa6Page() {
 
   useEffect(() => {
     if (!sessionId) return
-    api.get(`/onboarding/${sessionId}/etapa-6/items`)
-      .then(r => setItems(r.data.items))
+    Promise.all([
+      api.get(`/onboarding/${sessionId}/etapa-6/items`),
+      api.get(`/onboarding/session/${sessionId}`),
+    ])
+      .then(([iRes, sRes]) => {
+        setItems(iRes.data.items)
+        const savedAnswers = sRes.data.memory_buffer?.governance?.answers
+        if (Array.isArray(savedAnswers) && savedAnswers.length > 0) {
+          const map: Record<string, GovernanceResponse> = {}
+          savedAnswers.forEach((a: Record<string, unknown>) => {
+            if (a.key && a.response) {
+              map[String(a.key)] = a.response as GovernanceResponse
+            }
+          })
+          setAnswers(map)
+        }
+      })
       .catch(() => setFetchError("No se pudieron cargar los ítems. Verifica que hayas completado la Etapa 5."))
       .finally(() => setFetching(false))
   }, [sessionId])

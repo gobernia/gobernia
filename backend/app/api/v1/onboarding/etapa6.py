@@ -89,7 +89,7 @@ async def submit_etapa6(
 
     # Actualizar Memory Buffer
     new_buf = dict(buf)
-    new_buf.update(build_etapa6_memory(score, level, dim_scores, gaps))
+    new_buf.update(build_etapa6_memory(score, level, dim_scores, gaps, body.items))
     session.memory_buffer = new_buf
     flag_modified(session, "memory_buffer")
 

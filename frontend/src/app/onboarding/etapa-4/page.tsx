@@ -85,8 +85,23 @@ export default function Etapa4Page() {
 
   useEffect(() => {
     if (!sessionId) return
-    api.get(`/onboarding/${sessionId}/etapa-4/questions`)
-      .then(r => setQuestions(r.data.questions))
+    Promise.all([
+      api.get(`/onboarding/${sessionId}/etapa-4/questions`),
+      api.get(`/onboarding/session/${sessionId}`),
+    ])
+      .then(([qRes, sRes]) => {
+        setQuestions(qRes.data.questions)
+        const existing = sRes.data.memory_buffer?.diagnostic_responses
+        if (Array.isArray(existing) && existing.length > 0) {
+          const map: Record<string, string> = {}
+          existing.forEach((r: Record<string, unknown>) => {
+            if (r.question_id && r.response) {
+              map[String(r.question_id)] = String(r.response)
+            }
+          })
+          setAnswers(map)
+        }
+      })
       .catch(() => setFetchError("No se pudieron cargar las preguntas. Verifica que hayas completado la Etapa 3."))
       .finally(() => setFetching(false))
   }, [sessionId])

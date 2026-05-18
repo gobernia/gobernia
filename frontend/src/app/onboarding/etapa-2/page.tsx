@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, UserPlus, Trash2, Check, Users } from "lucide-react"
@@ -129,6 +129,22 @@ export default function Etapa2Page() {
   const [current, setCurrent] = useState<TeamMember>(EMPTY_MEMBER)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!sessionId) return
+    api.get(`/onboarding/session/${sessionId}`).then(r => {
+      const team = r.data.memory_buffer?.team
+      if (!Array.isArray(team) || team.length === 0) return
+      setMembers(team.map((m: Record<string, unknown>) => ({
+        name:                String(m.name ?? ""),
+        role:                String(m.role ?? ""),
+        role_custom:         String(m.role_custom ?? ""),
+        is_family:           m.is_family as boolean | null ?? null,
+        makes_key_decisions: m.makes_key_decisions as boolean | null ?? null,
+        email:               String(m.email ?? ""),
+      })))
+    }).catch(() => {})
+  }, [sessionId])
 
   const startAdding = () => {
     setCurrent(EMPTY_MEMBER)
