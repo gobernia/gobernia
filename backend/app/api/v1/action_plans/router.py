@@ -10,7 +10,8 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user_id, get_db
@@ -121,27 +122,37 @@ async def generate_or_replace_plan(
     memory_buffer = onboarding.memory_buffer if onboarding else {}
 
     period_label = f"{_MONTHS[bs.period_month]} {bs.period_year}"
-    new_tasks = generate_action_plan(bs.agent_analyses, memory_buffer, period_label)
 
-    # Si ya existe plan, borrar tareas y reusar plan_id (mantiene historial)
+    # 1. Reservar (o reutilizar) el plan ANTES del llamado lento al LLM,
+    #    para que dos clicks consecutivos no generen un duplicate-key.
     plan_result = await db.execute(
         select(ActionPlan).where(ActionPlan.board_session_id == board_session_id)
     )
     plan = plan_result.scalar_one_or_none()
 
-    if plan:
-        # Borrar tareas existentes para regenerar
-        from sqlalchemy import delete
-        await db.execute(delete(ActionTask).where(ActionTask.plan_id == plan.id))
-        plan.updated_at = datetime.utcnow()
-    else:
+    if plan is None:
         plan = ActionPlan(
             board_session_id=board_session_id,
             user_id=user_id,
             title=f"Plan de acción — {period_label}",
         )
         db.add(plan)
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError:
+            # Otra request creó el plan en paralelo — recuperar el existente
+            await db.rollback()
+            plan_result = await db.execute(
+                select(ActionPlan).where(ActionPlan.board_session_id == board_session_id)
+            )
+            plan = plan_result.scalar_one()
+
+    # 2. Generar tareas con el LLM (puede tardar 30s).
+    new_tasks = generate_action_plan(bs.agent_analyses, memory_buffer, period_label)
+
+    # 3. Reemplazar tareas existentes con las nuevas.
+    await db.execute(delete(ActionTask).where(ActionTask.plan_id == plan.id))
+    plan.updated_at = datetime.utcnow()
 
     task_objs = [
         ActionTask(
