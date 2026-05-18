@@ -40,29 +40,30 @@ function InfoTooltip({ text }: { text: string }) {
   }, [open])
 
   return (
-    <span className="relative inline-flex">
+    <span className="relative inline-flex items-center">
       <button
         ref={ref}
         type="button"
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onClick={() => setOpen(v => !v)}
-        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+        className="inline-flex items-center gap-1 rounded-full border border-gray-300 hover:border-black bg-white hover:bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500 hover:text-black transition-all flex-shrink-0"
         aria-label="Más información"
       >
-        <Info className="w-2.5 h-2.5" />
+        <Info className="w-3 h-3" />
+        ¿Qué evalúa?
       </button>
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 4, scale: 0.97 }}
+            initial={{ opacity: 0, y: 6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.97 }}
+            exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-64 bg-gray-900 text-white text-xs leading-relaxed rounded-xl px-3 py-2.5 shadow-lg pointer-events-none"
+            className="absolute left-0 bottom-full mb-2 z-50 w-72 bg-gray-900 text-white text-xs leading-relaxed rounded-xl px-3.5 py-3 shadow-xl pointer-events-none"
           >
             {text}
-            <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-900" />
+            <span className="absolute left-4 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-900" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -180,12 +181,14 @@ export default function Etapa4Page() {
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {q.area}
               </p>
-              <div className="flex items-start gap-2 mt-1">
-                <h1 className="text-xl font-bold text-foreground leading-snug flex-1">
-                  {q.text}
-                </h1>
-                {q.description && <InfoTooltip text={q.description} />}
-              </div>
+              <h1 className="text-xl font-bold text-foreground leading-snug mt-1">
+                {q.text}
+              </h1>
+              {q.description && (
+                <div className="mt-2">
+                  <InfoTooltip text={q.description} />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-2">

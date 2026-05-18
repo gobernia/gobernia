@@ -39,6 +39,10 @@ class BoardSession(Base, UUIDMixin, TimestampMixin):
     # Análisis generados por cada agente (CFO, CSO, CRO, Auditor)
     agent_analyses: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # Críticas del Challenger Agent (pre-mortem) por agente — no se muestran al usuario,
+    # son la base de la revisión que sí se almacena en agent_analyses
+    agent_critiques: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     # Copia del perfil base en el momento de crear la sesión (para histórico)
     profile_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 

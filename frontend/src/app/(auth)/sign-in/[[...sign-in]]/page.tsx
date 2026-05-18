@@ -30,7 +30,7 @@ export default function SignInPage() {
       setLoading(false)
       return
     }
-    router.push("/onboarding/etapa-1")
+    router.push("/dashboard")
   }
 
   return (

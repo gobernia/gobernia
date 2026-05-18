@@ -30,7 +30,12 @@ from app.schemas.board_session import (
     ChatMessageInput,
     ChatMessageOut,
 )
-from app.services.ai.agents.base import run_agent_analysis, run_agent_chat
+from app.services.ai.agents.base import (
+    run_agent_analysis,
+    run_agent_chat,
+    run_challenger_critique,
+    run_agent_revision,
+)
 
 router = APIRouter(prefix="/board-sessions", tags=["board-sessions"])
 
@@ -281,10 +286,11 @@ async def run_analyses(
         if (s.agent_analyses or {}).get(agent)
     ]
 
-    # Ejecutar análisis por agente
+    # Ejecutar pipeline por agente: análisis inicial → crítica del Challenger → revisión
     analyses = dict(bs.agent_analyses or {})
+    critiques = dict(bs.agent_critiques or {})
     for agent in body.agents:
-        analyses[agent] = run_agent_analysis(
+        initial = run_agent_analysis(
             agent=agent,
             memory_buffer=memory_buffer,
             kpi_snapshot=bs.kpi_snapshot,
@@ -292,8 +298,29 @@ async def run_analyses(
             period_month=bs.period_month,
             previous_analyses=previous_analyses,
         )
+        critique = run_challenger_critique(
+            agent=agent,
+            initial_analysis=initial,
+            memory_buffer=memory_buffer,
+            kpi_snapshot=bs.kpi_snapshot,
+            period_year=bs.period_year,
+            period_month=bs.period_month,
+        )
+        revised = run_agent_revision(
+            agent=agent,
+            initial_analysis=initial,
+            critique=critique,
+            memory_buffer=memory_buffer,
+            kpi_snapshot=bs.kpi_snapshot,
+            period_year=bs.period_year,
+            period_month=bs.period_month,
+            previous_analyses=previous_analyses,
+        )
+        analyses[agent] = {**revised, "_challenger_applied": True}
+        critiques[agent] = critique
 
     bs.agent_analyses = analyses
+    bs.agent_critiques = critiques
     await db.flush()
     await db.commit()
 

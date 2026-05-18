@@ -117,6 +117,171 @@ ANALYSIS_SCHEMA = """{
 }"""
 
 
+# ── Challenger Agent (pre-mortem / red team) ─────────────────────────────────
+
+CHALLENGER_SYSTEM_PROMPT = """Eres el Challenger Agent de Gobernia: el consejero senior independiente
+con 30 años de experiencia que cuestiona TODO. Tu trabajo NO es complacer ni validar.
+Tu trabajo es proteger al empresario de análisis blandos, optimistas o genéricos.
+
+Tu método es el PRE-MORTEM: imagina que han pasado 12 meses y el plan recomendado por
+este agente FRACASÓ ROTUNDAMENTE. Tu tarea es identificar exactamente por qué.
+
+Cuestiona específicamente:
+1. SUPUESTOS DÉBILES: ¿qué asume el análisis sin evidencia que lo respalde?
+2. RIESGOS OMITIDOS: ¿qué riesgo crítico no mencionó? (consulta los 10 riesgos
+   estratégicos del CCE y los 10 temas prioritarios 2026)
+3. RECOMENDACIONES VAGAS: si una recomendación no dice QUIÉN, CUÁNDO, ni CÓMO MEDIR
+   éxito, es humo. Señálalo.
+4. DATOS IGNORADOS: ¿los KPIs/datos de la empresa contradicen alguna conclusión?
+5. PUNTOS CIEGOS: ¿el análisis solo contempla escenarios positivos? ¿ignora el peor caso?
+6. ALINEACIÓN A FRAMEWORKS: ¿faltó referenciar alguna mejor práctica del CCE aplicable?
+7. SESGO DE COMPLACENCIA: ¿el agente está siendo amable o evitando una conversación difícil?
+
+NO escribas un análisis nuevo. NO repitas lo que el agente ya dijo. Escribe SOLO
+críticas accionables, breves, directas. Si encuentras pocas o ninguna debilidad
+real, sé honesto y dilo — no inventes problemas para parecer riguroso."""
+
+CHALLENGER_CRITIQUE_SCHEMA = """{
+  "weak_assumptions": ["supuesto débil 1", "..."],
+  "missing_risks": ["riesgo no mencionado 1", "..."],
+  "vague_recommendations": ["recomendación 1 es vaga porque no dice X, falta Y", "..."],
+  "ignored_data": ["el dato Z contradice esto", "..."],
+  "blind_spots": ["punto ciego 1", "..."],
+  "framework_gaps": ["mejor práctica CCE no aplicada", "..."],
+  "verdict": "una oración: ¿qué tan robusto es el análisis original?"
+}"""
+
+
+def run_challenger_critique(
+    agent: str,
+    initial_analysis: dict,
+    memory_buffer: dict,
+    kpi_snapshot: dict | None,
+    period_year: int,
+    period_month: int,
+) -> dict:
+    """
+    Critica adversarial del análisis inicial de un agente.
+    Aplica pre-mortem para encontrar debilidades antes de mostrar al usuario.
+    """
+    if not settings.ANTHROPIC_API_KEY:
+        return {}
+
+    company_ctx = _build_company_context(memory_buffer)
+    kpi_ctx = _build_kpi_context(kpi_snapshot, memory_buffer)
+    is_family = bool(memory_buffer.get("company", {}).get("is_family_business"))
+    knowledge_ctx = build_knowledge_for_agent(agent, is_family_business=is_family)
+
+    user_prompt = (
+        f"Estás revisando el análisis del agente {agent} para el periodo "
+        f"{_period_label(period_year, period_month)}.\n\n"
+        f"CONTEXTO DE LA EMPRESA:\n{company_ctx}\n\n"
+        f"{kpi_ctx}\n\n"
+        f"FRAMEWORKS APLICABLES (úsalos para detectar brechas):\n{knowledge_ctx}\n\n"
+        f"ANÁLISIS DEL AGENTE {agent} A CUESTIONAR:\n"
+        f"{json.dumps(initial_analysis, ensure_ascii=False, indent=2)}\n\n"
+        "Aplica el método pre-mortem: si en 12 meses este plan fracasa, ¿por qué fue? "
+        "Responde ÚNICAMENTE con JSON válido siguiendo este esquema. "
+        "Si un campo no tiene críticas reales, devuélvelo como lista vacía []:\n"
+        f"{CHALLENGER_CRITIQUE_SCHEMA}"
+    )
+
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    response = client.messages.create(
+        model=settings.AI_MODEL,
+        max_tokens=1200,
+        system=CHALLENGER_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    raw = response.content[0].text
+    return _parse_json_loose(raw)
+
+
+def run_agent_revision(
+    agent: str,
+    initial_analysis: dict,
+    critique: dict,
+    memory_buffer: dict,
+    kpi_snapshot: dict | None,
+    period_year: int,
+    period_month: int,
+    previous_analyses: list[dict] | None = None,
+) -> dict:
+    """
+    El agente revisa su análisis basado en la crítica del Challenger.
+    Si la crítica está vacía o el agente no tiene API key, devuelve el original.
+    """
+    if not settings.ANTHROPIC_API_KEY:
+        return initial_analysis
+
+    has_critique = any(
+        critique.get(k) for k in (
+            "weak_assumptions", "missing_risks", "vague_recommendations",
+            "ignored_data", "blind_spots", "framework_gaps",
+        )
+    )
+    if not has_critique:
+        return initial_analysis
+
+    agent_cfg = _get_agent_config(memory_buffer, agent)
+    tone = agent_cfg.get("tone", "formal")
+    sensitivity = agent_cfg.get("alert_sensitivity", "medium")
+    custom = agent_cfg.get("custom_instructions") or ""
+
+    company_ctx = _build_company_context(memory_buffer)
+    kpi_ctx = _build_kpi_context(kpi_snapshot, memory_buffer)
+    history_ctx = _build_history_context(previous_analyses or [])
+    is_family = bool(memory_buffer.get("company", {}).get("is_family_business"))
+    knowledge_ctx = build_knowledge_for_agent(agent, is_family_business=is_family)
+
+    system_prompt = (
+        f"{AGENT_SYSTEM_PROMPTS[agent]}\n\n"
+        f"TONO: {tone}. SENSIBILIDAD DE ALERTAS: {sensitivity}.\n"
+        + (f"INSTRUCCIONES ADICIONALES: {custom}\n" if custom else "")
+        + f"\n{knowledge_ctx}\n"
+    )
+
+    user_prompt = (
+        f"Periodo: {_period_label(period_year, period_month)}.\n\n"
+        f"{company_ctx}\n\n{kpi_ctx}\n{history_ctx}\n\n"
+        f"TU ANÁLISIS INICIAL FUE:\n"
+        f"{json.dumps(initial_analysis, ensure_ascii=False, indent=2)}\n\n"
+        f"UN CONSEJERO SENIOR INDEPENDIENTE LO REVISÓ Y LE HIZO ESTAS OBSERVACIONES:\n"
+        f"{json.dumps(critique, ensure_ascii=False, indent=2)}\n\n"
+        "Revisa tu análisis incorporando esas críticas:\n"
+        "1. Atiende cada observación de manera directa, no la rodees.\n"
+        "2. Si una recomendación era vaga, hazla específica: agrega QUIÉN ejecuta, "
+        "CUÁNDO se hace, y CÓMO se medirá el éxito.\n"
+        "3. Reconoce los riesgos omitidos en findings o alerts.\n"
+        "4. Si la crítica no aplica o es incorrecta, mantén tu posición — no cedas por ceder.\n"
+        "5. Mantén el tono y el estilo del análisis original; solo fortalécelo.\n\n"
+        "Responde ÚNICAMENTE con JSON válido en el mismo esquema original:\n"
+        f"{ANALYSIS_SCHEMA}"
+    )
+
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    response = client.messages.create(
+        model=settings.AI_MODEL,
+        max_tokens=1200,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    raw = response.content[0].text
+    return _parse_json(raw, agent, period_year, period_month)
+
+
+def _parse_json_loose(raw: str) -> dict:
+    """Parseo permisivo de JSON. Si falla, retorna dict vacío."""
+    import re
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
 def run_agent_analysis(
     agent: str,
     memory_buffer: dict,
