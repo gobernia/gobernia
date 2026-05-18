@@ -39,7 +39,7 @@ export default function SignUpPage() {
     }
     const { data } = await supabase.auth.getSession()
     if (data.session) {
-      router.push("/onboarding/etapa-1")
+      router.push("/dashboard")
     } else {
       setDone(true)
       setLoading(false)

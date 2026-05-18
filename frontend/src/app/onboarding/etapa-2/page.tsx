@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, UserPlus, Trash2, Check, Users } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
@@ -121,6 +121,7 @@ function MemberCard({
 
 export default function Etapa2Page() {
   const router = useRouter()
+  const fromDatos = useSearchParams().get("from") === "datos"
   const { sessionId, markStageComplete } = useOnboardingStore()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [adding, setAdding] = useState(false)
@@ -169,7 +170,7 @@ export default function Etapa2Page() {
         })),
       })
       markStageComplete(2)
-      router.push("/onboarding/etapa-3")
+      router.push(fromDatos ? "/dashboard/datos" : "/onboarding/etapa-3")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")

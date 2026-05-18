@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { ChevronRight, Sparkles, Plus, X, Bot } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
@@ -51,6 +51,7 @@ interface AgentConfig {
 
 export default function Etapa8Page() {
   const router = useRouter()
+  const fromDatos = useSearchParams().get("from") === "datos"
   const { sessionId, markStageComplete } = useOnboardingStore()
   const [subStep, setSubStep] = useState<SubStep>("vision")
 
@@ -103,7 +104,7 @@ export default function Etapa8Page() {
         })),
       })
       markStageComplete(8)
-      router.push("/dashboard")
+      router.push(fromDatos ? "/dashboard/datos" : "/dashboard")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")

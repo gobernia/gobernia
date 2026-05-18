@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { ChevronRight, Shield, Loader2 } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
@@ -35,6 +35,7 @@ const DIMENSION_LABELS: Record<string, string> = {
 
 export default function Etapa6Page() {
   const router = useRouter()
+  const fromDatos = useSearchParams().get("from") === "datos"
   const { sessionId, markStageComplete } = useOnboardingStore()
   const [items, setItems] = useState<GovernanceItem[]>([])
   const [answers, setAnswers] = useState<Record<string, GovernanceResponse>>({})
@@ -65,7 +66,7 @@ export default function Etapa6Page() {
         items: Object.entries(answers).map(([key, response]) => ({ key, response })),
       })
       markStageComplete(6)
-      router.push("/onboarding/etapa-7")
+      router.push(fromDatos ? "/dashboard/datos" : "/onboarding/etapa-7")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")

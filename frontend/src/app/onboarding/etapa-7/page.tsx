@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, Upload, FileText, Trash2, CheckCircle2 } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
@@ -29,6 +29,7 @@ interface UploadedDoc {
 
 export default function Etapa7Page() {
   const router = useRouter()
+  const fromDatos = useSearchParams().get("from") === "datos"
   const { sessionId, markStageComplete } = useOnboardingStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const [docType, setDocType] = useState("financial")
@@ -73,7 +74,7 @@ export default function Etapa7Page() {
     try {
       await api.post(`/onboarding/${sessionId}/etapa-7/complete`)
       markStageComplete(7)
-      router.push("/onboarding/etapa-8")
+      router.push(fromDatos ? "/dashboard/datos" : "/onboarding/etapa-8")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")

@@ -7,6 +7,7 @@ import Link from "next/link"
 import {
   ArrowRight, LogOut, Play, ChevronRight,
   CheckCircle2, Circle, ArrowUpRight, X, Loader2, ChevronDown,
+  Settings, Sparkles,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
@@ -108,6 +109,7 @@ export default function DashboardPage() {
   const [sessLoading, setSessLoading] = useState(true)
 
   const [expandedArea, setExpandedArea] = useState<string | null>(null)
+  const [showSetupModal, setShowSetupModal] = useState(false)
 
   // Nova sesión modal state
   const [showModal,    setShowModal]   = useState(false)
@@ -175,9 +177,15 @@ export default function DashboardPage() {
   }
 
   const onboardingComplete = completedStages.length >= 8
+  const onboardingStarted  = completedStages.length > 0 || !!sessionId
   const nextEtapa          = ETAPAS.find(e => !completedStages.includes(e.n))
   const companyName        = summary?.company_name ?? null
   const governanceScore    = summary?.governance_score ?? null
+
+  const tryCreateSession = () => {
+    if (onboardingComplete) openModal()
+    else setShowSetupModal(true)
+  }
 
   const currentYear = new Date().getFullYear()
   const years = [currentYear - 1, currentYear, currentYear + 1]
@@ -195,6 +203,15 @@ export default function DashboardPage() {
             <span className="text-sm font-semibold text-black tracking-tight">Gobernia</span>
           </div>
           <div className="flex items-center gap-5">
+            {onboardingStarted && (
+              <Link
+                href="/dashboard/datos"
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-black transition-colors"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Mis datos
+              </Link>
+            )}
             {userEmail && (
               <span className="text-xs text-gray-400 hidden sm:block">{userEmail}</span>
             )}
@@ -208,6 +225,64 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* ── Setup-required modal ─────────────────────────── */}
+      <AnimatePresence>
+        {showSetupModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
+              onClick={() => setShowSetupModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25, ease: EASE }}
+              className="fixed z-50 inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8 space-y-5"
+            >
+              <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-black" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-lg font-bold text-black">Configura tu empresa primero</h2>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Para que el consejo de IA te entregue análisis útiles, necesitamos conocer
+                  tu empresa: industria, equipo, prioridades, KPIs y gobierno. Toma unos minutos
+                  y solo se hace una vez. Después podrás iniciar sesiones cuando quieras.
+                </p>
+              </div>
+              {!onboardingComplete && completedStages.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500">
+                    Vas en {completedStages.length} de 8 etapas
+                    {nextEtapa && ` · siguiente: ${nextEtapa.label}`}
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowSetupModal(false)}
+                  className="flex-1 text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                >
+                  Más tarde
+                </button>
+                <Link
+                  href={nextEtapa ? `/onboarding/etapa-${nextEtapa.n}` : "/onboarding/etapa-1"}
+                  className="flex-[2] inline-flex items-center justify-center gap-2 bg-black text-white text-sm font-medium py-3 rounded-xl hover:bg-gray-900 transition-colors"
+                >
+                  {completedStages.length > 0 ? "Continuar configuración" : "Empezar"}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── Nueva sesión modal ───────────────────────────── */}
       <AnimatePresence>
@@ -318,7 +393,9 @@ export default function DashboardPage() {
             </h1>
             {!onboardingComplete && (
               <p className="font-display italic text-sm text-gray-500 mt-1">
-                Completa el onboarding para activar tu consejo de IA.
+                {completedStages.length === 0
+                  ? "Bienvenido a Gobernia. Configura tu empresa cuando estés listo."
+                  : "Completa la configuración para activar tu consejo de IA."}
               </p>
             )}
           </motion.div>
@@ -333,7 +410,9 @@ export default function DashboardPage() {
             >
               <div className="flex-1 space-y-3">
                 <p className="text-sm font-semibold text-black">
-                  Configuración en progreso — {completedStages.length} de 8 etapas
+                  {completedStages.length === 0
+                    ? "Configura tu empresa para activar el consejo"
+                    : `Configuración en progreso — ${completedStages.length} de 8 etapas`}
                 </p>
                 <div className="flex gap-1">
                   {ETAPAS.map(e => (
@@ -346,17 +425,18 @@ export default function DashboardPage() {
                     />
                   ))}
                 </div>
-                {nextEtapa && (
-                  <p className="text-xs text-gray-400">
-                    Siguiente: Etapa {nextEtapa.n} — {nextEtapa.label}
-                  </p>
-                )}
+                <p className="text-xs text-gray-400">
+                  {completedStages.length === 0
+                    ? "Toma unos minutos. Se hace una vez y puedes editarla después."
+                    : nextEtapa && `Siguiente: Etapa ${nextEtapa.n} — ${nextEtapa.label}`}
+                </p>
               </div>
               <Link
                 href={nextEtapa ? `/onboarding/etapa-${nextEtapa.n}` : "/onboarding/etapa-1"}
                 className="inline-flex items-center gap-2 bg-black text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-gray-900 transition-colors whitespace-nowrap"
               >
-                Continuar <ArrowRight className="h-4 w-4" />
+                {completedStages.length === 0 ? "Empezar configuración" : "Continuar"}
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </motion.div>
           )}
@@ -525,15 +605,10 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed flex-1">{a.desc}</p>
                   <button
-                    onClick={onboardingComplete ? openModal : undefined}
-                    disabled={!onboardingComplete}
-                    className={`w-full flex items-center justify-between text-xs font-medium py-2.5 px-3 rounded-xl border transition-all duration-150 ${
-                      onboardingComplete
-                        ? "border-gray-200 text-gray-700 hover:border-black hover:text-black"
-                        : "border-gray-100 text-gray-300 cursor-not-allowed"
-                    }`}
+                    onClick={tryCreateSession}
+                    className="w-full flex items-center justify-between text-xs font-medium py-2.5 px-3 rounded-xl border border-gray-200 text-gray-700 hover:border-black hover:text-black transition-all duration-150"
                   >
-                    {onboardingComplete ? "Iniciar sesión" : "Pendiente"}
+                    Iniciar sesión
                     <Play className="h-3 w-3" />
                   </button>
                 </motion.div>
@@ -553,14 +628,12 @@ export default function DashboardPage() {
                 <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-1">Historial</p>
                 <h2 className="text-2xl font-bold text-black tracking-tight">Sesiones de consejo</h2>
               </div>
-              {onboardingComplete && (
-                <button
-                  onClick={openModal}
-                  className="inline-flex items-center gap-2 bg-black text-white text-xs font-medium px-4 py-2.5 rounded-xl hover:bg-gray-900 transition-colors"
-                >
-                  Nueva sesión <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <button
+                onClick={tryCreateSession}
+                className="inline-flex items-center gap-2 bg-black text-white text-xs font-medium px-4 py-2.5 rounded-xl hover:bg-gray-900 transition-colors"
+              >
+                Nueva sesión <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
 
             {/* Sessions list or empty state */}

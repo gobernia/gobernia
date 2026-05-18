@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, Target, X, GripVertical } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
@@ -35,6 +35,7 @@ type SubStep = "seleccionar" | "otro"
 
 export default function Etapa3Page() {
   const router = useRouter()
+  const fromDatos = useSearchParams().get("from") === "datos"
   const { sessionId, markStageComplete } = useOnboardingStore()
   const [subStep, setSubStep] = useState<SubStep>("seleccionar")
   const [selected, setSelected] = useState<Priority[]>([])
@@ -100,7 +101,7 @@ export default function Etapa3Page() {
         })),
       })
       markStageComplete(3)
-      router.push("/onboarding/etapa-4")
+      router.push(fromDatos ? "/dashboard/datos" : "/onboarding/etapa-4")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")

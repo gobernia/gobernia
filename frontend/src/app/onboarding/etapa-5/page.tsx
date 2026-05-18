@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { ChevronRight, BarChart3, Loader2, HelpCircle } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
@@ -37,6 +37,7 @@ const DIMENSION_LABELS: Record<string, string> = {
 
 export default function Etapa5Page() {
   const router = useRouter()
+  const fromDatos = useSearchParams().get("from") === "datos"
   const { sessionId, markStageComplete } = useOnboardingStore()
   const [templates, setTemplates] = useState<KPITemplate[]>([])
   const [values, setValues] = useState<Record<string, KPIValue>>({})
@@ -89,7 +90,7 @@ export default function Etapa5Page() {
         })),
       })
       markStageComplete(5)
-      router.push("/onboarding/etapa-6")
+      router.push(fromDatos ? "/dashboard/datos" : "/onboarding/etapa-6")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")

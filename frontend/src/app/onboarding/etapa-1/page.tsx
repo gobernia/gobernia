@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { ChevronRight, Building2, MapPin, Calendar, Users, GitBranch, TrendingUp, Award, Heart, RefreshCw } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
@@ -139,6 +139,7 @@ function YesNoCard({
 
 export default function Etapa1Page() {
   const router = useRouter()
+  const fromDatos = useSearchParams().get("from") === "datos"
   const { sessionId, setSessionId, markStageComplete } = useOnboardingStore()
   const [subStep, setSubStep] = useState<SubStep>("nombre")
   const [form, setForm] = useState({
@@ -160,13 +161,36 @@ export default function Etapa1Page() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Create session if it doesn't exist yet
+  // Create session if it doesn't exist yet, or pre-populate from existing data
   useEffect(() => {
     if (!sessionId) {
       api.post("/onboarding/session")
         .then(r => setSessionId(r.data.session_id))
         .catch(() => {/* session will be created on submit fallback */})
+      return
     }
+    // Pre-populate form from existing memory_buffer (edit mode)
+    api.get(`/onboarding/session/${sessionId}`).then(r => {
+      const c = r.data.memory_buffer?.company
+      if (!c?.name) return
+      setForm(f => ({
+        ...f,
+        company_name:        c.name ?? "",
+        location_city:       c.location?.city ?? "",
+        location_state:      c.location?.state ?? "",
+        location_country:    c.location?.country ?? "México",
+        industry:            c.industry ?? "",
+        industry_custom:     c.industry_custom ?? "",
+        years_operating:     c.years_operating ?? "",
+        employees:           c.employees ?? "",
+        branches:            c.branches ?? "",
+        annual_revenue:      c.annual_revenue ?? "",
+        has_board:           c.has_board ?? "",
+        is_family_business:  c.is_family_business ?? null,
+        family_generation:   c.family_generation ?? "",
+        has_family_protocol: c.has_family_protocol ?? null,
+      }))
+    }).catch(() => {})
   }, [sessionId, setSessionId])
 
   const next = (to: SubStep) => { setError(null); setSubStep(to) }
@@ -228,7 +252,7 @@ export default function Etapa1Page() {
       }
 
       markStageComplete(1)
-      router.push("/onboarding/etapa-2")
+      router.push(fromDatos ? "/dashboard/datos" : "/onboarding/etapa-2")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")

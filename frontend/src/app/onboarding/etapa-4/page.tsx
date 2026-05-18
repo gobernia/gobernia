@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, ClipboardList, Loader2, Info } from "lucide-react"
 import ProgressBar from "@/components/onboarding/ProgressBar"
@@ -73,6 +73,7 @@ function InfoTooltip({ text }: { text: string }) {
 
 export default function Etapa4Page() {
   const router = useRouter()
+  const fromDatos = useSearchParams().get("from") === "datos"
   const { sessionId, markStageComplete } = useOnboardingStore()
   const [questions, setQuestions] = useState<Question[]>([])
   const [current, setCurrent] = useState(0)
@@ -120,7 +121,7 @@ export default function Etapa4Page() {
         })),
       })
       markStageComplete(4)
-      router.push("/onboarding/etapa-5")
+      router.push(fromDatos ? "/dashboard/datos" : "/onboarding/etapa-5")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")
