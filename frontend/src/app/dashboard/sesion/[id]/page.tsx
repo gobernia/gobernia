@@ -259,6 +259,7 @@ export default function SessionPage() {
   const [session,       setSession]       = useState<SessionDetail | null>(null)
   const [loadError,     setLoadError]     = useState<string | null>(null)
   const [loading,       setLoading]       = useState(true)
+  const [planStats,     setPlanStats]     = useState<{ total: number; completed: number } | null>(null)
   const [tab,           setTab]           = useState<Tab>("analisis")
   const [analysing,     setAnalysing]     = useState(false)
   const [analyseError,  setAnalyseError]  = useState<string | null>(null)
@@ -283,6 +284,19 @@ export default function SessionPage() {
       })
       .finally(() => setLoading(false))
   }, [fetchSession, router])
+
+  // Chequear si ya existe un plan de acción para esta sesión
+  useEffect(() => {
+    api.get(`/board-sessions/${id}/plan`)
+      .then(r => {
+        const tasks = (r.data?.tasks ?? []) as { status: string }[]
+        setPlanStats({
+          total: tasks.length,
+          completed: tasks.filter(t => t.status === "completada").length,
+        })
+      })
+      .catch(() => setPlanStats(null))  // 404 = no plan yet
+  }, [id])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -505,12 +519,26 @@ export default function SessionPage() {
                         <ListChecks className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold">Generar plan de acción</p>
+                        <p className="text-sm font-semibold">
+                          {planStats ? "Ver plan de acción" : "Generar plan de acción"}
+                        </p>
                         <p className="text-[11px] text-gray-400 mt-0.5">
-                          Convierte los hallazgos en tareas ejecutables tipo Kanban
+                          {planStats
+                            ? `${planStats.completed} de ${planStats.total} tareas completadas`
+                            : "Convierte los hallazgos en tareas ejecutables tipo Kanban"}
                         </p>
                       </div>
                     </div>
+                    {planStats && planStats.total > 0 && (
+                      <div className="hidden sm:flex items-center gap-3 mr-3">
+                        <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-white rounded-full transition-all duration-500"
+                            style={{ width: `${Math.round((planStats.completed / planStats.total) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                     <span className="text-xs text-gray-300 group-hover:text-white transition-colors">→</span>
                   </Link>
 
