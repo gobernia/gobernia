@@ -3,12 +3,50 @@ Base del agente IA — construye el prompt del sistema y llama a Claude.
 Cada agente (CFO, CSO, CRO, Auditor) hereda de aquí.
 """
 import json
+import logging
+import time
 from typing import AsyncIterator
 
 import anthropic
 
 from app.core.config import settings
 from app.services.ai.knowledge_base import build_knowledge_for_agent
+
+_log = logging.getLogger(__name__)
+
+# Errores transitorios que vale la pena reintentar.
+_RETRYABLE = (
+    anthropic.RateLimitError,
+    anthropic.APITimeoutError,
+    anthropic.APIConnectionError,
+    anthropic.InternalServerError,
+)
+
+# Esperas en segundos entre intentos (4 intentos = inmediato + 3 retries)
+_RETRY_DELAYS = (0, 5, 15, 45)
+
+
+def _create_with_retry(client: anthropic.Anthropic, **kwargs):
+    """
+    Llama a client.messages.create con backoff exponencial en errores
+    transitorios (429 rate limit, 5xx, timeouts de red).
+    Tras agotar los reintentos, re-lanza la excepción.
+    """
+    last_exc: Exception | None = None
+    for attempt, delay in enumerate(_RETRY_DELAYS):
+        if delay > 0:
+            _log.warning(
+                "anthropic transient error (%s); retry %d/%d en %ds",
+                type(last_exc).__name__ if last_exc else "?",
+                attempt, len(_RETRY_DELAYS) - 1, delay,
+            )
+            time.sleep(delay)
+        try:
+            return client.messages.create(**kwargs)
+        except _RETRYABLE as e:
+            last_exc = e
+    assert last_exc is not None
+    raise last_exc
 
 VALID_AGENTS = {"CFO", "CSO", "CRO", "Auditor"}
 
@@ -189,7 +227,7 @@ def run_challenger_critique(
     )
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = client.messages.create(
+    response = _create_with_retry(client,
         model=settings.AI_MODEL,
         max_tokens=2048,
         system=CHALLENGER_SYSTEM_PROMPT,
@@ -262,7 +300,7 @@ def run_agent_revision(
     )
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = client.messages.create(
+    response = _create_with_retry(client,
         model=settings.AI_MODEL,
         max_tokens=2048,
         system=system_prompt,
@@ -382,7 +420,7 @@ def run_agent_analysis(
     )
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = client.messages.create(
+    response = _create_with_retry(client,
         model=settings.AI_MODEL,
         max_tokens=2048,
         system=system_prompt,
@@ -434,7 +472,7 @@ def run_agent_chat(
     messages.append({"role": "user", "content": user_message})
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = client.messages.create(
+    response = _create_with_retry(client,
         model=settings.AI_MODEL,
         max_tokens=800,
         system=system_prompt,
