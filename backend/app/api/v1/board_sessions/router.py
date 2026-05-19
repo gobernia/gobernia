@@ -287,46 +287,73 @@ async def run_analyses(
         if (s.agent_analyses or {}).get(agent)
     ]
 
-    # Ejecutar pipeline por agente: análisis inicial → crítica del Challenger → revisión
-    analyses = dict(bs.agent_analyses or {})
+    # Snapshot de campos necesarios y liberar la conexión a DB ANTES de los LLM calls.
+    # Las 12 llamadas a Claude (4 agentes × 3 fases) pueden tomar minutos; mantener la
+    # conexión abierta dispara el statement timeout de Supabase (QueryCanceledError).
+    kpi_snapshot = bs.kpi_snapshot
+    period_year  = bs.period_year
+    period_month = bs.period_month
+    analyses  = dict(bs.agent_analyses or {})
     critiques = dict(bs.agent_critiques or {})
+    bs_id     = bs.id
+    await db.commit()
+    await db.close()
+
+    # Ejecutar pipeline por agente: análisis inicial → crítica del Challenger → revisión
+    # Sin conexión a DB activa; las llamadas son sync pero el event loop sigue libre
+    # para otras requests.
+    import anyio
     for agent in body.agents:
-        initial = run_agent_analysis(
-            agent=agent,
-            memory_buffer=memory_buffer,
-            kpi_snapshot=bs.kpi_snapshot,
-            period_year=bs.period_year,
-            period_month=bs.period_month,
-            previous_analyses=previous_analyses,
+        initial = await anyio.to_thread.run_sync(
+            lambda a=agent: run_agent_analysis(
+                agent=a,
+                memory_buffer=memory_buffer,
+                kpi_snapshot=kpi_snapshot,
+                period_year=period_year,
+                period_month=period_month,
+                previous_analyses=previous_analyses,
+            )
         )
-        critique = run_challenger_critique(
-            agent=agent,
-            initial_analysis=initial,
-            memory_buffer=memory_buffer,
-            kpi_snapshot=bs.kpi_snapshot,
-            period_year=bs.period_year,
-            period_month=bs.period_month,
+        critique = await anyio.to_thread.run_sync(
+            lambda a=agent, ini=initial: run_challenger_critique(
+                agent=a,
+                initial_analysis=ini,
+                memory_buffer=memory_buffer,
+                kpi_snapshot=kpi_snapshot,
+                period_year=period_year,
+                period_month=period_month,
+            )
         )
-        revised = run_agent_revision(
-            agent=agent,
-            initial_analysis=initial,
-            critique=critique,
-            memory_buffer=memory_buffer,
-            kpi_snapshot=bs.kpi_snapshot,
-            period_year=bs.period_year,
-            period_month=bs.period_month,
-            previous_analyses=previous_analyses,
+        revised = await anyio.to_thread.run_sync(
+            lambda a=agent, ini=initial, crit=critique: run_agent_revision(
+                agent=a,
+                initial_analysis=ini,
+                critique=crit,
+                memory_buffer=memory_buffer,
+                kpi_snapshot=kpi_snapshot,
+                period_year=period_year,
+                period_month=period_month,
+                previous_analyses=previous_analyses,
+            )
         )
         analyses[agent] = {**revised, "_challenger_applied": True}
         critiques[agent] = critique
 
-    bs.agent_analyses = analyses
-    bs.agent_critiques = critiques
-    await db.flush()
-    await db.commit()
+    # Abrir una nueva sesión de DB para persistir los resultados
+    from app.db.session import AsyncSessionLocal
+    from sqlalchemy.orm.attributes import flag_modified
+    async with AsyncSessionLocal() as new_db:
+        refreshed = await new_db.get(BoardSession, bs_id)
+        if refreshed is None:
+            raise HTTPException(status_code=404, detail="Sesión no encontrada al persistir.")
+        refreshed.agent_analyses = analyses
+        refreshed.agent_critiques = critiques
+        flag_modified(refreshed, "agent_analyses")
+        flag_modified(refreshed, "agent_critiques")
+        await new_db.commit()
 
     return {
-        "board_session_id": str(bs.id),
+        "board_session_id": str(bs_id),
         "agents_analysed": body.agents,
         "analyses": analyses,
     }
