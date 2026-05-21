@@ -309,13 +309,32 @@ export default function SessionPage() {
     try {
       const r = await api.post(`/board-sessions/${id}/analyse`, {
         agents: ["CFO", "CSO", "CRO", "Auditor"],
-      })
+      }, { timeout: 600000 })  // 10 min — análisis con Challenger puede tomar 2-5 min
       setSession(prev =>
         prev ? { ...prev, agent_analyses: r.data.analyses, status: "active" } : prev
       )
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setAnalyseError(msg ?? "Error al ejecutar el análisis. Intenta de nuevo.")
+      // El backend a veces completa el análisis aunque la conexión HTTP se corte.
+      // Antes de mostrar error, verificar si los análisis ya están en DB.
+      const status = (e as { response?: { status?: number } })?.response?.status
+      const backendMsg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+
+      // Solo intentar recovery si NO fue un 4xx explícito del backend
+      if (!status || status >= 500) {
+        try {
+          // Esperar 3s para dar margen a que termine si está cerca
+          await new Promise(r => setTimeout(r, 3000))
+          const check = await api.get(`/board-sessions/${id}`)
+          const analyses = check.data?.agent_analyses
+          if (analyses && Object.keys(analyses).length > 0) {
+            setSession(prev =>
+              prev ? { ...prev, agent_analyses: analyses, messages: check.data.messages ?? prev.messages, status: check.data.status ?? prev.status } : prev
+            )
+            return
+          }
+        } catch { /* fall through to error */ }
+      }
+      setAnalyseError(backendMsg ?? "Error al ejecutar el análisis. Intenta de nuevo.")
     } finally {
       setAnalysing(false)
     }
