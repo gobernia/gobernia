@@ -49,3 +49,5 @@ backend/app/db/migrations/versions/*.pyc
 uploads/
 tmp/
 Contendido/_extracted/
+Gabriel-Sans-Font/
+Landing 2/

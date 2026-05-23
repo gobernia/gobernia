@@ -118,6 +118,35 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ── Gabriel Sans (font oficial GOBERNIA, self-hosted) ─────
+   Las variantes incluyen: Thin 100, Light 300, Normal 400,
+   Medium 500, Bold 700, Black 900 — c/u con su italic.
+*/
+@font-face { font-family: "Gabriel Sans"; font-weight: 100; font-style: normal; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Thin.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 100; font-style: italic; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Thin-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 300; font-style: normal; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Light.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 300; font-style: italic; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Light-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 400; font-style: normal; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Normal.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 400; font-style: italic; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Normal-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 500; font-style: normal; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Medium.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 500; font-style: italic; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Medium-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 700; font-style: normal; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Bold.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 700; font-style: italic; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Bold-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 900; font-style: normal; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Black.woff2") format("woff2"); }
+@font-face { font-family: "Gabriel Sans"; font-weight: 900; font-style: italic; font-display: swap;
+  src: url("/fonts/gabriel-sans/Gabriel-Sans-Black-Italic.woff2") format("woff2"); }
+
 /* ── GOBERNIA brand tokens ─────────────────────────────────
    Manual de Identidad v1.0 · 2026
    Disponibles como bg-[var(--gob-navy)], text-[var(--gob-ink)], etc.
