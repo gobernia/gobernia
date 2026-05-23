@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Send, RotateCcw, ListChecks } from "lucide-react"
 import Link from "next/link"
 import api from "@/lib/api"
 import { supabase } from "@/lib/supabase"
+import { GoberniaIcon } from "@/components/ui/GoberniaLogo"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -446,10 +447,8 @@ export default function SessionPage() {
           <div className="w-px h-4 bg-gray-200" />
 
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-black flex items-center justify-center">
-              <span className="text-white text-[9px] font-black">G</span>
-            </div>
-            <span className="text-sm font-semibold text-black tracking-tight">
+            <GoberniaIcon size={18} />
+            <span className="text-sm font-semibold text-[var(--gob-ink)] tracking-tight">
               {session.period_label}
             </span>
           </div>

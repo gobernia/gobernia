@@ -132,7 +132,7 @@ export default function SignUpPage() {
         <button
           type="submit"
           disabled={!canSubmit || loading}
-          className="w-full h-12 rounded-xl bg-black text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors disabled:opacity-40 mt-2"
+          className="w-full h-12 rounded-xl bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-40 mt-2"
         >
           {loading ? "Creando cuenta…" : <> Crear cuenta <ArrowRight className="h-4 w-4" /> </>}
         </button>

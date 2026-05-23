@@ -9,6 +9,7 @@ import {
   CheckCircle2, Circle, ArrowUpRight, X, Loader2, ChevronDown,
   Settings, Sparkles,
 } from "lucide-react"
+import GoberniaLogo from "@/components/ui/GoberniaLogo"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
@@ -217,12 +218,8 @@ export default function DashboardPage() {
       {/* ── Navbar ───────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-black flex items-center justify-center">
-              <span className="text-white text-[11px] font-black tracking-tight">G</span>
-            </div>
-            <span className="text-sm font-semibold text-black tracking-tight">Gobernia</span>
-          </div>
+          <GoberniaLogo size={16} />
+
           <div className="flex items-center gap-5">
             {onboardingStarted && (
               <Link

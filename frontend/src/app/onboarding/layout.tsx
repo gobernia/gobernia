@@ -1,4 +1,5 @@
 import { ReactNode } from "react"
+import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
 export const dynamic = "force-dynamic"
 
@@ -6,14 +7,9 @@ export default function OnboardingLayout({ children }: { children: ReactNode }) 
   return (
     <div className="min-h-dvh bg-white flex flex-col font-sans antialiased">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-black flex items-center justify-center">
-            <span className="text-white text-[11px] font-black tracking-tight">G</span>
-          </div>
-          <span className="text-sm font-semibold text-black tracking-tight">Gobernia</span>
-        </div>
-        <span className="text-xs text-gray-400 tracking-wide">Configuración inicial</span>
+      <header className="flex items-center justify-between px-6 py-4 border-b border-[var(--gob-rule)]/60">
+        <GoberniaLogo size={16} />
+        <span className="text-xs text-[var(--gob-stone)] tracking-wide">Configuración inicial</span>
       </header>
 
       {/* Content */}
@@ -22,7 +18,7 @@ export default function OnboardingLayout({ children }: { children: ReactNode }) 
       </main>
 
       {/* Footer */}
-      <footer className="text-center py-4 text-xs text-gray-400">
+      <footer className="text-center py-4 text-xs text-[var(--gob-stone)]">
         Tu información está protegida y cifrada.
       </footer>
     </div>

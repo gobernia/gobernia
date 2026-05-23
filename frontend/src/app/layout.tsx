@@ -1,12 +1,12 @@
 import type { Metadata } from "next"
-import { Space_Grotesk, Playfair_Display } from "next/font/google"
+import { Gabarito, Playfair_Display } from "next/font/google"
 import AuthSync from "@/components/AuthSync"
 import "./globals.css"
 
-const font = Space_Grotesk({
+const sans = Gabarito({
   subsets: ["latin"],
   variable: "--font-sans",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800", "900"],
   display: "swap",
 })
 
@@ -19,15 +19,15 @@ const display = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: "Gobernia",
-  description: "Gobierno corporativo inteligente",
+  title: "GOBERNIA",
+  description: "Tu junta de consejo, con inteligencia de agentes.",
 }
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={`${font.variable} ${display.variable} h-full antialiased`}>
+    <html lang="es" className={`${sans.variable} ${display.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <AuthSync />
         {children}

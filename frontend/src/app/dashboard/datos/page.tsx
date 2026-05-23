@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
+import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -75,12 +76,7 @@ export default function DatosPage() {
             <ArrowLeft className="h-4 w-4" />
             Volver al dashboard
           </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-black flex items-center justify-center">
-              <span className="text-white text-[11px] font-black tracking-tight">G</span>
-            </div>
-            <span className="text-sm font-semibold text-black tracking-tight">Gobernia</span>
-          </div>
+          <GoberniaLogo size={16} />
         </div>
       </header>
 

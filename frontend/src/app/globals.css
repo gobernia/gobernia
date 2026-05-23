@@ -118,6 +118,21 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ── GOBERNIA brand tokens ─────────────────────────────────
+   Manual de Identidad v1.0 · 2026
+   Disponibles como bg-[var(--gob-navy)], text-[var(--gob-ink)], etc.
+*/
+:root {
+  --gob-navy:     #142849;  /* primario */
+  --gob-charcoal: #26282E;  /* cápsula IA / textos fuertes */
+  --gob-ink:      #0B0E14;  /* casi negro, body */
+  --gob-bone:     #F4F1EC;  /* fondo cálido principal */
+  --gob-paper:    #FBF8F3;  /* fondo cálido suave */
+  --gob-stone:    #8E8B84;  /* acento gris cálido */
+  --gob-rule:     #D9D4CB;  /* divisores en fondo cálido */
+  --gob-muted:    #6C6A66;  /* texto secundario en fondo cálido */
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
