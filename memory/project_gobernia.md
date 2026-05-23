@@ -101,6 +101,31 @@ Endpoint adicional: `GET /{sid}/summary` → devuelve company_name, governance_s
 - Implementado en `agents/base.py`: `run_challenger_critique`, `run_agent_revision`
 - Orquestado en `board_sessions/router.py` en endpoint `/analyse`
 
+### Identidad visual + landing redesign (mayo 2026 — WIP local, NO deployado)
+- **Fuente self-hosted**: Gabriel Sans (12 woff2 weights) en `frontend/public/fonts/gabriel-sans/`, declarada vía `@font-face` en `globals.css`. Una sola familia para todo el sistema, jerarquía por pesos.
+- **Brand tokens** en `globals.css` bajo `:root`: `--gob-navy #142849`, `--gob-charcoal #26282E`, `--gob-ink #0B0E14`, `--gob-bone #F4F1EC`, `--gob-paper #FBF8F3`, `--gob-stone #8E8B84`, `--gob-rule #D9D4CB`, `--gob-muted #6C6A66`.
+- **Logo component** `components/ui/GoberniaLogo.tsx` con wordmark GOBERN[IA] (medium 500 + cápsula charcoal radio 0.18em padding 0.22/0.26/0.06). Variantes: default | inverse | ink | line. `GoberniaIcon` para favicon.
+- **Middleware** excluye `/fonts/*.woff2|woff|otf|ttf` para que no devuelva 307.
+
+### Landing 1 (`/`) — redesign al estilo interractlabs.com
+- **Hero**: `min-h-dvh`, fondo blanco. Headline 3 líneas con pattern dimmer/lighter (`opacity 0.4` vs `1.0`) inline:
+  - "Sesión de **consejo**" / "**cada mes,** con cuatro" / "**agentes** de **IA.**"
+  - Tamaño `clamp(40px, 6.5vw, 88px)`, weight 300, line-height 0.95, letter-spacing -0.03em
+  - Posición top (`pt-32/36/40`), divisor a 50px del texto, CTAs links discretos abajo
+  - `HeroWaveLines` component: canvas con ondas en navy alpha bajo, mask `to bottom left` (top-right corner), contenido al section con ResizeObserver
+- **Auto-hide header** vía `useAutoHideHeader()` hook — oculta al scroll down, muestra al scroll up. Sin border-bottom.
+- **Secciones El equipo / El proceso / Para quién / FAQ / CTA**: layouts portados de la landing-2 (4 columnas sin borde para equipo, números gigantes en el proceso, FAQ widescreen). Títulos todos con patrón bold + light-italic en dos líneas exactas vía `<br/>`.
+- **Containers** todos a `max-w-[1400px] mx-auto px-6 sm:px-12 lg:px-20`.
+- **SEO**: `<title>`, `<meta description>`, `keywords`, `OpenGraph`, `Twitter card` con keywords "consejo de administración con IA", "agentes de IA empresa", "junta directiva virtual", etc.
+
+### Landing 2 (`/landing-2`) — versión alternativa para comparar
+- Port de la propuesta dark de Interract pero **fondo blanco**, sin CanvasBackground (sin partículas que siguen cursor), con WaveLines en todo el bg.
+- `middleware.ts` la incluye en `PUBLIC_PATHS` para que sea accesible sin login.
+
+### Estado: WIP local
+- `tag pre-brand-rebrand` mantiene el último estado pre-rebrand (rollback si se necesita).
+- Cambios committed en main pero **NO deployados** a Vercel — el usuario está iterando con `npm run dev` local + `uvicorn` local. Cuando esté listo para producción: `npx vercel --prod --yes` (frontend) y `railway up --detach` (backend).
+
 ## Pendiente / próximas mejoras
 
 - Claude API calls async (actualmente síncronas, bloquean el event loop — usar `AsyncAnthropic`)
