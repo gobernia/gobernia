@@ -108,10 +108,10 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 // ── Page ──────────────────────────────────────────────────
 export default function LandingPage() {
   return (
-    <div className="min-h-dvh bg-[var(--gob-paper)] text-[var(--gob-ink)] font-sans antialiased">
+    <div className="min-h-dvh bg-white text-[var(--gob-ink)] font-sans antialiased">
 
       {/* ── Navbar ───────────────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-50 bg-[var(--gob-paper)]/90 backdrop-blur-md border-b border-[var(--gob-rule)]/60">
+      <header className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-[var(--gob-rule)]/60">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <GoberniaLogo size={18} />
 
