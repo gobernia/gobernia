@@ -47,7 +47,7 @@ export default function GoberniaLogo({
   return (
     <span
       className={cn(
-        "inline-flex items-center leading-none tracking-tight select-none",
+        "inline-flex items-baseline leading-none tracking-tight select-none",
         className
       )}
       style={{
@@ -59,7 +59,7 @@ export default function GoberniaLogo({
       aria-label="GOBERNIA"
     >
       <span
-        className={cn("font-extrabold", s.word)}
+        className={cn("font-medium", s.word)}
         style={
           variant === "line"
             ? { WebkitTextStroke: "1px #142849", letterSpacing: "-0.015em" }
@@ -69,10 +69,10 @@ export default function GoberniaLogo({
         GOBERN
       </span>
       <span
-        className={cn("inline-flex items-center justify-center font-normal", s.chip)}
+        className={cn("inline-block font-normal", s.chip)}
         style={{
           borderRadius: "0.18em",
-          padding: "0.08em 0.26em 0.12em",
+          padding: "0.22em 0.26em 0.06em",
           letterSpacing: "0.01em",
           lineHeight: 1,
           ...(variant === "line" ? { WebkitTextStroke: "1px #26282E" } : {}),
