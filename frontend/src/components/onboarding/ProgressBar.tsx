@@ -27,7 +27,7 @@ export default function ProgressBar({ currentStep }: ProgressBarProps) {
         <span className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
           Paso {currentStep} de {STEPS.length}
         </span>
-        <span className="text-xs font-semibold text-primary">
+        <span className="text-xs font-medium text-primary">
           {STEPS[currentStep - 1]}
         </span>
       </div>

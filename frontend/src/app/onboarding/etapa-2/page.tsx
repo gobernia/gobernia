@@ -97,7 +97,7 @@ function MemberCard({
           <span className="text-xs font-bold text-primary">{index + 1}</span>
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">{member.name}</p>
+          <p className="text-sm font-medium text-foreground">{member.name}</p>
           <p className="text-xs text-muted-foreground">{roleLabel}</p>
         </div>
       </div>
@@ -198,7 +198,7 @@ export default function Etapa2Page() {
   // ── Vista principal (lista de miembros) ──
   if (!adding) {
     return (
-      <div className="w-full max-w-xl space-y-8">
+      <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
         <ProgressBar currentStep={2} />
         <StepWrapper stepKey="team-list">
           <div className="space-y-6">
@@ -287,7 +287,7 @@ export default function Etapa2Page() {
 
   // ── Vista: agregar miembro (sub-pasos) ──
   return (
-    <div className="w-full max-w-xl space-y-8">
+    <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
       <ProgressBar currentStep={2} />
 
       {/* Nombre del miembro */}
@@ -295,7 +295,7 @@ export default function Etapa2Page() {
         <StepWrapper stepKey="m-nombre">
           <div className="space-y-6">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+              <p className="text-xs font-medium text-primary uppercase tracking-wide">
                 Miembro #{members.length + 1}
               </p>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
@@ -334,7 +334,7 @@ export default function Etapa2Page() {
         <StepWrapper stepKey="m-rol">
           <div className="space-y-6">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+              <p className="text-xs font-medium text-primary uppercase tracking-wide">
                 {current.name}
               </p>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
@@ -387,7 +387,7 @@ export default function Etapa2Page() {
         <StepWrapper stepKey="m-familiar">
           <div className="space-y-6">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+              <p className="text-xs font-medium text-primary uppercase tracking-wide">
                 {current.name}
               </p>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
@@ -434,7 +434,7 @@ export default function Etapa2Page() {
         <StepWrapper stepKey="m-decisiones">
           <div className="space-y-6">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+              <p className="text-xs font-medium text-primary uppercase tracking-wide">
                 {current.name}
               </p>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
@@ -484,7 +484,7 @@ export default function Etapa2Page() {
         <StepWrapper stepKey="m-email">
           <div className="space-y-6">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+              <p className="text-xs font-medium text-primary uppercase tracking-wide">
                 {current.name}
               </p>
               <h1 className="text-2xl font-bold text-foreground leading-tight">

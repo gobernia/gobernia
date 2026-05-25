@@ -47,7 +47,7 @@ function InfoTooltip({ text }: { text: string }) {
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onClick={() => setOpen(v => !v)}
-        className="inline-flex items-center gap-1 rounded-full border border-gray-300 hover:border-black bg-white hover:bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500 hover:text-black transition-all flex-shrink-0"
+        className="inline-flex items-center gap-1 rounded-full border border-gray-300 hover:border-[var(--gob-navy)] bg-white hover:bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500 hover:text-[var(--gob-navy)] transition-all flex-shrink-0"
         aria-label="Más información"
       >
         <Info className="w-3 h-3" />
@@ -146,7 +146,7 @@ export default function Etapa4Page() {
 
   if (fetching) {
     return (
-      <div className="w-full max-w-xl space-y-8">
+      <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
         <ProgressBar currentStep={4} />
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -158,7 +158,7 @@ export default function Etapa4Page() {
 
   if (fetchError) {
     return (
-      <div className="w-full max-w-xl space-y-8">
+      <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
         <ProgressBar currentStep={4} />
         <div className="text-center py-16 space-y-4">
           <p className="text-sm text-red-500">{fetchError}</p>
@@ -171,7 +171,7 @@ export default function Etapa4Page() {
   }
 
   return (
-    <div className="w-full max-w-xl space-y-8">
+    <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
       <ProgressBar currentStep={4} />
 
       {q && (

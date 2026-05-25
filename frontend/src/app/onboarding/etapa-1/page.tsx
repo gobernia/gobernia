@@ -262,7 +262,7 @@ export default function Etapa1Page() {
   }
 
   return (
-    <div className="w-full max-w-xl space-y-8">
+    <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
       <ProgressBar currentStep={1} />
 
       {/* ── Nombre ── */}

@@ -217,14 +217,14 @@ export default function DashboardPage() {
 
       {/* ── Navbar ───────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
           <GoberniaLogo size={16} />
 
           <div className="flex items-center gap-5">
             {onboardingStarted && (
               <Link
                 href="/dashboard/datos"
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-black transition-colors"
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
               >
                 <Settings className="h-3.5 w-3.5" />
                 Mis datos
@@ -235,7 +235,7 @@ export default function DashboardPage() {
             )}
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-black transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
             >
               <LogOut className="h-3.5 w-3.5" />
               Salir
@@ -285,13 +285,13 @@ export default function DashboardPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowSetupModal(false)}
-                  className="flex-1 text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                  className="flex-1 text-sm font-medium text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
                 >
                   Más tarde
                 </button>
                 <Link
                   href={nextEtapa ? `/onboarding/etapa-${nextEtapa.n}` : "/onboarding/etapa-1"}
-                  className="flex-[2] inline-flex items-center justify-center gap-2 bg-black text-white text-sm font-medium py-3 rounded-xl hover:bg-gray-900 transition-colors"
+                  className="flex-[2] inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
                 >
                   {completedStages.length > 0 ? "Continuar configuración" : "Empezar"}
                   <ArrowRight className="h-4 w-4" />
@@ -328,7 +328,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-black transition-colors"
+                  className="text-gray-400 hover:text-[var(--gob-navy)] transition-colors"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -344,7 +344,7 @@ export default function DashboardPage() {
                       onClick={() => setModalMonth(i + 1)}
                       className={`py-2 rounded-lg text-xs font-medium border-2 transition-all duration-100 ${
                         modalMonth === i + 1
-                          ? "border-black bg-black text-white"
+                          ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
                           : "border-gray-100 text-gray-500 hover:border-gray-300"
                       }`}
                     >
@@ -364,7 +364,7 @@ export default function DashboardPage() {
                       onClick={() => setModalYear(y)}
                       className={`flex-1 py-2 rounded-lg text-xs font-medium border-2 transition-all duration-100 ${
                         modalYear === y
-                          ? "border-black bg-black text-white"
+                          ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
                           : "border-gray-100 text-gray-500 hover:border-gray-300"
                       }`}
                     >
@@ -381,7 +381,7 @@ export default function DashboardPage() {
               <button
                 onClick={createSession}
                 disabled={creating}
-                className="w-full flex items-center justify-center gap-2 bg-black text-white text-sm font-medium py-3 rounded-xl hover:bg-gray-900 transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50"
               >
                 {creating
                   ? <><Loader2 className="h-4 w-4 animate-spin" /> Creando…</>
@@ -394,7 +394,7 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       <main className="pt-14">
-        <div className="max-w-6xl mx-auto px-6 py-12 space-y-14">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-12 space-y-14">
 
           {/* ── Greeting ─────────────────────────────────── */}
           <motion.div
@@ -403,14 +403,14 @@ export default function DashboardPage() {
             transition={{ duration: 0.6, ease: EASE }}
             className="space-y-1"
           >
-            <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
               {todayLabel()}
             </p>
             <h1 className="text-3xl font-bold text-black tracking-tight">
               {greeting()}{companyName ? `, ${companyName}` : ""}.
             </h1>
             {!onboardingComplete && (
-              <p className="font-display italic text-sm text-gray-500 mt-1">
+              <p className="italic font-light text-sm text-gray-500 mt-1">
                 {completedStages.length === 0
                   ? "Bienvenido a Gobernia. Configura tu empresa cuando estés listo."
                   : "Completa la configuración para activar tu consejo de IA."}
@@ -427,7 +427,7 @@ export default function DashboardPage() {
               className="border border-gray-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center gap-5"
             >
               <div className="flex-1 space-y-3">
-                <p className="text-sm font-semibold text-black">
+                <p className="text-sm font-medium text-black">
                   {completedStages.length === 0
                     ? "Configura tu empresa para activar el consejo"
                     : `Configuración en progreso — ${completedStages.length} de 8 etapas`}
@@ -438,7 +438,7 @@ export default function DashboardPage() {
                       key={e.n}
                       title={e.label}
                       className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
-                        completedStages.includes(e.n) ? "bg-black" : "bg-gray-100"
+                        completedStages.includes(e.n) ? "bg-[var(--gob-navy)]" : "bg-gray-100"
                       }`}
                     />
                   ))}
@@ -451,7 +451,7 @@ export default function DashboardPage() {
               </div>
               <Link
                 href={nextEtapa ? `/onboarding/etapa-${nextEtapa.n}` : "/onboarding/etapa-1"}
-                className="inline-flex items-center gap-2 bg-black text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-gray-900 transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors whitespace-nowrap"
               >
                 {completedStages.length === 0 ? "Empezar configuración" : "Continuar"}
                 <ArrowRight className="h-4 w-4" />
@@ -469,7 +469,7 @@ export default function DashboardPage() {
             >
               {/* Score */}
               <div className="border border-gray-100 hover:border-gray-300 rounded-2xl p-7 space-y-3 transition-colors">
-                <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">
+                <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
                   Governance Score
                 </p>
                 {governanceScore !== null ? (
@@ -484,7 +484,7 @@ export default function DashboardPage() {
 
               {/* Etapas checklist */}
               <div className="sm:col-span-2 border border-gray-100 rounded-2xl p-7">
-                <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-5">
+                <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-5">
                   Onboarding completado
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-4">
@@ -511,7 +511,7 @@ export default function DashboardPage() {
               className="space-y-4"
             >
               <div>
-                <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-1">Etapa 4</p>
+                <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Etapa 4</p>
                 <h2 className="text-2xl font-bold text-black tracking-tight">Diagnóstico por área</h2>
               </div>
 
@@ -530,7 +530,7 @@ export default function DashboardPage() {
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-semibold text-black truncate">{area.label}</span>
+                            <span className="text-sm font-medium text-black truncate">{area.label}</span>
                             <span className="text-xs font-bold text-gray-500 ml-2 flex-shrink-0">{area.pct}%</span>
                           </div>
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -597,7 +597,7 @@ export default function DashboardPage() {
             className="space-y-6"
           >
             <div>
-              <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-1">Tu consejo</p>
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Tu consejo</p>
               <h2 className="text-2xl font-bold text-black tracking-tight">Agentes de IA</h2>
             </div>
 
@@ -624,7 +624,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-500 leading-relaxed flex-1">{a.desc}</p>
                   <button
                     onClick={tryCreateSession}
-                    className="w-full flex items-center justify-between text-xs font-medium py-2.5 px-3 rounded-xl border border-gray-200 text-gray-700 hover:border-black hover:text-black transition-all duration-150"
+                    className="w-full flex items-center justify-between text-xs font-medium py-2.5 px-3 rounded-xl border border-gray-200 text-gray-700 hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-all duration-150"
                   >
                     Iniciar sesión
                     <Play className="h-3 w-3" />
@@ -643,12 +643,12 @@ export default function DashboardPage() {
           >
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-1">Historial</p>
+                <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Historial</p>
                 <h2 className="text-2xl font-bold text-black tracking-tight">Sesiones de consejo</h2>
               </div>
               <button
                 onClick={tryCreateSession}
-                className="inline-flex items-center gap-2 bg-black text-white text-xs font-medium px-4 py-2.5 rounded-xl hover:bg-gray-900 transition-colors"
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-xs font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
               >
                 Nueva sesión <ChevronRight className="h-3.5 w-3.5" />
               </button>
@@ -679,7 +679,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-black">{s.period_label}</p>
+                          <p className="text-sm font-medium text-black">{s.period_label}</p>
                           <p className="text-xs text-gray-400 mt-0.5">
                             {statusLabel(s.status)}
                             {s.message_count > 0 && ` · ${s.message_count} mensajes`}
@@ -699,7 +699,7 @@ export default function DashboardPage() {
                   <Play className="h-5 w-5 text-gray-200" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-black">
+                  <p className="text-sm font-medium text-black">
                     {onboardingComplete ? "Aún no hay sesiones" : "Completa el onboarding primero"}
                   </p>
                   <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
@@ -711,7 +711,7 @@ export default function DashboardPage() {
                 {onboardingComplete && (
                   <button
                     onClick={openModal}
-                    className="inline-flex items-center gap-2 border border-gray-200 text-xs font-medium text-gray-700 px-4 py-2.5 rounded-xl hover:border-gray-400 hover:text-black transition-all duration-150 mt-1"
+                    className="inline-flex items-center gap-2 border border-gray-200 text-xs font-medium text-gray-700 px-4 py-2.5 rounded-xl hover:border-gray-400 hover:text-[var(--gob-navy)] transition-all duration-150 mt-1"
                   >
                     Iniciar primera sesión <ArrowRight className="h-3.5 w-3.5" />
                   </button>
@@ -725,10 +725,10 @@ export default function DashboardPage() {
 
       {/* ── Footer ───────────────────────────────────────── */}
       <footer className="border-t border-gray-100 py-6 px-6 mt-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between text-xs text-gray-400">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto flex items-center justify-between text-xs text-gray-400">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-black flex items-center justify-center">
-              <span className="text-white text-[8px] font-black">G</span>
+            <div className="w-4 h-4 rounded bg-[var(--gob-navy)] flex items-center justify-center">
+              <span className="text-[var(--gob-bone)] text-[8px] font-black">G</span>
             </div>
             <span>Gobernia © {new Date().getFullYear()}</span>
           </div>

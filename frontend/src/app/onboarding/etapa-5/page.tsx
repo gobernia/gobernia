@@ -127,7 +127,7 @@ export default function Etapa5Page() {
 
   if (fetching) {
     return (
-      <div className="w-full max-w-xl space-y-8">
+      <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
         <ProgressBar currentStep={5} />
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -139,7 +139,7 @@ export default function Etapa5Page() {
 
   if (fetchError) {
     return (
-      <div className="w-full max-w-xl space-y-8">
+      <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
         <ProgressBar currentStep={5} />
         <div className="text-center py-16 space-y-4">
           <p className="text-sm text-red-500">{fetchError}</p>
@@ -159,7 +159,7 @@ export default function Etapa5Page() {
   }, {})
 
   return (
-    <div className="w-full max-w-xl space-y-8">
+    <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
       <ProgressBar currentStep={5} />
 
       <motion.div
@@ -183,7 +183,7 @@ export default function Etapa5Page() {
 
         {Object.entries(byDimension).map(([dimension, kpis]) => (
           <div key={dimension} className="space-y-3">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-gray-100 pb-2">
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-gray-100 pb-2">
               {DIMENSION_LABELS[dimension] ?? dimension}
             </h2>
             {kpis.map(t => {
@@ -193,7 +193,7 @@ export default function Etapa5Page() {
                 <div key={t.key} className="rounded-xl border-2 border-gray-100 p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{t.label}</p>
+                      <p className="text-sm font-medium text-foreground">{t.label}</p>
                       {t.benchmark_label && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           Benchmark: {t.benchmark_label}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import AuthSync from "@/components/AuthSync"
+import CookieBanner from "@/components/CookieBanner"
 import "./globals.css"
 
 // Gabriel Sans se carga vía @font-face en globals.css (self-hosted).
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
     "consejo de administración con IA",
     "agentes de IA para empresas",
     "junta directiva virtual",
-    "gobierno corporativo",
+    "consejeros corporativos",
     "CFO IA",
     "análisis estratégico mensual",
     "Gobernia",
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col" style={{ fontFamily: "var(--font-sans)" }}>
         <AuthSync />
         {children}
+        <CookieBanner />
       </body>
     </html>
   )

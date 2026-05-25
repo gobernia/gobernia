@@ -71,8 +71,8 @@ export default function DatosPage() {
   return (
     <div className="min-h-dvh bg-white text-black font-sans antialiased">
       <header className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2 text-xs text-gray-500 hover:text-black transition-colors">
+        <div className="w-full max-w-[1200px] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
+          <Link href="/dashboard" className="flex items-center gap-2 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors">
             <ArrowLeft className="h-4 w-4" />
             Volver al dashboard
           </Link>
@@ -81,7 +81,7 @@ export default function DatosPage() {
       </header>
 
       <main className="pt-14">
-        <div className="max-w-4xl mx-auto px-6 py-12 space-y-10">
+        <div className="w-full max-w-[1200px] mx-auto px-[var(--px-fluid)] py-12 space-y-10">
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -89,7 +89,7 @@ export default function DatosPage() {
             transition={{ duration: 0.5, ease: EASE }}
             className="space-y-2"
           >
-            <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">Configuración</p>
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Configuración</p>
             <h1 className="text-3xl font-bold text-black tracking-tight">Mis datos</h1>
             <p className="text-sm text-gray-500 max-w-xl">
               Información que usan los agentes para sus análisis. Edita cualquier sección
@@ -108,7 +108,7 @@ export default function DatosPage() {
               <p className="text-sm text-gray-500">{error}</p>
               <Link
                 href="/onboarding/etapa-1"
-                className="inline-flex items-center gap-2 bg-black text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-gray-900 transition-colors"
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
               >
                 Empezar configuración
               </Link>
@@ -130,7 +130,7 @@ export default function DatosPage() {
                     className="border border-gray-100 hover:border-gray-300 rounded-2xl p-5 flex items-start gap-4 transition-colors"
                   >
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                      isCompleted ? "bg-black text-white" : "bg-gray-50 text-gray-300"
+                      isCompleted ? "bg-[var(--gob-navy)] text-[var(--gob-bone)]" : "bg-gray-50 text-gray-300"
                     }`}>
                       <Icon className="h-4 w-4" />
                     </div>
@@ -140,7 +140,7 @@ export default function DatosPage() {
                         <span className="text-xs text-gray-300">·</span>
                         <span className="text-xs text-gray-400">{s.desc}</span>
                       </div>
-                      <p className="text-sm font-semibold text-black">{s.title}</p>
+                      <p className="text-sm font-medium text-black">{s.title}</p>
                       {isCompleted && preview && (
                         <p className="text-xs text-gray-500 leading-relaxed pt-1">{preview}</p>
                       )}
@@ -150,7 +150,7 @@ export default function DatosPage() {
                     </div>
                     <Link
                       href={`/onboarding/etapa-${s.etapa}?from=datos`}
-                      className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-black border border-gray-200 hover:border-black rounded-lg px-3 py-2 transition-colors flex-shrink-0"
+                      className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-[var(--gob-navy)] border border-gray-200 hover:border-[var(--gob-navy)] rounded-lg px-3 py-2 transition-colors flex-shrink-0"
                     >
                       <Pencil className="h-3 w-3" />
                       {isCompleted ? "Editar" : "Completar"}

@@ -43,8 +43,8 @@ export default function HeroWaveLines({
         ctx.strokeStyle = `rgba(${color}, ${0.10 + w * 0.025})`
         ctx.lineWidth = 1
 
-        // Concentradas en la parte SUPERIOR del hero (esquina top-left)
-        const baseY = canvas.height * (0.05 + w * 0.05)
+        // Concentradas en la parte INFERIOR del hero (debajo de los CTAs)
+        const baseY = canvas.height * (0.62 + w * 0.06)
         const amplitude = 40 + w * 14
         const frequency = 0.002 + w * 0.0006
         const phase = offsetRef.current + w * 0.5
@@ -76,11 +76,11 @@ export default function HeroWaveLines({
     }
   }, [color])
 
-  // Gradient mask: sólidas en la esquina SUPERIOR-DERECHA, fade out hacia el resto.
-  // Las líneas ocupan el top-right (como una serigrafía) y se evaporan
-  // antes de chocar con el cuerpo del texto (que está a la izquierda).
+  // Gradient mask diagonal: sólidas en la esquina inferior-DERECHA, fade hacia
+  // arriba-izquierda. Eso da una densidad mayor en la derecha y se evapora
+  // suavemente hacia la izquierda (donde está el texto).
   const fadeMask =
-    "linear-gradient(to bottom left, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%)"
+    "linear-gradient(to top left, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 25%, rgba(0,0,0,0) 85%)"
 
   return (
     <canvas

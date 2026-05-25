@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useContext, createContext } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
+import { motion, useScroll, useTransform, useMotionValue, type MotionValue } from "framer-motion"
 import { ArrowRight } from "lucide-react"
-import GoberniaLogo, { GoberniaIcon } from "@/components/ui/GoberniaLogo"
-import HeroWaveLines from "@/components/ui/HeroWaveLines"
+import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -44,6 +43,71 @@ const heroItem = {
   show:   { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE } },
 }
 
+// ── Scroll-driven reveal ──────────────────────────────────
+// Las palabras "Heavy" (negro intenso) inician en gris (opacity 0.4) igual que
+// los conectores. Conforme el usuario scrollea, cada palabra se va oscureciendo
+// de izquierda a derecha en función de cuánto ha avanzado el scroll dentro de
+// la sección que las contiene.
+
+const ScrollProgressContext = createContext<MotionValue<number> | null>(null)
+
+// Disponible en Framer Motion como una de las cadenas válidas del tipo Edge
+type ScrollOffset = [string, string]
+
+/**
+ * Envuelve un título: registra la progresión del scroll mientras la sección
+ * cruza el viewport y la expone vía context a los <Heavy>.
+ *  - default offset = secciones que entran desde abajo
+ *  - hero: pasar offset={["start start", "end start"]}
+ */
+function ScrollReveal({
+  children,
+  offset,
+  className = "",
+}: {
+  children: React.ReactNode
+  offset?: ScrollOffset
+  className?: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  // Si no se pasa offset → comportamiento por defecto para secciones (rise into viewport)
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    // @ts-expect-error framer accepts string-array offsets at runtime
+    offset: offset ?? ["start end", "start 0.3"],
+  })
+  return (
+    <ScrollProgressContext.Provider value={scrollYProgress}>
+      <div ref={ref} className={className}>{children}</div>
+    </ScrollProgressContext.Provider>
+  )
+}
+
+/**
+ * Palabra resaltada. Su opacidad se interpola entre 0.4 (gris muted) y 1 (ink full)
+ * a lo largo del rango [start, end] del progreso de scroll del padre.
+ *   range=[0, 0.4]   → empieza a oscurecer desde el primer instante de scroll,
+ *                      completa a 40% del progreso (palabras más a la izquierda)
+ *   range=[0.5, 0.9] → empieza más tarde, completa cerca del final (palabras a la derecha)
+ */
+function Heavy({
+  children,
+  range = [0, 0.6],
+}: {
+  children: React.ReactNode
+  range?: [number, number]
+}) {
+  const ctx = useContext(ScrollProgressContext)
+  const fallback = useMotionValue(1)
+  const source = ctx ?? fallback
+  const opacity = useTransform(source, range, [0.4, 1])
+  return (
+    <motion.span style={{ opacity, fontWeight: 500 }}>
+      {children}
+    </motion.span>
+  )
+}
+
 // ── Data ──────────────────────────────────────────────────
 const AGENTS = [
   { id: "CFO",     role: "Finanzas",   desc: "Rentabilidad, flujo de caja y estructura de capital. Detecta fugas y oportunidades antes de que el mes cierre." },
@@ -67,7 +131,7 @@ const FOR_WHO = [
 const FAQS = [
   { q: "¿Gobernia reemplaza a mi consejo de administración?",  a: "No. Es un copiloto que complementa o prepara el camino hacia un consejo humano. Te da el rigor analítico que normalmente solo tienen las grandes corporaciones, mientras decides cuándo incorporar consejeros externos." },
   { q: "¿Qué tan segura está mi información?",                 a: "Toda la información está cifrada en tránsito y en reposo. Infraestructura en AWS vía Supabase. Tus datos nunca se usan para entrenar modelos ni se comparten con terceros." },
-  { q: "¿Necesito experiencia en gobierno corporativo?",       a: "Para nada. Gobernia está diseñado para directivos y dueños que quieren profesionalizar su toma de decisiones sin ser expertos. El onboarding es conversacional y guiado." },
+  { q: "¿Necesito experiencia en consejeros corporativos?",       a: "Para nada. Gobernia está diseñado para directivos y dueños que quieren profesionalizar su toma de decisiones sin ser expertos. El onboarding es conversacional y guiado." },
   { q: "¿Funciona para empresas familiares?",                  a: "Especialmente para ellas. Activa módulos de protocolo familiar, análisis de concentración de decisiones y planificación de sucesión cuando detecta que la empresa es familiar." },
   { q: "¿Con qué frecuencia se actualiza el análisis?",        a: "Tú controlas la frecuencia: mensual, bimestral, trimestral o semestral. Además puedes chatear con los agentes en cualquier momento entre sesiones." },
   { q: "¿Cuánto tiempo toma ver los primeros resultados?",     a: "El primer diagnóstico completo está disponible al terminar el onboarding. Entre 10 y 20 minutos desde que entras por primera vez." },
@@ -125,10 +189,10 @@ function FAQItem({ q, a }: { q: string; a: string }) {
       >
         <p
           style={{
-            fontSize: 14,
+            fontSize: "0.95rem",
             color: "var(--gob-muted)",
             lineHeight: 1.6,
-            maxWidth: 600,
+            maxWidth: "40em",
             paddingBottom: 24,
             margin: 0,
           }}
@@ -185,7 +249,7 @@ export default function LandingPage() {
         className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md transition-transform duration-300 ease-out"
         style={{ transform: hidden ? "translateY(-100%)" : "translateY(0)" }}
       >
-        <div className="max-w-[1400px] mx-auto px-6 sm:px-12 lg:px-20 h-14 flex items-center justify-between">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
           <GoberniaLogo size={18} />
 
           <nav className="hidden md:flex items-center gap-8 text-sm text-[var(--gob-muted)]">
@@ -210,20 +274,17 @@ export default function LandingPage() {
 
       {/* ── Hero ─────────────────────────────────────────── */}
       <section className="relative overflow-hidden min-h-dvh flex flex-col">
-        <HeroWaveLines />
-
-        <div className="relative z-10 flex-1 flex flex-col px-6 sm:px-12 lg:px-20 max-w-[1400px] mx-auto w-full pt-32 sm:pt-36 lg:pt-40 pb-8">
-          {/* Headline 3 líneas — alterna palabras "dimmer" (apagadas) y "lighter" (resaltadas)
-              al estilo de interractlabs.com. Tamaño 5.5rem = 88px, weight 300, letter-spacing -3px. */}
+        <div className="relative z-10 flex-1 flex flex-col w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] pt-32 sm:pt-36 lg:pt-40 pb-8">
+          {/* Headline 3 líneas — el hero se muestra en estado final desde el inicio
+              (los Heavy heredan opacity 1 al no estar dentro de un ScrollReveal) */}
           <motion.h1
             variants={heroContainer}
             initial="hidden"
             animate="show"
-            className="text-[var(--gob-ink)]"
+            className="font-sans text-[var(--gob-ink)]"
             style={{
-              fontFamily: "var(--font-sans)",
               fontWeight: 300,
-              fontSize: "clamp(40px, 6.5vw, 88px)",
+              fontSize: "clamp(40px, 7vw, 168px)",
               lineHeight: 0.95,
               letterSpacing: "-0.03em",
               cursor: "default",
@@ -231,16 +292,16 @@ export default function LandingPage() {
           >
             <motion.span variants={heroItem} className="block">
               <span style={{ opacity: 0.4 }}>Sesión de </span>
-              <span>consejo</span>
+              <Heavy>consejo</Heavy>
             </motion.span>
             <motion.span variants={heroItem} className="block">
-              <span>cada mes,</span>
+              <Heavy>cada mes,</Heavy>
               <span style={{ opacity: 0.4 }}> con cuatro</span>
             </motion.span>
             <motion.span variants={heroItem} className="block">
-              <span>agentes</span>
+              <Heavy>agentes</Heavy>
               <span style={{ opacity: 0.4 }}> de </span>
-              <span>IA.</span>
+              <Heavy>IA.</Heavy>
             </motion.span>
           </motion.h1>
 
@@ -264,6 +325,23 @@ export default function LandingPage() {
 
           {/* Línea divisoria horizontal — sube con el texto */}
           <div className="h-px bg-[var(--gob-rule)]" />
+
+          {/* Descripción pegada a la línea, alineada a la derecha */}
+          <motion.div
+            variants={heroItem}
+            initial="hidden"
+            animate="show"
+            className="flex justify-end pt-5"
+          >
+            <p
+              className="text-sm text-[var(--gob-muted)] leading-relaxed sm:text-right"
+              style={{ maxWidth: "32em" }}
+            >
+              GOBERNIA es una plataforma de consejeros corporativos impulsada por IA.
+              CFO, CSO, CRO y Auditor analizan tu empresa cada mes y entregan
+              decisiones accionables — sin contratar consultores.
+            </p>
+          </motion.div>
 
           {/* Espacio flexible — empuja los CTAs al fondo del hero */}
           <div className="flex-1" />
@@ -300,8 +378,8 @@ export default function LandingPage() {
       </section>
 
       {/* ── Stats ────────────────────────────────────────── */}
-      <section className="py-16 px-6 sm:px-12 lg:px-20">
-        <div className="max-w-[1400px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
+      <section className="py-12 sm:py-16 3xl:py-24 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
           {[
             { n: "4",    label: "Agentes especializados" },
             { n: "8",    label: "Etapas de diagnóstico" },
@@ -309,7 +387,7 @@ export default function LandingPage() {
             { n: "15′",  label: "Para tu primer análisis" },
           ].map((s, i) => (
             <FadeUp key={s.label} delay={i * 0.08}>
-              <p className="text-4xl font-extrabold text-[var(--gob-navy)] tracking-tight" style={{ letterSpacing: "-0.03em" }}>{s.n}</p>
+              <p className="text-4xl font-bold text-[var(--gob-navy)] tracking-tight" style={{ letterSpacing: "-0.03em" }}>{s.n}</p>
               <p className="italic font-light text-xs text-[var(--gob-stone)] mt-2 leading-snug">{s.label}</p>
             </FadeUp>
           ))}
@@ -317,17 +395,28 @@ export default function LandingPage() {
       </section>
 
       {/* ── Divider ──────────────────────────────────────── */}
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-12 lg:px-20"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
 
       {/* ── Agents ───────────────────────────────────────── */}
-      <section id="producto" className="py-24 px-6 sm:px-12 lg:px-20">
-        <div className="max-w-[1400px] mx-auto space-y-14">
+      <section id="producto" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
           <FadeUp>
-            <p className="text-xs font-semibold tracking-widest text-[var(--gob-stone)] uppercase mb-4">El equipo</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-[var(--gob-ink)] leading-tight tracking-tight" style={{ letterSpacing: "-0.025em" }}>
-              Cuatro expertos de IA<br />
-              <span className="font-light italic text-[var(--gob-navy)]">en tu mesa directiva.</span>
-            </h2>
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase mb-4">El equipo</p>
+            <ScrollReveal>
+              <h2
+                className="font-light text-[var(--gob-ink)]"
+                style={{
+                  fontSize: "clamp(28px, 4.2vw, 104px)",
+                  lineHeight: 1.0,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                <span style={{ opacity: 0.4 }}>Cuatro </span>
+                <Heavy range={[0.1, 0.45]}>expertos de IA</Heavy>
+                <span style={{ opacity: 0.4 }}> en tu </span>
+                <Heavy range={[0.4, 0.8]}>mesa directiva.</Heavy>
+              </h2>
+            </ScrollReveal>
           </FadeUp>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -361,17 +450,28 @@ export default function LandingPage() {
       </section>
 
       {/* ── Divider ──────────────────────────────────────── */}
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-12 lg:px-20"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
 
       {/* ── Cómo funciona ────────────────────────────────── */}
-      <section id="como-funciona" className="py-24 px-6 sm:px-12 lg:px-20">
-        <div className="max-w-[1400px] mx-auto space-y-14">
+      <section id="como-funciona" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
           <FadeUp>
-            <p className="text-xs font-semibold tracking-widest text-[var(--gob-stone)] uppercase mb-4">El proceso</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-[var(--gob-ink)] tracking-tight leading-tight" style={{ letterSpacing: "-0.025em" }}>
-              De cero a tu primer diagnóstico<br />
-              <span className="font-light italic text-[var(--gob-navy)]">en tres pasos.</span>
-            </h2>
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase mb-4">El proceso</p>
+            <ScrollReveal>
+              <h2
+                className="font-light text-[var(--gob-ink)]"
+                style={{
+                  fontSize: "clamp(28px, 4.2vw, 104px)",
+                  lineHeight: 1.0,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                <span style={{ opacity: 0.4 }}>De cero a tu </span>
+                <Heavy range={[0.1, 0.45]}>primer diagnóstico</Heavy>
+                <span style={{ opacity: 0.4 }}> en </span>
+                <Heavy range={[0.4, 0.8]}>tres pasos.</Heavy>
+              </h2>
+            </ScrollReveal>
           </FadeUp>
 
           <div>
@@ -388,9 +488,9 @@ export default function LandingPage() {
                   }}
                 >
                   <span
-                    className="font-extralight leading-none"
+                    className="font-light leading-none"
                     style={{
-                      fontSize: "clamp(48px, 5vw, 72px)",
+                      fontSize: "clamp(42px, 5.5vw, 128px)",
                       color: "var(--gob-rule)",
                     }}
                   >
@@ -405,7 +505,7 @@ export default function LandingPage() {
                     </h3>
                     <p
                       className="text-base leading-relaxed text-[var(--gob-muted)]"
-                      style={{ maxWidth: 480, marginTop: 16, marginBottom: 0 }}
+                      style={{ maxWidth: "32em", marginTop: 16, marginBottom: 0 }}
                     >
                       {s.desc}
                     </p>
@@ -418,17 +518,26 @@ export default function LandingPage() {
       </section>
 
       {/* ── Divider ──────────────────────────────────────── */}
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-12 lg:px-20"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
 
       {/* ── Para quién ───────────────────────────────────── */}
-      <section className="py-24 px-6 sm:px-12 lg:px-20 bg-[var(--gob-bone)]">
-        <div className="max-w-[1400px] mx-auto space-y-14">
+      <section className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)] bg-[var(--gob-bone)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
           <FadeUp>
-            <p className="text-xs font-semibold tracking-widest text-[var(--gob-stone)] uppercase mb-4">Para quién</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-[var(--gob-ink)] tracking-tight leading-tight" style={{ letterSpacing: "-0.025em" }}>
-              Diseñado para<br />
-              <span className="font-light italic text-[var(--gob-navy)]">empresas reales.</span>
-            </h2>
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase mb-4">Para quién</p>
+            <ScrollReveal>
+              <h2
+                className="font-light text-[var(--gob-ink)]"
+                style={{
+                  fontSize: "clamp(28px, 4.2vw, 104px)",
+                  lineHeight: 1.0,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                <span style={{ opacity: 0.4 }}>Diseñado para </span>
+                <Heavy range={[0.2, 0.7]}>empresas reales.</Heavy>
+              </h2>
+            </ScrollReveal>
           </FadeUp>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -445,17 +554,23 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────── */}
-      <section id="faq" className="py-24 px-6 sm:px-12 lg:px-20">
-        <div className="max-w-[1400px] mx-auto">
+      <section id="faq" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto">
           <FadeUp>
             <div style={{ marginBottom: 60 }}>
-              <h2
-                className="text-4xl md:text-5xl font-bold text-[var(--gob-ink)] tracking-tight leading-tight"
-                style={{ letterSpacing: "-0.025em" }}
-              >
-                FAQ<br />
-                <span className="font-light italic text-[var(--gob-navy)]">preguntas frecuentes.</span>
-              </h2>
+              <ScrollReveal>
+                <h2
+                  className="font-light text-[var(--gob-ink)]"
+                  style={{
+                    fontSize: "clamp(28px, 4.2vw, 104px)",
+                    lineHeight: 1.0,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  <Heavy range={[0.15, 0.55]}>FAQ</Heavy>
+                  <span style={{ opacity: 0.4 }}> — preguntas frecuentes.</span>
+                </h2>
+              </ScrollReveal>
             </div>
           </FadeUp>
 
@@ -468,22 +583,34 @@ export default function LandingPage() {
       </section>
 
       {/* ── Divider ──────────────────────────────────────── */}
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-12 lg:px-20"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
 
       {/* ── CTA ──────────────────────────────────────────── */}
-      <section className="py-28 px-6 sm:px-12 lg:px-20">
-        <FadeUp className="max-w-[1400px] mx-auto space-y-8">
-          <p className="text-xs font-semibold tracking-widest text-[var(--gob-stone)] uppercase">Empieza hoy</p>
-          <h2 className="text-5xl md:text-6xl font-bold text-[var(--gob-ink)] leading-[1.0] tracking-tight" style={{ letterSpacing: "-0.035em" }}>
-            Tu empresa merece un consejo<br />
-            <span className="font-light italic text-[var(--gob-navy)]">que nunca duerme.</span>
-          </h2>
+      <section className="py-20 sm:py-28 3xl:py-36 px-[var(--px-fluid)]">
+        <FadeUp className="w-full max-w-[var(--container-fluid)] mx-auto space-y-8">
+          <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase">Empieza hoy</p>
+          <ScrollReveal>
+            <h2
+              className="font-light text-[var(--gob-ink)]"
+              style={{
+                fontSize: "clamp(34px, 5.5vw, 128px)",
+                lineHeight: 0.98,
+                letterSpacing: "-0.03em",
+              }}
+            >
+              <span style={{ opacity: 0.4 }}>Tu empresa merece un </span>
+              <Heavy range={[0.15, 0.5]}>consejo</Heavy>
+              <br />
+              <span style={{ opacity: 0.4 }}>que </span>
+              <Heavy range={[0.45, 0.85]}>nunca duerme.</Heavy>
+            </h2>
+          </ScrollReveal>
           <p className="italic font-light text-xl text-[var(--gob-muted)] max-w-xl leading-relaxed">
             Sin consultores. Sin contratos. Primer diagnóstico en menos de 15 minutos.
           </p>
           <Link
             href="/sign-up"
-            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] font-semibold px-8 py-4 rounded-xl hover:bg-[var(--gob-ink)] transition-all duration-200 text-base"
+            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] font-medium px-8 py-4 rounded-xl hover:bg-[var(--gob-ink)] transition-all duration-200 text-base"
           >
             Comenzar gratis <ArrowRight className="h-4 w-4" />
           </Link>
@@ -491,11 +618,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ───────────────────────────────────────── */}
-      <footer className="border-t border-[var(--gob-rule)]/60 py-8 px-6 sm:px-12 lg:px-20">
-        <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--gob-stone)]">
-          <div className="flex items-center gap-2.5">
-            <GoberniaIcon size={18} />
-            <span>GOBERNIA © {new Date().getFullYear()}</span>
+      <footer className="border-t border-[var(--gob-rule)]/60 py-8 sm:py-10 3xl:py-14 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-[var(--gob-stone)]">
+          <div className="flex items-center gap-3">
+            <GoberniaLogo size={16} />
+            <span>© {new Date().getFullYear()}</span>
           </div>
           <div className="flex items-center gap-6">
             <Link href="/sign-in"  className="hover:text-[var(--gob-navy)] transition-colors">Iniciar sesión</Link>

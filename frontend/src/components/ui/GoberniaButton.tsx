@@ -15,7 +15,7 @@ interface GoberniaButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const GoberniaButton = forwardRef<HTMLButtonElement, GoberniaButtonProps>(
   ({ className, variant = "primary", loading, size = "md", children, disabled, href, ...props }, ref) => {
     const base =
-      "relative inline-flex items-center justify-center gap-2 font-semibold rounded-xl " +
+      "relative inline-flex items-center justify-center gap-2 font-medium rounded-xl " +
       "transition-all duration-200 ease-out select-none outline-none " +
       "focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 " +
       "active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none"

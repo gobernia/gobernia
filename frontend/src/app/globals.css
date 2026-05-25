@@ -7,10 +7,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-display: var(--font-display);
-  --font-mono: ui-monospace, "SF Mono", "Fira Code", monospace;
-  --font-heading: var(--font-sans);
+  /* Una sola familia para todo el sistema: Gabriel Sans (self-hosted) */
+  --font-sans:    "Gabriel Sans", system-ui, sans-serif;
+  --font-display: "Gabriel Sans", system-ui, sans-serif;
+  --font-mono:    "Gabriel Sans", system-ui, sans-serif;
+  --font-heading: "Gabriel Sans", system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,6 +48,9 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* ── Breakpoints extendidos para pantallas grandes (4K, 5K, 37") ── */
+  --breakpoint-3xl: 1920px;
+  --breakpoint-4xl: 2560px;
 }
 
 :root {
@@ -160,6 +164,32 @@
   --gob-stone:    #8E8B84;  /* acento gris cálido */
   --gob-rule:     #D9D4CB;  /* divisores en fondo cálido */
   --gob-muted:    #6C6A66;  /* texto secundario en fondo cálido */
+
+  /* ── Contenedor fluido y paddings que escalan con el viewport ──
+     En 24" (~1920px) ronda 1700px, en 37" (~3840px) llega a ~2600px.
+     px-fluid se usa con `padding-inline: var(--px-fluid)` o el utility
+     [.container-fluid] definido abajo.
+  */
+  --container-fluid: min(94vw, 2600px);
+  --px-fluid: clamp(1.25rem, 4vw, 5rem);
+}
+
+/* Utility: contenedor fluido reutilizable */
+.container-fluid {
+  width: 100%;
+  max-width: var(--container-fluid);
+  margin-inline: auto;
+  padding-inline: var(--px-fluid);
+}
+
+/* ── Escalado proporcional para pantallas grandes ──
+   Mobile/tablet/desktop normal usan 16px (Tailwind por defecto).
+   A partir de 1920px (24") la raíz crece suavemente con el viewport,
+   capada en 22px (≈ 37" 4K). Todos los sizes en rem escalan en paralelo
+   y mantienen la proporción tipográfica.
+*/
+@media (min-width: 1920px) {
+  html { font-size: clamp(16px, 0.95vw, 22px); }
 }
 
 @layer base {

@@ -98,7 +98,7 @@ export function GoberniaIcon({
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center font-extrabold leading-none tracking-tight",
+        "inline-flex items-center justify-center font-bold leading-none tracking-tight",
         className
       )}
       style={{

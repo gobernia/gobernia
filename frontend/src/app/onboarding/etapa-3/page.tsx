@@ -128,7 +128,7 @@ export default function Etapa3Page() {
   }
 
   return (
-    <div className="w-full max-w-xl space-y-8">
+    <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
       <ProgressBar currentStep={3} />
 
       {/* Seleccionar retos */}
@@ -156,7 +156,7 @@ export default function Etapa3Page() {
                   animate={{ opacity: 1, height: "auto" }}
                   className="space-y-2"
                 >
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Tu ranking actual
                   </p>
                   {selected.map((p, idx) => {

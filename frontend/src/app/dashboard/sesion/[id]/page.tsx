@@ -150,14 +150,14 @@ function AgentsCollaboration() {
               <div
                 className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-colors ${
                   isActive
-                    ? "border-black bg-black text-white"
+                    ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
                     : "border-gray-200 bg-white text-gray-400"
                 }`}
               >
                 <span className="text-sm font-bold">{a[0]}</span>
               </div>
               <span
-                className={`text-[9px] mt-1.5 font-semibold tracking-wide ${
+                className={`text-[9px] mt-1.5 font-medium tracking-wide ${
                   isActive ? "text-black" : "text-gray-400"
                 }`}
               >
@@ -180,14 +180,14 @@ function AgentsCollaboration() {
           <div
             className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center transition-colors ${
               phase === "challenge"
-                ? "border-black bg-black text-white"
+                ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
                 : "border-gray-300 bg-white text-gray-500"
             }`}
           >
             <span className="text-[10px] font-black tracking-tight">PRE</span>
           </div>
           <span
-            className={`text-[9px] mt-1.5 font-semibold tracking-wide ${
+            className={`text-[9px] mt-1.5 font-medium tracking-wide ${
               phase === "challenge" ? "text-black" : "text-gray-500"
             }`}
           >
@@ -205,7 +205,7 @@ function AgentsCollaboration() {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE }}
-          className="text-sm font-semibold text-black"
+          className="text-sm font-medium text-black"
         >
           {PHASE_COPY[phase](agent)}
         </motion.p>
@@ -220,7 +220,7 @@ function AgentsCollaboration() {
           {PIPELINE_AGENTS.map(a => (
             <div key={a} className="flex items-center gap-1.5">
               <span
-                className={`text-[10px] font-semibold tracking-wide ${
+                className={`text-[10px] font-medium tracking-wide ${
                   a === agent ? "text-black" : "text-gray-300"
                 }`}
               >
@@ -238,7 +238,7 @@ function AgentsCollaboration() {
                     <div
                       key={p}
                       className={`h-1 w-3 rounded-full transition-colors ${
-                        isNow ? "bg-black" : done ? "bg-gray-400" : "bg-gray-100"
+                        isNow ? "bg-[var(--gob-navy)]" : done ? "bg-gray-400" : "bg-gray-100"
                       }`}
                     />
                   )
@@ -435,10 +435,10 @@ export default function SessionPage() {
 
       {/* ── Navbar ───────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center gap-4">
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-black transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Volver
@@ -448,14 +448,14 @@ export default function SessionPage() {
 
           <div className="flex items-center gap-2">
             <GoberniaIcon size={18} />
-            <span className="text-sm font-semibold text-[var(--gob-ink)] tracking-tight">
+            <span className="text-sm font-medium text-[var(--gob-ink)] tracking-tight">
               {session.period_label}
             </span>
           </div>
 
-          <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
+          <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${
             hasAnalysis
-              ? "bg-black text-white"
+              ? "bg-[var(--gob-navy)] text-[var(--gob-bone)]"
               : "bg-gray-100 text-gray-500"
           }`}>
             {hasAnalysis ? "Activa" : "Borrador"}
@@ -465,14 +465,14 @@ export default function SessionPage() {
 
       {/* ── Tab bar ──────────────────────────────────────── */}
       <div className="fixed top-14 inset-x-0 z-40 bg-white border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 flex">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] flex">
           {(["analisis", "chat"] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-5 py-3.5 text-xs font-medium border-b-2 transition-colors ${
                 tab === t
-                  ? "border-black text-black"
+                  ? "border-[var(--gob-navy)] text-[var(--gob-navy)]"
                   : "border-transparent text-gray-400 hover:text-gray-700"
               }`}
             >
@@ -484,7 +484,7 @@ export default function SessionPage() {
 
       {/* ── Main ─────────────────────────────────────────── */}
       <main className="flex-1 pt-28">
-        <div className="max-w-6xl mx-auto px-6 pb-10">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] pb-10">
 
           {/* ── Análisis ─────────────────────────────────── */}
           {tab === "analisis" && (
@@ -502,7 +502,7 @@ export default function SessionPage() {
               ) : !hasAnalysis ? (
                 /* Empty state — no analysis yet */
                 <div className="border border-gray-100 rounded-2xl p-16 flex flex-col items-center text-center space-y-7">
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {AGENTS.map(a => (
                       <div key={a.id} className="flex flex-col items-center gap-2">
                         <div className="w-12 h-12 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
@@ -514,7 +514,7 @@ export default function SessionPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-base font-semibold text-black">
+                    <p className="text-base font-medium text-black">
                       Tu consejo está listo para analizar
                     </p>
                     <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
@@ -529,7 +529,7 @@ export default function SessionPage() {
 
                   <button
                     onClick={runAnalysis}
-                    className="inline-flex items-center gap-2 bg-black text-white text-sm font-medium px-6 py-3 rounded-xl hover:bg-gray-900 transition-colors"
+                    className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
                   >
                     Iniciar análisis
                   </button>
@@ -539,7 +539,7 @@ export default function SessionPage() {
                 <div className="space-y-7">
                   <div className="flex items-end justify-between">
                     <div>
-                      <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-1">
+                      <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">
                         Diagnóstico del periodo
                       </p>
                       <h2 className="text-2xl font-bold text-black tracking-tight">
@@ -549,7 +549,7 @@ export default function SessionPage() {
                     <button
                       onClick={runAnalysis}
                       disabled={analysing}
-                      className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50"
                     >
                       <RotateCcw className={`h-3.5 w-3.5 ${analysing ? "animate-spin" : ""}`} />
                       Actualizar análisis
@@ -558,14 +558,14 @@ export default function SessionPage() {
 
                   <Link
                     href={`/dashboard/sesion/${id}/plan`}
-                    className="group flex items-center justify-between bg-black hover:bg-gray-900 text-white px-6 py-4 rounded-2xl transition-colors"
+                    className="group flex items-center justify-between bg-[var(--gob-navy)] hover:bg-[var(--gob-ink)] text-[var(--gob-bone)] px-6 py-4 rounded-2xl transition-colors"
                   >
                     <div className="flex items-center gap-3.5">
                       <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
                         <ListChecks className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold">
+                        <p className="text-sm font-medium">
                           {planStats ? "Ver plan de acción" : "Generar plan de acción"}
                         </p>
                         <p className="text-[11px] text-gray-400 mt-0.5">
@@ -585,10 +585,10 @@ export default function SessionPage() {
                         </div>
                       </div>
                     )}
-                    <span className="text-xs text-gray-300 group-hover:text-white transition-colors">→</span>
+                    <span className="text-xs text-gray-300 group-hover:text-[var(--gob-bone)] transition-colors">→</span>
                   </Link>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 3xl:grid-cols-4 gap-5">
                     {AGENTS.map((a, i) => {
                       const analysis = session.agent_analyses?.[a.id]
                       if (!analysis) return null
@@ -611,7 +611,7 @@ export default function SessionPage() {
 
                           {analysis.findings?.length > 0 && (
                             <div className="space-y-2">
-                              <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+                              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">
                                 Hallazgos
                               </p>
                               <ul className="space-y-1.5">
@@ -627,7 +627,7 @@ export default function SessionPage() {
 
                           {analysis.alerts?.length > 0 && (
                             <div className="space-y-2">
-                              <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+                              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">
                                 Alertas
                               </p>
                               <ul className="space-y-1.5">
@@ -643,7 +643,7 @@ export default function SessionPage() {
 
                           {analysis.recommendations?.length > 0 && (
                             <div className="space-y-2">
-                              <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+                              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">
                                 Recomendaciones
                               </p>
                               <ul className="space-y-1.5">
@@ -660,7 +660,7 @@ export default function SessionPage() {
                           <div className="pt-1 mt-auto">
                             <button
                               onClick={() => { setActiveAgent(a.id); setTab("chat") }}
-                              className="w-full text-xs font-medium text-gray-500 hover:text-black border border-gray-200 hover:border-gray-400 px-3 py-2.5 rounded-xl transition-colors"
+                              className="w-full text-xs font-medium text-gray-500 hover:text-[var(--gob-navy)] border border-gray-200 hover:border-gray-400 px-3 py-2.5 rounded-xl transition-colors"
                             >
                               Chatear con {a.id} →
                             </button>
@@ -691,8 +691,8 @@ export default function SessionPage() {
                     onClick={() => setActiveAgent(a.id)}
                     className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium border-2 transition-all duration-150 ${
                       activeAgent === a.id
-                        ? "border-black bg-black text-white"
-                        : "border-gray-200 text-gray-500 hover:border-gray-400 hover:text-black"
+                        ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
+                        : "border-gray-200 text-gray-500 hover:border-gray-400 hover:text-[var(--gob-navy)]"
                     }`}
                   >
                     {a.id}
@@ -715,7 +715,7 @@ export default function SessionPage() {
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold text-black">
+                      <p className="text-sm font-medium text-black">
                         Habla con {activeAgent}
                       </p>
                       <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
@@ -730,8 +730,8 @@ export default function SessionPage() {
                       className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                       {msg.role === "assistant" && (
-                        <div className="w-7 h-7 rounded-lg bg-black flex items-center justify-center flex-shrink-0 mt-1">
-                          <span className="text-white text-[10px] font-bold">
+                        <div className="w-7 h-7 rounded-lg bg-[var(--gob-navy)] flex items-center justify-center flex-shrink-0 mt-1">
+                          <span className="text-[var(--gob-bone)] text-[10px] font-bold">
                             {msg.agent?.[0]}
                           </span>
                         </div>
@@ -739,7 +739,7 @@ export default function SessionPage() {
                       <div
                         className={`max-w-[72%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                           msg.role === "user"
-                            ? "bg-black text-white"
+                            ? "bg-[var(--gob-navy)] text-[var(--gob-bone)]"
                             : "bg-gray-50 border border-gray-100 text-gray-800"
                         }`}
                       >
@@ -778,14 +778,14 @@ export default function SessionPage() {
                     onKeyDown={handleKey}
                     placeholder={`Pregunta a ${activeAgent}…`}
                     rows={2}
-                    className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:border-black focus:outline-none transition-colors"
+                    className="flex-1 resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-black placeholder:text-gray-400 focus:border-[var(--gob-navy)] focus:outline-none transition-colors"
                   />
                   <button
                     onClick={sendMessage}
                     disabled={!input.trim() || sending}
-                    className="h-11 w-11 rounded-xl bg-black flex items-center justify-center hover:bg-gray-900 transition-colors disabled:opacity-30 flex-shrink-0"
+                    className="h-11 w-11 rounded-xl bg-[var(--gob-navy)] flex items-center justify-center hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-30 flex-shrink-0"
                   >
-                    <Send className="h-4 w-4 text-white" />
+                    <Send className="h-4 w-4 text-[var(--gob-bone)]" />
                   </button>
                 </div>
                 <p className="text-[10px] text-gray-400">

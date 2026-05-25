@@ -111,11 +111,11 @@ function TaskCard({
       )}
 
       <div className="flex items-center flex-wrap gap-1.5">
-        <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border ${prio.bg} ${prio.text} ${prio.border}`}>
+        <span className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-md border ${prio.bg} ${prio.text} ${prio.border}`}>
           {prio.label}
         </span>
         {task.source_agent && (
-          <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border ${AGENT_COLORS[task.source_agent] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
+          <span className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-md border ${AGENT_COLORS[task.source_agent] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
             {task.source_agent}
           </span>
         )}
@@ -181,7 +181,7 @@ function Column({
           <p className="text-xs font-bold text-black">{label}</p>
           <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>
         </div>
-        <span className="text-[11px] font-semibold text-gray-400 bg-white border border-gray-200 rounded-full px-2 py-0.5">
+        <span className="text-[11px] font-medium text-gray-400 bg-white border border-gray-200 rounded-full px-2 py-0.5">
           {tasks.length}
         </span>
       </div>
@@ -196,7 +196,7 @@ function Column({
 
       <button
         onClick={onAddClick}
-        className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-black border border-dashed border-gray-200 hover:border-gray-400 rounded-xl py-2 transition-colors"
+        className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-[var(--gob-navy)] border border-dashed border-gray-200 hover:border-gray-400 rounded-xl py-2 transition-colors"
       >
         <Plus className="h-3 w-3" />
         Nueva tarea
@@ -237,8 +237,8 @@ function TaskEditor({
         className="fixed z-50 inset-y-0 right-0 w-full sm:w-[480px] bg-white shadow-2xl overflow-y-auto"
       >
         <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Tarea</span>
-          <button onClick={onClose} className="text-gray-400 hover:text-black transition-colors">
+          <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">Tarea</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-[var(--gob-navy)] transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -256,7 +256,7 @@ function TaskEditor({
 
           {/* Status */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">Estado</label>
+            <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Estado</label>
             <div className="flex gap-1.5">
               {COLUMNS.map(c => (
                 <button
@@ -264,7 +264,7 @@ function TaskEditor({
                   onClick={() => save({ status: c.id })}
                   className={`flex-1 text-xs font-medium py-2 rounded-lg border-2 transition-all duration-100 ${
                     local.status === c.id
-                      ? "border-black bg-black text-white"
+                      ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
                       : "border-gray-100 text-gray-500 hover:border-gray-300"
                   }`}
                 >
@@ -276,7 +276,7 @@ function TaskEditor({
 
           {/* Priority */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">Prioridad</label>
+            <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Prioridad</label>
             <div className="flex gap-1.5">
               {(["alta", "media", "baja"] as Priority[]).map(p => (
                 <button
@@ -296,20 +296,20 @@ function TaskEditor({
 
           {/* Description */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">Descripción</label>
+            <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Descripción</label>
             <textarea
               value={local.description ?? ""}
               onChange={e => setLocal(p => ({ ...p, description: e.target.value }))}
               onBlur={() => local.description !== task.description && save({ description: local.description })}
               rows={4}
               placeholder="Detalles, contexto, criterios de éxito…"
-              className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-black resize-none"
+              className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[var(--gob-navy)] resize-none"
             />
           </div>
 
           {/* Owner */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase flex items-center gap-1.5">
+            <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase flex items-center gap-1.5">
               <User className="h-3 w-3" /> Responsable
             </label>
             <input
@@ -317,26 +317,26 @@ function TaskEditor({
               onChange={e => setLocal(p => ({ ...p, owner: e.target.value }))}
               onBlur={() => local.owner !== task.owner && save({ owner: local.owner || null })}
               placeholder="Director General, CFO, Consejo..."
-              className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-black"
+              className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[var(--gob-navy)]"
             />
           </div>
 
           {/* Due date */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase flex items-center gap-1.5">
+            <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase flex items-center gap-1.5">
               <Calendar className="h-3 w-3" /> Fecha límite
             </label>
             <input
               type="date"
               value={local.due_date ?? ""}
               onChange={e => save({ due_date: e.target.value || null })}
-              className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-black"
+              className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[var(--gob-navy)]"
             />
           </div>
 
           {/* Tags */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase flex items-center gap-1.5">
+            <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase flex items-center gap-1.5">
               <Tag className="h-3 w-3" /> Etiquetas
             </label>
             <input
@@ -344,13 +344,13 @@ function TaskEditor({
               onChange={e => setLocal(p => ({ ...p, tags: e.target.value.split(",").map(s => s.trim()).filter(Boolean) }))}
               onBlur={() => save({ tags: local.tags })}
               placeholder="compliance, liquidez, talento"
-              className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-black"
+              className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[var(--gob-navy)]"
             />
           </div>
 
           {local.source_agent && (
             <div className="border-t border-gray-100 pt-4 text-[11px] text-gray-400">
-              Tarea generada por el agente <span className="font-semibold text-gray-600">{local.source_agent}</span>
+              Tarea generada por el agente <span className="font-medium text-gray-600">{local.source_agent}</span>
             </div>
           )}
 
@@ -540,10 +540,10 @@ export default function PlanPage() {
     <div className="min-h-dvh bg-white text-black font-sans antialiased">
       {/* Navbar */}
       <header className="fixed top-0 inset-x-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
           <button
             onClick={() => router.push(`/dashboard/sesion/${id}`)}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-black transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Volver a la sesión
@@ -552,7 +552,7 @@ export default function PlanPage() {
             <button
               onClick={generate}
               disabled={generating}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-black transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50"
             >
               {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               Regenerar plan
@@ -562,7 +562,7 @@ export default function PlanPage() {
       </header>
 
       <main className="pt-14">
-        <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-10 space-y-8">
 
           {/* Header */}
           <motion.div
@@ -570,7 +570,7 @@ export default function PlanPage() {
             transition={{ duration: 0.5, ease: EASE }}
             className="space-y-1"
           >
-            <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">Plan de acción</p>
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Plan de acción</p>
             <h1 className="text-3xl font-bold text-black tracking-tight">
               {plan?.title ?? "Sin plan aún"}
             </h1>
@@ -594,7 +594,7 @@ export default function PlanPage() {
                 <Sparkles className="h-5 w-5 text-gray-300" />
               </div>
               <div className="space-y-2 max-w-md">
-                <p className="text-base font-semibold text-black">Genera el plan a partir del análisis</p>
+                <p className="text-base font-medium text-black">Genera el plan a partir del análisis</p>
                 <p className="text-sm text-gray-500 leading-relaxed">
                   Convertiremos los hallazgos y recomendaciones de los 4 agentes en tareas
                   con responsable, prioridad y plazo. Después puedes editarlas, moverlas
@@ -604,7 +604,7 @@ export default function PlanPage() {
               <button
                 onClick={generate}
                 disabled={generating}
-                className="inline-flex items-center gap-2 bg-black text-white text-sm font-medium px-6 py-3 rounded-xl hover:bg-gray-900 transition-colors disabled:opacity-60"
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-60"
               >
                 {generating ? <>
                   <Loader2 className="h-4 w-4 animate-spin" />

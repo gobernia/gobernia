@@ -145,7 +145,7 @@ export default function Etapa8Page() {
   }
 
   return (
-    <div className="w-full max-w-xl space-y-8">
+    <div className="w-full max-w-xl 3xl:max-w-2xl space-y-8">
       <ProgressBar currentStep={8} />
 
       {/* ── Visión ── */}
@@ -361,7 +361,7 @@ export default function Etapa8Page() {
                               : "border-gray-200 hover:border-primary/30"
                           )}
                         >
-                          <p className={cn("text-xs font-semibold", config.tone === t.value ? "text-primary" : "text-foreground")}>{t.label}</p>
+                          <p className={cn("text-xs font-medium", config.tone === t.value ? "text-primary" : "text-foreground")}>{t.label}</p>
                           <p className="text-xs text-muted-foreground leading-tight mt-0.5">{t.desc}</p>
                         </motion.button>
                       ))}
@@ -384,7 +384,7 @@ export default function Etapa8Page() {
                               : "border-gray-200 hover:border-primary/30"
                           )}
                         >
-                          <p className={cn("text-xs font-semibold", config.alert_sensitivity === s.value ? "text-primary" : "text-foreground")}>{s.label}</p>
+                          <p className={cn("text-xs font-medium", config.alert_sensitivity === s.value ? "text-primary" : "text-foreground")}>{s.label}</p>
                         </motion.button>
                       ))}
                     </div>

@@ -66,7 +66,7 @@ export default function SignUpPage() {
         </div>
         <Link
           href="/sign-in"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-black hover:underline"
+          className="inline-flex items-center gap-2 text-sm font-medium text-black hover:underline"
         >
           Ir a iniciar sesión <ArrowRight className="h-3.5 w-3.5" />
         </Link>
@@ -83,12 +83,12 @@ export default function SignUpPage() {
     >
       <div className="space-y-1 mb-8 text-center">
         <h1 className="text-2xl font-bold text-black tracking-tight">Crea tu cuenta</h1>
-        <p className="text-sm text-gray-400 font-display italic">Empieza a gobernar tu empresa con inteligencia</p>
+        <p className="text-sm text-gray-400 italic font-light">Empieza a gobernar tu empresa con inteligencia</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
             Correo electrónico
           </label>
           <input
@@ -103,7 +103,7 @@ export default function SignUpPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
             Contraseña
           </label>
           <input
@@ -132,7 +132,7 @@ export default function SignUpPage() {
         <button
           type="submit"
           disabled={!canSubmit || loading}
-          className="w-full h-12 rounded-xl bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-40 mt-2"
+          className="w-full h-12 rounded-xl bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-40 mt-2"
         >
           {loading ? "Creando cuenta…" : <> Crear cuenta <ArrowRight className="h-4 w-4" /> </>}
         </button>
@@ -140,7 +140,7 @@ export default function SignUpPage() {
 
       <p className="text-center text-sm text-gray-400 mt-8">
         ¿Ya tienes cuenta?{" "}
-        <Link href="/sign-in" className="text-black font-semibold hover:underline">
+        <Link href="/sign-in" className="text-black font-medium hover:underline">
           Inicia sesión
         </Link>
       </p>

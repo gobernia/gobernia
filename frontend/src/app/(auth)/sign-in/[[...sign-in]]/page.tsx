@@ -42,12 +42,12 @@ export default function SignInPage() {
     >
       <div className="space-y-1 mb-8 text-center">
         <h1 className="text-2xl font-bold text-black tracking-tight">Bienvenido de vuelta</h1>
-        <p className="text-sm text-gray-400 font-display italic">Ingresa a tu espacio de gobierno corporativo</p>
+        <p className="text-sm text-gray-400 italic font-light">Ingresa a tu espacio de gobierno corporativo</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
             Correo electrónico
           </label>
           <input
@@ -62,7 +62,7 @@ export default function SignInPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
             Contraseña
           </label>
           <input
@@ -88,7 +88,7 @@ export default function SignInPage() {
         <button
           type="submit"
           disabled={!canSubmit || loading}
-          className="w-full h-12 rounded-xl bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-40 mt-2"
+          className="w-full h-12 rounded-xl bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-40 mt-2"
         >
           {loading ? "Entrando…" : <> Entrar <ArrowRight className="h-4 w-4" /> </>}
         </button>
@@ -96,7 +96,7 @@ export default function SignInPage() {
 
       <p className="text-center text-sm text-gray-400 mt-8">
         ¿No tienes cuenta?{" "}
-        <Link href="/sign-up" className="text-black font-semibold hover:underline">
+        <Link href="/sign-up" className="text-black font-medium hover:underline">
           Regístrate gratis
         </Link>
       </p>
