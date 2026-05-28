@@ -107,6 +107,24 @@ async def submit_etapa8(
     await db.flush()
     await db.commit()
 
+    # Disparar generación del plan de 12 meses (solo la primera vez que se cierra el onboarding).
+    if 8 in completed:
+        from app.models.annual_plan import AnnualPlan
+        from datetime import date as _date
+        existing = await db.execute(
+            select(AnnualPlan).where(AnnualPlan.user_id == user_id).limit(1)
+        )
+        if existing.scalar_one_or_none() is None:
+            plan = AnnualPlan(
+                user_id=user_id, title="Plan estratégico de 12 meses",
+                start_date=_date.today(), status="generating",
+            )
+            db.add(plan)
+            await db.flush()
+            await db.commit()
+            from app.tasks.annual_plan_tasks import generate_annual_plan_task
+            generate_annual_plan_task.delay(str(plan.id))
+
     return Etapa8Output(
         session_id=str(session.id),
         completed_stages=completed,
