@@ -26,3 +26,63 @@ def test_due_date_within_month_clamps_day():
     assert due_date_within_month(2026, 2, 31) == date(2026, 2, 28)   # feb no bisiesto
     assert due_date_within_month(2026, 6, 15) == date(2026, 6, 15)
     assert due_date_within_month(2026, 6, 0) == date(2026, 6, 1)     # piso 1
+
+
+from app.services.ai.annual_plan_generator import (
+    parse_skeleton, map_month_tasks, synthesize_diagnostico, fallback_skeleton,
+)
+
+
+def test_parse_skeleton_normaliza_12_meses():
+    raw = '''{"months":[
+      {"month_index":1,"focus":"Liquidez","objectives":[
+        {"title":"Mejorar caja","kpi_refs":["Razón corriente"]}]}
+    ]}'''
+    months = parse_skeleton(raw)
+    assert len(months) == 12                       # rellena hasta 12
+    assert months[0]["focus"] == "Liquidez"
+    assert months[0]["objectives"][0]["title"] == "Mejorar caja"
+    assert months[0]["objectives"][0]["kpi_refs"] == ["Razón corriente"]
+    # meses faltantes quedan con objetivos vacíos pero presentes
+    assert months[11]["month_index"] == 12
+    assert months[11]["objectives"] == []
+
+
+def test_parse_skeleton_basura_devuelve_fallback():
+    months = parse_skeleton("no soy json")
+    assert len(months) == 12
+
+
+def test_map_month_tasks_normaliza_campos():
+    raw = '''{"tasks":[
+      {"objective_index":0,"title":"Negociar línea de crédito","owner":"CFO",
+       "priority":"ALTA","due_day":10,"kpi_ref":"Razón corriente","tags":["Liquidez","x"]},
+      {"objective_index":9,"title":"fuera de rango"}
+    ]}'''
+    objectives = [{"title": "Mejorar caja"}]
+    tasks = map_month_tasks(raw, objectives, year=2026, month=6)
+    # la tarea con objective_index fuera de rango se descarta
+    assert len(tasks) == 1
+    t = tasks[0]
+    assert t["objective_index"] == 0
+    assert t["priority"] == "alta"
+    assert t["owner"] == "CFO"
+    assert t["due_date"] == "2026-06-10"
+    assert t["kpi_ref"] == "Razón corriente"
+    assert t["tags"] == ["liquidez", "x"]
+
+
+def test_synthesize_diagnostico_concatena_resumenes():
+    analyses = {
+        "CFO": {"summary": "Liquidez ajustada."},
+        "CSO": {"summary": "Ventas concentradas."},
+    }
+    text = synthesize_diagnostico(analyses)
+    assert "CFO" in text and "Liquidez ajustada." in text
+    assert "CSO" in text and "Ventas concentradas." in text
+
+
+def test_fallback_skeleton_es_12_meses():
+    sk = fallback_skeleton()
+    assert len(sk) == 12
+    assert all(m["month_index"] == i + 1 for i, m in enumerate(sk))
