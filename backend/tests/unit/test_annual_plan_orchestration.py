@@ -35,7 +35,7 @@ async def test_run_generation_happy_path(monkeypatch):
     db.flush = AsyncMock()
     db.commit = AsyncMock()
 
-    monkeypatch.setattr(orch, "run_diagnostico", lambda buf: ({"CFO": {"summary": "ok"}}, None))
+    monkeypatch.setattr(orch, "run_diagnostico", lambda buf: ({"CFO": {"summary": "ok"}}, {"CFO": {}}))
     monkeypatch.setattr(orch, "synthesize_diagnostico", lambda a: "Diag")
     monkeypatch.setattr(orch, "generate_skeleton",
                         lambda buf, diag, kpi_labels: [
@@ -54,6 +54,10 @@ async def test_run_generation_happy_path(monkeypatch):
     assert db.add_all.called or db.add.called
     assert db.commit.await_count >= 1
 
+    # Idempotencia: se emitió un DELETE sobre monthly_plans antes de poblar.
+    from sqlalchemy.sql.dml import Delete
+    assert any(c.args and isinstance(c.args[0], Delete) for c in db.execute.call_args_list)
+
 
 @pytest.mark.asyncio
 async def test_run_generation_marks_failed_on_error(monkeypatch):
@@ -70,3 +74,21 @@ async def test_run_generation_marks_failed_on_error(monkeypatch):
     with pytest.raises(RuntimeError):
         await orch._run_generation(str(plan.id), db)
     assert plan.status == "failed"
+
+
+def test_run_diagnostico_applies_challenger(monkeypatch):
+    from app.services.ai.agents import base
+
+    monkeypatch.setattr(base, "run_agent_analysis",
+                        lambda agent, *a, **k: {"summary": f"{agent} initial"})
+    monkeypatch.setattr(base, "run_challenger_critique",
+                        lambda *a, **k: {"weak_assumptions": ["supuesto débil"]})
+    monkeypatch.setattr(base, "run_agent_revision",
+                        lambda agent, initial, critique, *a, **k: {"summary": f"{agent} revised"})
+
+    analyses, critiques = orch.run_diagnostico({"company": {}, "kpis": {}})
+
+    # los 4 agentes, con análisis REVISADO (post-challenger) y crítica registrada
+    assert set(analyses.keys()) == {"CFO", "CSO", "CRO", "Auditor"}
+    assert analyses["CFO"]["summary"] == "CFO revised"
+    assert critiques["CFO"] == {"weak_assumptions": ["supuesto débil"]}

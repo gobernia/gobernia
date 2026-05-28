@@ -23,22 +23,37 @@ def kpi_labels_from_buffer(memory_buffer: dict) -> list[str]:
     return labels
 
 
-def run_diagnostico(memory_buffer: dict) -> tuple[dict, None]:
+def run_diagnostico(memory_buffer: dict) -> tuple[dict, dict]:
     """
-    Paso 1: corre los 4 agentes sobre el memory_buffer del onboarding.
-    Retorna (agent_analyses, None). Sin API key, cada agente devuelve su placeholder.
+    Paso 1: corre los 4 agentes + Challenger (pre-mortem) + revisión sobre el
+    memory_buffer del onboarding. Retorna (analyses_revisados, critiques).
+    Sin API key, run_agent_analysis devuelve placeholder, el challenger devuelve {}
+    y la revisión devuelve el análisis inicial — todo seguro.
     """
-    from app.services.ai.agents.base import run_agent_analysis
     from datetime import date
+    from app.services.ai.agents.base import (
+        run_agent_analysis, run_challenger_critique, run_agent_revision,
+    )
 
     today = date.today()
+    kpi_snapshot = memory_buffer.get("kpis")
     analyses: dict[str, dict] = {}
+    critiques: dict[str, dict] = {}
     for agent in ("CFO", "CSO", "CRO", "Auditor"):
-        analyses[agent] = run_agent_analysis(
-            agent, memory_buffer, kpi_snapshot=memory_buffer.get("kpis"),
+        initial = run_agent_analysis(
+            agent, memory_buffer, kpi_snapshot=kpi_snapshot,
             period_year=today.year, period_month=today.month,
         )
-    return analyses, None
+        critique = run_challenger_critique(
+            agent, initial, memory_buffer, kpi_snapshot, today.year, today.month,
+        )
+        revised = run_agent_revision(
+            agent, initial, critique, memory_buffer, kpi_snapshot,
+            today.year, today.month,
+        )
+        analyses[agent] = revised
+        critiques[agent] = critique
+    return analyses, critiques
 
 
 @celery_app.task(name="generate_annual_plan", bind=True, max_retries=2)
@@ -59,7 +74,7 @@ async def _entrypoint(annual_plan_id: str) -> dict:
 async def _run_generation(annual_plan_id: str, db) -> None:
     """Llena un AnnualPlan en estado 'generating'. Marca 'failed' y re-lanza ante error."""
     from datetime import date
-    from sqlalchemy import select
+    from sqlalchemy import select, delete
     from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
     from app.models.action_plan import ActionTask
     from app.models.board_session import BoardSession
@@ -80,8 +95,15 @@ async def _run_generation(annual_plan_id: str, db) -> None:
         onboarding = onb_res.scalar_one_or_none()
         memory_buffer = (onboarding.memory_buffer if onboarding else {}) or {}
 
+        # Idempotencia (retry): borrar resultados de un intento previo.
+        # El FK ondelete CASCADE en monthly_plans→objectives→action_tasks limpia en cascada.
+        await db.execute(delete(MonthlyPlan).where(MonthlyPlan.annual_plan_id == plan.id))
+        if plan.genesis_session_id is not None:
+            await db.execute(delete(BoardSession).where(BoardSession.id == plan.genesis_session_id))
+            plan.genesis_session_id = None
+
         # Paso 1: diagnóstico
-        analyses, _ = run_diagnostico(memory_buffer)
+        analyses, critiques = run_diagnostico(memory_buffer)
         plan.diagnostico_summary = synthesize_diagnostico(analyses)
 
         # Sesión génesis que guarda los análisis (si hay onboarding)
@@ -93,6 +115,7 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                 period_month=plan.start_date.month,
                 status="completed",
                 agent_analyses=analyses,
+                agent_critiques=critiques,
             )
             db.add(genesis)
             await db.flush()
@@ -149,6 +172,9 @@ async def _run_generation(annual_plan_id: str, db) -> None:
         plan.status = "active"
         await db.commit()
     except Exception:
-        plan.status = "failed"
-        await db.commit()
+        await db.rollback()
+        plan = await db.get(AnnualPlan, uuid.UUID(annual_plan_id))
+        if plan is not None:
+            plan.status = "failed"
+            await db.commit()
         raise
