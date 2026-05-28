@@ -43,10 +43,12 @@ class ActionTaskUpdate(BaseModel):
 
 
 class ActionTaskOut(ActionTaskBase):
-    id:         str
-    plan_id:    str
-    created_at: datetime
-    updated_at: datetime
+    id:           str
+    plan_id:      str | None = None
+    objective_id: str | None = None
+    kpi_ref:      str | None = None
+    created_at:   datetime
+    updated_at:   datetime
 
 
 class ActionPlanOut(BaseModel):
