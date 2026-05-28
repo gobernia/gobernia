@@ -33,12 +33,19 @@ class ActionTask(Base, UUIDMixin, TimestampMixin):
     """
     __tablename__ = "action_tasks"
 
-    plan_id: Mapped[uuid.UUID] = mapped_column(
+    plan_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("action_plans.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,   # legacy: las tareas del plan anual usan objective_id
         index=True,
     )
+    objective_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("objectives.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    kpi_ref: Mapped[str | None] = mapped_column(String, nullable=True)  # "impacto KPI"
     title:        Mapped[str]               = mapped_column(Text, nullable=False)
     description:  Mapped[str | None]        = mapped_column(Text, nullable=True)
     source_agent: Mapped[str | None]        = mapped_column(String, nullable=True)
