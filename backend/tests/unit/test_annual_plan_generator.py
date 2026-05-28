@@ -86,3 +86,39 @@ def test_fallback_skeleton_es_12_meses():
     sk = fallback_skeleton()
     assert len(sk) == 12
     assert all(m["month_index"] == i + 1 for i, m in enumerate(sk))
+
+
+import app.services.ai.annual_plan_generator as gen
+
+
+class _FakeResponse:
+    def __init__(self, text):
+        self.content = [type("B", (), {"text": text})()]
+
+
+def test_generate_skeleton_sin_apikey_usa_fallback(monkeypatch):
+    monkeypatch.setattr(gen.settings, "ANTHROPIC_API_KEY", "", raising=False)
+    months = gen.generate_skeleton({"company": {"name": "Demo"}}, "Diagnóstico", kpi_labels=[])
+    assert len(months) == 12
+
+
+def test_generate_skeleton_con_apikey_parsea_respuesta(monkeypatch):
+    monkeypatch.setattr(gen.settings, "ANTHROPIC_API_KEY", "sk-test", raising=False)
+    raw = '{"months":[{"month_index":1,"focus":"Caja","objectives":[{"title":"X","kpi_refs":[]}]}]}'
+    monkeypatch.setattr(gen, "_create_with_retry", lambda *a, **k: _FakeResponse(raw))
+    monkeypatch.setattr(gen.anthropic, "Anthropic", lambda **k: object())
+    months = gen.generate_skeleton({"company": {"name": "Demo"}}, "Diag", kpi_labels=["Caja"])
+    assert months[0]["focus"] == "Caja"
+
+
+def test_generate_month_tasks_con_apikey(monkeypatch):
+    monkeypatch.setattr(gen.settings, "ANTHROPIC_API_KEY", "sk-test", raising=False)
+    raw = '{"tasks":[{"objective_index":0,"title":"Negociar crédito","priority":"alta","due_day":10}]}'
+    monkeypatch.setattr(gen, "_create_with_retry", lambda *a, **k: _FakeResponse(raw))
+    monkeypatch.setattr(gen.anthropic, "Anthropic", lambda **k: object())
+    tasks = gen.generate_month_tasks(
+        focus="Liquidez", objectives=[{"title": "Mejorar caja"}],
+        memory_buffer={"company": {"name": "Demo"}}, year=2026, month=6,
+    )
+    assert tasks[0]["title"] == "Negociar crédito"
+    assert tasks[0]["due_date"] == "2026-06-10"

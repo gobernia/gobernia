@@ -142,3 +142,98 @@ def synthesize_diagnostico(agent_analyses: dict[str, dict]) -> str:
         if isinstance(analysis, dict) and analysis.get("summary"):
             parts.append(f"**{agent}:** {analysis['summary']}")
     return "\n\n".join(parts)
+
+
+# ── Prompts ─────────────────────────────────────────────────────────────────
+
+SKELETON_SYSTEM_PROMPT = """Eres el director estratégico del consejo de Gobernia.
+A partir del diagnóstico de los 4 agentes, diseñas un PLAN ESTRATÉGICO de 12 meses.
+
+Reglas:
+1. Genera EXACTAMENTE 12 meses (month_index 1..12), con progresión lógica:
+   los primeros meses estabilizan y diagnostican; los del medio ejecutan; los últimos
+   consolidan y miden resultados.
+2. Cada mes tiene un "focus" (tema corto, máx 80 caracteres) y 2-4 objetivos.
+3. Cada objetivo: "title" accionable y "kpi_refs" = lista de KPIs (de la lista provista)
+   que ese objetivo busca mover. Usa SOLO labels de la lista de KPIs disponibles.
+4. No inventes KPIs fuera de la lista. Si la lista está vacía, deja kpi_refs como []."""
+
+SKELETON_SCHEMA = """{
+  "months": [
+    {"month_index": 1, "focus": "string",
+     "objectives": [{"title": "string", "description": "string", "kpi_refs": ["KPI label"]}]}
+  ]
+}"""
+
+MONTH_TASKS_SYSTEM_PROMPT = """Eres el director del consejo. Conviertes los objetivos de UN mes
+en tareas concretas y accionables.
+
+Reglas por tarea:
+1. "title": empieza con verbo en infinitivo, máx 80 caracteres.
+2. "objective_index": índice (0-based) del objetivo al que pertenece, según la lista dada.
+3. "owner": rol responsable (Director General, CFO, Director Comercial, etc.).
+4. "priority": "alta" | "media" | "baja".
+5. "due_day": día del mes (1-28) en que vence.
+6. "kpi_ref": un KPI (de los kpi_refs del objetivo) que la tarea impacta, o null.
+7. "tags": máximo 2 etiquetas cortas en minúsculas.
+Genera entre 2 y 5 tareas por objetivo. Calidad sobre cantidad."""
+
+MONTH_TASKS_SCHEMA = """{
+  "tasks": [
+    {"objective_index": 0, "title": "string", "description": "string",
+     "owner": "string", "priority": "alta|media|baja", "due_day": 15,
+     "kpi_ref": "KPI label|null", "tags": ["tag"]}
+  ]
+}"""
+
+
+def _company_line(memory_buffer: dict) -> str:
+    c = memory_buffer.get("company", {}) or {}
+    return f"Empresa: {c.get('name', 'la empresa')} | Industria: {c.get('industry', 'N/D')}"
+
+
+def generate_skeleton(memory_buffer: dict, diagnostico: str, kpi_labels: list[str]) -> list[dict]:
+    """Paso 2: una llamada genera el esqueleto de 12 meses. Fallback si no hay API key."""
+    if not settings.ANTHROPIC_API_KEY:
+        return fallback_skeleton()
+
+    user_prompt = (
+        f"{_company_line(memory_buffer)}\n\n"
+        f"DIAGNÓSTICO DE LOS 4 AGENTES:\n{diagnostico}\n\n"
+        f"KPIs DISPONIBLES (usa solo estos labels en kpi_refs): {kpi_labels or 'ninguno'}\n\n"
+        "Diseña el plan de 12 meses. Responde ÚNICAMENTE con JSON válido:\n"
+        f"{SKELETON_SCHEMA}"
+    )
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    response = _create_with_retry(
+        client, model=settings.AI_MODEL, max_tokens=4096,
+        system=SKELETON_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return parse_skeleton(response.content[0].text)
+
+
+def generate_month_tasks(focus, objectives: list[dict], memory_buffer: dict,
+                         year: int, month: int) -> list[dict]:
+    """Paso 3: tareas de un mes. Sin API key u objetivos vacíos → []."""
+    if not settings.ANTHROPIC_API_KEY or not objectives:
+        return []
+
+    obj_list = "\n".join(
+        f"  [{i}] {o['title']} (KPIs: {o.get('kpi_refs') or 'ninguno'})"
+        for i, o in enumerate(objectives)
+    )
+    user_prompt = (
+        f"{_company_line(memory_buffer)}\n\n"
+        f"FOCO DEL MES: {focus or 'N/D'}\n"
+        f"OBJETIVOS DEL MES (usa el índice en objective_index):\n{obj_list}\n\n"
+        "Genera las tareas. Responde ÚNICAMENTE con JSON válido:\n"
+        f"{MONTH_TASKS_SCHEMA}"
+    )
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    response = _create_with_retry(
+        client, model=settings.AI_MODEL, max_tokens=2048,
+        system=MONTH_TASKS_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return map_month_tasks(response.content[0].text, objectives, year, month)
