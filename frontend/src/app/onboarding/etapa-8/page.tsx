@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
+import InfoHint from "@/components/ui/InfoHint"
 
 // ── Catálogos (hardcoded — coinciden con backend) ─────────
 const FREQUENCIES = [
@@ -155,7 +156,7 @@ export default function Etapa8Page() {
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-primary mb-3">
                 <Sparkles className="h-5 w-5" />
-                <span className="text-sm font-medium">Visión</span>
+                <span className="text-sm font-medium">Visión <InfoHint text="Hacia dónde quieres llevar la empresa en el largo plazo; guía todo el plan." /></span>
               </div>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
                 ¿Cuál es la visión de tu empresa?
@@ -252,7 +253,7 @@ export default function Etapa8Page() {
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm font-medium text-foreground">Frecuencia de sesiones</p>
+              <p className="text-sm font-medium text-foreground">Frecuencia de sesiones <InfoHint text="Cada cuánto se reúne tu consejo a revisar la empresa." /></p>
               <div className="grid grid-cols-1 gap-2">
                 {FREQUENCIES.map(f => (
                   <motion.button
@@ -346,7 +347,7 @@ export default function Etapa8Page() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tono</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tono <InfoHint text="El estilo con que te hablan los agentes: formal, directo, estratégico o colaborativo." /></p>
                     <div className="grid grid-cols-2 gap-1.5">
                       {TONES.map(t => (
                         <motion.button
@@ -369,7 +370,7 @@ export default function Etapa8Page() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sensibilidad de alertas</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sensibilidad de alertas <InfoHint text="Qué tan fácil saltan las alertas de los agentes: alta = te avisan ante cualquier señal; baja = solo lo crítico." /></p>
                     <div className="grid grid-cols-3 gap-1.5">
                       {SENSITIVITIES.map(s => (
                         <motion.button

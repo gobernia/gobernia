@@ -9,6 +9,7 @@ import GoberniaButton from "@/components/ui/GoberniaButton"
 import { cn } from "@/lib/utils"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
+import InfoHint from "@/components/ui/InfoHint"
 
 interface GovernanceItem {
   key: string
@@ -144,7 +145,7 @@ export default function Etapa6Page() {
             Checklist de gobierno
           </h1>
           <p className="text-sm text-muted-foreground">
-            Responde honestamente — esto genera tu Governance Score.
+            Responde honestamente — esto genera tu Governance Score. <InfoHint text="Puntaje de 0 a 100 que mide qué tan formal y sólido es el gobierno corporativo de tu empresa." />
           </p>
 
           {/* Progress pill */}

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
+import InfoHint from "@/components/ui/InfoHint"
 
 interface KPITemplate {
   key: string
@@ -171,7 +172,7 @@ export default function Etapa5Page() {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary mb-3">
             <BarChart3 className="h-5 w-5" />
-            <span className="text-sm font-medium">KPIs</span>
+            <span className="text-sm font-medium">KPIs <InfoHint text="Indicador clave de desempeño: una métrica que mide qué tan bien va un aspecto del negocio." /></span>
           </div>
           <h1 className="text-2xl font-bold text-foreground leading-tight">
             Ingresa tus números clave
@@ -196,7 +197,7 @@ export default function Etapa5Page() {
                       <p className="text-sm font-medium text-foreground">{t.label}</p>
                       {t.benchmark_label && (
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Benchmark: {t.benchmark_label}
+                          Benchmark <InfoHint text="Valor de referencia de la industria contra el que se compara tu KPI para saber si vas bien o mal." />: {t.benchmark_label}
                         </p>
                       )}
                     </div>

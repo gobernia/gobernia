@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
+import InfoHint from "@/components/ui/InfoHint"
 
 // ── Catálogos ─────────────────────────────────────────────
 const INDUSTRIES = [
@@ -577,7 +578,7 @@ export default function Etapa1Page() {
                 <span className="text-sm font-medium">Gobierno</span>
               </div>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
-                ¿La empresa tiene un consejo de administración?
+                ¿La empresa tiene un consejo de administración? <InfoHint text="Órgano que reúne a directivos y consejeros para decidir la estrategia y supervisar a la dirección." />
               </h1>
               <p className="text-sm text-muted-foreground">
                 Gobernia puede ayudarte a estructurarlo si aún no lo tienen.
@@ -620,7 +621,7 @@ export default function Etapa1Page() {
                 <span className="text-sm font-medium">Estructura</span>
               </div>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
-                ¿Es una empresa familiar?
+                ¿Es una empresa familiar? <InfoHint text="Empresa cuya propiedad y/o dirección está en manos de una familia." />
               </h1>
               <p className="text-sm text-muted-foreground">
                 Activa módulos de protocolo y sucesión si es el caso.
@@ -680,7 +681,7 @@ export default function Etapa1Page() {
                 <span className="text-sm font-medium">Historia familiar</span>
               </div>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
-                ¿En qué generación está la empresa?
+                ¿En qué generación está la empresa? <InfoHint text="Qué generación dirige hoy la empresa: 1ª = fundadores, 2ª = hijos, 3ª = nietos, etc." />
               </h1>
             </div>
             <div className="grid grid-cols-1 gap-2">
@@ -716,7 +717,7 @@ export default function Etapa1Page() {
           <div className="space-y-6">
             <div className="space-y-1">
               <h1 className="text-2xl font-bold text-foreground leading-tight">
-                ¿Tienen un protocolo familiar o acuerdo de accionistas?
+                ¿Tienen un protocolo familiar o acuerdo de accionistas? <InfoHint text="Acuerdo que fija las reglas de la familia sobre la empresa: sucesión, entrada de familiares, reparto y manejo de conflictos." />
               </h1>
               <p className="text-sm text-muted-foreground">
                 No te preocupes si no — podemos ayudarte a estructurarlo.

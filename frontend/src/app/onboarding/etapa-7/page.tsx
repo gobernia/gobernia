@@ -9,6 +9,7 @@ import GoberniaButton from "@/components/ui/GoberniaButton"
 import { cn } from "@/lib/utils"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
+import InfoHint from "@/components/ui/InfoHint"
 
 const DOC_TYPES = [
   { value: "financial",        label: "Estados financieros" },
@@ -123,7 +124,7 @@ export default function Etapa7Page() {
                     : "border-gray-200 text-foreground hover:border-primary/30"
                 )}
               >
-                {dt.label}
+                {dt.label}{dt.value === "family_protocol" && <InfoHint text="Acuerdo que fija las reglas de la familia sobre la empresa: sucesión, entrada de familiares, reparto y manejo de conflictos." />}
               </motion.button>
             ))}
           </div>
