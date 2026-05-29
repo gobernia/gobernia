@@ -634,6 +634,32 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
+          {/* ── Plan estratégico ─────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: EASE, delay: 0.3 }}
+            className="space-y-6"
+          >
+            <div>
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Estrategia</p>
+              <h2 className="text-2xl font-bold text-black tracking-tight">Plan anual</h2>
+            </div>
+
+            <Link
+              href="/dashboard/plan"
+              className="group block border border-gray-100 rounded-2xl p-5 hover:border-gray-300 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-black">Plan estratégico de 12 meses</span>
+                <span className="text-gray-300 group-hover:text-[var(--gob-navy)] transition-colors">→</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                Objetivos, tareas y KPIs mes a mes, generados por tu consejo.
+              </p>
+            </Link>
+          </motion.div>
+
           {/* ── Board sessions ───────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

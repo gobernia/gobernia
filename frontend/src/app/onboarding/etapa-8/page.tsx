@@ -135,7 +135,7 @@ export default function Etapa8Page() {
         })),
       })
       markStageComplete(8)
-      router.push(fromDatos ? "/dashboard/datos" : "/dashboard")
+      router.push(fromDatos ? "/dashboard/datos" : "/dashboard/plan")
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(msg ?? "Ocurrió un error. Intenta de nuevo.")
