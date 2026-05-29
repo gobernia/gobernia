@@ -1,0 +1,253 @@
+"use client"
+
+import { useState, useEffect, useCallback, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { motion } from "framer-motion"
+import { ArrowLeft, Loader2, Sparkles, AlertCircle } from "lucide-react"
+import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
+import DiagnosticoPanel from "@/components/plan/DiagnosticoPanel"
+import MonthTimeline from "@/components/plan/MonthTimeline"
+import MonthDetail from "@/components/plan/MonthDetail"
+import TaskDrawer from "@/components/plan/TaskDrawer"
+import {
+  getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
+  createObjective, updateObjective, deleteObjective,
+  createTask, updateTask, deleteTask,
+  type AnnualPlan, type Task,
+} from "@/lib/annualPlan"
+
+type CubicBezier = [number, number, number, number]
+const EASE: CubicBezier = [0.22, 1, 0.36, 1]
+
+type View = "loading" | "none" | "generating" | "failed" | "active" | "error"
+
+export default function AnnualPlanPage() {
+  const router = useRouter()
+  const [view, setView] = useState<View>("loading")
+  const [plan, setPlan] = useState<AnnualPlan | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState(1)
+  const [openTask, setOpenTask] = useState<Task | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+  }, [])
+
+  const loadPlan = useCallback(async () => {
+    const p = await getAnnualPlan()
+    setPlan(p)
+    setSelectedMonth(prev => {
+      const active = p.months.find(m => m.status === "active")
+      return prev !== 1 ? prev : (active?.month_index ?? 1)
+    })
+    setView("active")
+  }, [])
+
+  const startPolling = useCallback(() => {
+    stopPolling()
+    pollRef.current = setInterval(async () => {
+      try {
+        const s = await getAnnualPlanStatus()
+        if (s.status === "active" || s.status === "completed") {
+          stopPolling()
+          await loadPlan()
+        } else if (s.status === "failed") {
+          stopPolling()
+          setView("failed")
+        }
+      } catch { /* reintenta en el próximo tick */ }
+    }, 2500)
+  }, [stopPolling, loadPlan])
+
+  const init = useCallback(async () => {
+    try {
+      const s = await getAnnualPlanStatus()
+      if (s.status === "generating") { setView("generating"); startPolling() }
+      else if (s.status === "failed") setView("failed")
+      else await loadPlan()
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 404) setView("none")
+      else setView("error")
+    }
+  }, [startPolling, loadPlan])
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { init(); return stopPolling }, [init, stopPolling])
+
+  const onGenerate = async () => {
+    setView("generating")
+    try {
+      await generateAnnualPlan()
+      startPolling()
+    } catch {
+      setView("failed")
+    }
+  }
+
+  // ── Mutaciones optimistas ──────────────────────────────
+  const patchTaskLocal = (taskId: string, patch: Partial<Task>) => {
+    setPlan(p => p && ({
+      ...p,
+      months: p.months.map(m => ({
+        ...m,
+        objectives: m.objectives.map(o => ({
+          ...o, tasks: o.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t),
+        })),
+      })),
+    }))
+    setOpenTask(prev => prev && prev.id === taskId ? { ...prev, ...patch } : prev)
+  }
+
+  const onUpdateTask = async (taskId: string, patch: Partial<Task>) => {
+    patchTaskLocal(taskId, patch)
+    try { await updateTask(taskId, patch) } catch { loadPlan().catch(() => setView("error")) }
+  }
+
+  const onDeleteTask = async (taskId: string) => {
+    setOpenTask(null)
+    setPlan(p => p && ({
+      ...p,
+      months: p.months.map(m => ({
+        ...m, objectives: m.objectives.map(o => ({ ...o, tasks: o.tasks.filter(t => t.id !== taskId) })),
+      })),
+    }))
+    try { await deleteTask(taskId) } catch { loadPlan().catch(() => setView("error")) }
+  }
+
+  const onAddTask = async (objectiveId: string) => {
+    try {
+      const t = await createTask({ objective_id: objectiveId, title: "Nueva tarea", priority: "media" })
+      setPlan(p => p && ({
+        ...p,
+        months: p.months.map(m => ({
+          ...m, objectives: m.objectives.map(o => o.id === objectiveId ? { ...o, tasks: [...o.tasks, t] } : o),
+        })),
+      }))
+      setOpenTask(t)
+    } catch { loadPlan().catch(() => setView("error")) }
+  }
+
+  const onRenameObjective = async (objectiveId: string, title: string) => {
+    setPlan(p => p && ({
+      ...p, months: p.months.map(m => ({
+        ...m, objectives: m.objectives.map(o => o.id === objectiveId ? { ...o, title } : o),
+      })),
+    }))
+    try { await updateObjective(objectiveId, { title }) } catch { loadPlan().catch(() => setView("error")) }
+  }
+
+  const onDeleteObjective = async (objectiveId: string) => {
+    setPlan(p => p && ({
+      ...p, months: p.months.map(m => ({ ...m, objectives: m.objectives.filter(o => o.id !== objectiveId) })),
+    }))
+    try { await deleteObjective(objectiveId) } catch { loadPlan().catch(() => setView("error")) }
+  }
+
+  const onAddObjective = async (monthlyPlanId: string) => {
+    try {
+      const o = await createObjective({ monthly_plan_id: monthlyPlanId, title: "Nuevo objetivo", kpi_refs: [] })
+      setPlan(p => p && ({
+        ...p, months: p.months.map(m => m.id === monthlyPlanId ? { ...m, objectives: [...m.objectives, o] } : m),
+      }))
+    } catch { loadPlan().catch(() => setView("error")) }
+  }
+
+  // ── Render por estado ──────────────────────────────────
+  if (view === "loading") {
+    return <div className="min-h-dvh bg-white flex items-center justify-center">
+      <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+    </div>
+  }
+
+  if (view === "generating") {
+    return (
+      <div className="min-h-dvh bg-white flex flex-col items-center justify-center gap-10 px-6">
+        <div className="text-center space-y-1">
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Construyendo tu plan</p>
+          <h1 className="text-2xl font-bold text-black">Tu consejo está diseñando los 12 meses</h1>
+        </div>
+        <AgentsCollaboration caption="Los agentes analizan tu empresa, el Challenger aplica pre-mortem, y con eso se arma tu plan estratégico anual. Esto puede tardar un par de minutos." />
+      </div>
+    )
+  }
+
+  if (view === "none" || view === "failed" || view === "error") {
+    const isFail = view === "failed" || view === "error"
+    return (
+      <div className="min-h-dvh bg-white flex flex-col items-center justify-center gap-6 px-6 text-center">
+        <div className="w-14 h-14 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
+          {isFail ? <AlertCircle className="h-5 w-5 text-red-400" /> : <Sparkles className="h-5 w-5 text-gray-300" />}
+        </div>
+        <div className="space-y-2 max-w-md">
+          <p className="text-base font-medium text-black">
+            {isFail ? "No se pudo generar tu plan" : "Genera tu plan estratégico de 12 meses"}
+          </p>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            {isFail
+              ? "Algo falló al construir el plan. Puedes reintentarlo."
+              : "A partir de tu onboarding, el consejo diseñará un plan anual con objetivos, tareas, responsables y KPIs."}
+          </p>
+        </div>
+        <button
+          onClick={onGenerate}
+          className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
+        >
+          <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar plan"}
+        </button>
+      </div>
+    )
+  }
+
+  // view === "active"
+  const month = plan?.months.find(m => m.month_index === selectedMonth) ?? plan?.months[0]
+  const kpiOptions = month ? Array.from(new Set(month.objectives.flatMap(o => o.kpi_refs))) : []
+
+  return (
+    <div className="min-h-dvh bg-white text-black antialiased">
+      <header className="fixed top-0 inset-x-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
+          <button onClick={() => router.push("/dashboard")} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" /> Dashboard
+          </button>
+        </div>
+      </header>
+
+      <main className="pt-14">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-10 space-y-8">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE }} className="space-y-1">
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Plan estratégico</p>
+            <h1 className="text-3xl font-bold text-black tracking-tight">{plan?.title ?? "Plan de 12 meses"}</h1>
+          </motion.div>
+
+          <DiagnosticoPanel summary={plan?.diagnostico_summary ?? null} />
+
+          {plan && (
+            <MonthTimeline months={plan.months} selectedIndex={selectedMonth} onSelect={setSelectedMonth} />
+          )}
+
+          {month && (
+            <MonthDetail
+              month={month}
+              onTaskClick={setOpenTask}
+              onAddTask={onAddTask}
+              onRenameObjective={onRenameObjective}
+              onDeleteObjective={onDeleteObjective}
+              onAddObjective={onAddObjective}
+            />
+          )}
+        </div>
+      </main>
+
+      {openTask && (
+        <TaskDrawer
+          task={openTask}
+          kpiOptions={kpiOptions}
+          onClose={() => setOpenTask(null)}
+          onUpdate={patch => onUpdateTask(openTask.id, patch)}
+          onDelete={() => onDeleteTask(openTask.id)}
+        />
+      )}
+    </div>
+  )
+}
