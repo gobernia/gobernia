@@ -103,8 +103,17 @@ async def generate_plan(
     await db.flush()
     await db.commit()
 
-    from app.tasks.annual_plan_tasks import generate_annual_plan_task
-    generate_annual_plan_task.delay(str(plan.id))
+    try:
+        from app.tasks.annual_plan_tasks import generate_annual_plan_task
+        generate_annual_plan_task.delay(str(plan.id))
+    except Exception:
+        # La cola (Redis/Celery) no está disponible: dejar el plan reintentable.
+        plan.status = "failed"
+        await db.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo iniciar la generación del plan (cola no disponible). Intenta de nuevo más tarde.",
+        )
 
     return AnnualPlanStatusOut(status="generating", active_month_index=1)
 

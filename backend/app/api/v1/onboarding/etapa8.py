@@ -3,6 +3,7 @@ Etapa 8 — Visión, Expectativas y Configuración de Agentes
 GET  /{session_id}/etapa-8/options  → opciones de tono, sensibilidad y frecuencia
 POST /{session_id}/etapa-8          → guarda visión + config agentes en Memory Buffer
 """
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -108,22 +109,40 @@ async def submit_etapa8(
     await db.commit()
 
     # Disparar generación del plan de 12 meses (solo la primera vez que se cierra el onboarding).
+    # Best-effort: la generación del plan es un EXTRA y jamás debe romper el cierre del
+    # onboarding. Si la DB, Redis o Celery no están disponibles, se traga el error y el
+    # usuario completa el onboarding igual; el plan podrá generarse luego vía
+    # POST /annual-plan/generate.
     if 8 in completed:
-        from app.models.annual_plan import AnnualPlan
-        from datetime import date as _date
-        existing = await db.execute(
-            select(AnnualPlan).where(AnnualPlan.user_id == user_id).limit(1)
-        )
-        if existing.scalar_one_or_none() is None:
-            plan = AnnualPlan(
-                user_id=user_id, title="Plan estratégico de 12 meses",
-                start_date=_date.today(), status="generating",
+        try:
+            from app.models.annual_plan import AnnualPlan
+            from datetime import date as _date
+            existing = await db.execute(
+                select(AnnualPlan).where(AnnualPlan.user_id == user_id).limit(1)
             )
-            db.add(plan)
-            await db.flush()
-            await db.commit()
-            from app.tasks.annual_plan_tasks import generate_annual_plan_task
-            generate_annual_plan_task.delay(str(plan.id))
+            if existing.scalar_one_or_none() is None:
+                plan = AnnualPlan(
+                    user_id=user_id, title="Plan estratégico de 12 meses",
+                    start_date=_date.today(), status="generating",
+                )
+                db.add(plan)
+                await db.flush()
+                await db.commit()
+                try:
+                    from app.tasks.annual_plan_tasks import generate_annual_plan_task
+                    generate_annual_plan_task.delay(str(plan.id))
+                except Exception:
+                    # La cola (Redis/Celery) no está disponible: dejar el plan como
+                    # 'failed' para que sea reintentable desde /annual-plan/generate.
+                    plan.status = "failed"
+                    await db.commit()
+                    logging.getLogger(__name__).warning(
+                        "No se pudo encolar la generación del plan anual (cola no disponible)."
+                    )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Fallo al iniciar la generación del plan anual; el onboarding continúa."
+            )
 
     return Etapa8Output(
         session_id=str(session.id),
