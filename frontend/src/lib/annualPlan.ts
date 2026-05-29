@@ -122,3 +122,51 @@ export async function updateTask(id: string, patch: Partial<Task>): Promise<Task
 export async function deleteTask(id: string): Promise<void> {
   await api.delete(`/tasks/${id}`)
 }
+
+export type Grade = "bien" | "mal" | "muy_mal"
+
+export interface ReviewSignals {
+  tasks_total: number
+  tasks_completed: number
+  tasks_overdue: number
+  completion_pct: number
+  kpis: { label: string; value: number | null; target: number | null; unit: string | null; on_track: boolean | null }[]
+}
+
+export interface Proposal {
+  id: string
+  type: "carry_over_task" | "new_objective" | "new_task"
+  applied: boolean
+  reason?: string
+  task_id?: string
+  title?: string
+  description?: string | null
+  kpi_refs?: string[]
+  objective_id?: string
+  owner?: string | null
+  priority?: TaskPriority
+  kpi_ref?: string | null
+}
+
+export interface MonthReview {
+  grade: Grade
+  closed_at?: string
+  summary: string
+  by_agent: Record<string, string>
+  signals: ReviewSignals
+  proposals: Proposal[]
+}
+
+export async function closeMonth(monthIndex: number, kpis: Record<string, number>) {
+  const r = await api.post<{ month_index: number; active_month_index: number; grade: Grade }>(
+    `/annual-plan/months/${monthIndex}/close`, { kpis },
+  )
+  return r.data
+}
+
+export async function applyProposal(monthIndex: number, proposalId: string): Promise<MonthReview> {
+  const r = await api.post<MonthReview>(
+    `/annual-plan/months/${monthIndex}/apply-proposal`, { proposal_id: proposalId },
+  )
+  return r.data
+}
