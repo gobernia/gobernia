@@ -9,10 +9,12 @@ import DiagnosticoPanel from "@/components/plan/DiagnosticoPanel"
 import MonthTimeline from "@/components/plan/MonthTimeline"
 import MonthDetail from "@/components/plan/MonthDetail"
 import TaskDrawer from "@/components/plan/TaskDrawer"
+import CloseMonthModal from "@/components/plan/CloseMonthModal"
 import {
   getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
   createObjective, updateObjective, deleteObjective,
   createTask, updateTask, deleteTask,
+  closeMonth, applyProposal,
   type AnnualPlan, type Task,
 } from "@/lib/annualPlan"
 
@@ -27,6 +29,8 @@ export default function AnnualPlanPage() {
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(1)
   const [openTask, setOpenTask] = useState<Task | null>(null)
+  const [closingMonthId, setClosingMonthId] = useState<string | null>(null)
+  const [closeRunning, setCloseRunning] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPolling = useCallback(() => {
@@ -153,6 +157,33 @@ export default function AnnualPlanPage() {
     } catch { loadPlan().catch(() => setView("error")) }
   }
 
+  const onCloseMonth = (monthlyPlanId: string) => setClosingMonthId(monthlyPlanId)
+
+  const onSubmitClose = async (kpis: Record<string, number>) => {
+    const m = plan?.months.find(mm => mm.id === closingMonthId)
+    if (!m) return
+    setCloseRunning(true)
+    try {
+      const res = await closeMonth(m.month_index, kpis)
+      await loadPlan()
+      setSelectedMonth(res.active_month_index)
+    } catch {
+      loadPlan().catch(() => setView("error"))
+    } finally {
+      setCloseRunning(false)
+      setClosingMonthId(null)
+    }
+  }
+
+  const onApplyProposal = async (monthIndex: number, proposalId: string) => {
+    try {
+      await applyProposal(monthIndex, proposalId)
+      await loadPlan()
+    } catch {
+      loadPlan().catch(() => setView("error"))
+    }
+  }
+
   // ── Render por estado ──────────────────────────────────
   if (view === "loading") {
     return <div className="min-h-dvh bg-white flex items-center justify-center">
@@ -234,6 +265,8 @@ export default function AnnualPlanPage() {
               onRenameObjective={onRenameObjective}
               onDeleteObjective={onDeleteObjective}
               onAddObjective={onAddObjective}
+              onCloseMonth={onCloseMonth}
+              onApplyProposal={onApplyProposal}
             />
           )}
         </div>
@@ -248,6 +281,18 @@ export default function AnnualPlanPage() {
           onDelete={() => onDeleteTask(openTask.id)}
         />
       )}
+
+      {closingMonthId && (() => {
+        const m = plan?.months.find(mm => mm.id === closingMonthId)
+        return m ? (
+          <CloseMonthModal
+            month={m}
+            running={closeRunning}
+            onClose={() => setClosingMonthId(null)}
+            onSubmit={onSubmitClose}
+          />
+        ) : null
+      })()}
     </div>
   )
 }

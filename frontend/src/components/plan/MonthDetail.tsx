@@ -1,13 +1,15 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Plus } from "lucide-react"
-import type { MonthlyPlan, Task } from "@/lib/annualPlan"
+import { Plus, CheckCircle2 } from "lucide-react"
+import type { MonthlyPlan, Task, MonthReview } from "@/lib/annualPlan"
 import { MONTH_NAMES } from "@/lib/annualPlan"
 import ObjectiveCard from "./ObjectiveCard"
+import MonthReviewPanel from "./MonthReviewPanel"
 
 export default function MonthDetail({
   month, onTaskClick, onAddTask, onRenameObjective, onDeleteObjective, onAddObjective,
+  onCloseMonth, onApplyProposal,
 }: {
   month: MonthlyPlan
   onTaskClick: (t: Task) => void
@@ -15,6 +17,8 @@ export default function MonthDetail({
   onRenameObjective: (objectiveId: string, title: string) => void
   onDeleteObjective: (objectiveId: string) => void
   onAddObjective: (monthlyPlanId: string) => void
+  onCloseMonth: (monthlyPlanId: string) => void
+  onApplyProposal: (monthIndex: number, proposalId: string) => void
 }) {
   return (
     <motion.div
@@ -31,6 +35,13 @@ export default function MonthDetail({
         {month.focus && <h2 className="text-xl font-bold text-black mt-1">{month.focus}</h2>}
       </div>
 
+      {month.status === "done" && month.review && (
+        <MonthReviewPanel
+          review={month.review as unknown as MonthReview}
+          onApply={pid => onApplyProposal(month.month_index, pid)}
+        />
+      )}
+
       {month.objectives.length === 0 ? (
         <p className="text-sm text-gray-400 italic">Este mes aún no tiene objetivos.</p>
       ) : (
@@ -46,6 +57,15 @@ export default function MonthDetail({
             />
           ))}
         </div>
+      )}
+
+      {month.status === "active" && (
+        <button
+          onClick={() => onCloseMonth(month.id)}
+          className="w-full flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium rounded-xl py-3 hover:bg-[var(--gob-ink)] transition-colors"
+        >
+          <CheckCircle2 className="h-4 w-4" /> Cerrar mes y revisar
+        </button>
       )}
 
       <button

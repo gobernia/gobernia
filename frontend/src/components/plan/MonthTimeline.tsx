@@ -33,9 +33,13 @@ export default function MonthTimeline({
               {isActive && !isSelected && (
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--gob-navy)]" />
               )}
-              {isDone && !isSelected && (
-                <span className="text-[9px] text-gray-300">✓</span>
-              )}
+              {isDone && !isSelected && (() => {
+                const grade = (m.review as { grade?: string } | null)?.grade
+                const dot = grade === "bien" ? "bg-emerald-500"
+                  : grade === "mal" ? "bg-amber-500"
+                  : grade === "muy_mal" ? "bg-red-500" : "bg-gray-300"
+                return <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+              })()}
             </div>
             <p className={`text-sm font-bold mt-0.5 ${isSelected ? "" : "text-black"}`}>
               {MONTH_NAMES[m.period_month]}
