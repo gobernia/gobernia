@@ -6,7 +6,10 @@ Revisión de fin de mes (subproyecto E).
 - parse_review: normaliza la respuesta del LLM.
 - run_month_review: una llamada estructurada al "consejo" (4 agentes + Challenger).
 """
+import json
 from datetime import date
+
+import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object
@@ -131,3 +134,62 @@ def parse_review(raw: str, fallback_grade: str) -> dict:
         "by_agent": {str(k): str(v) for k, v in by_agent.items()},
         "proposals": proposals,
     }
+
+
+REVIEW_SYSTEM_PROMPT = """Eres el consejo de administración de Gobernia revisando el cierre de un mes
+del plan estratégico. Lo integran CFO, CSO, CRO y Auditor, y un Challenger que cuestiona.
+
+Con base en las SEÑALES del mes (cumplimiento de tareas y avance de KPIs) y el contexto de la
+empresa, emite un veredicto honesto y accionable. El Challenger te obliga a no ser complaciente:
+si el avance es pobre, dilo claro.
+
+Reglas:
+1. "grade": "bien" si el mes va sólido, "mal" si hay desviaciones importantes, "muy_mal" si el
+   avance es crítico. Sé congruente con las señales (un completion_pct bajo no puede ser "bien").
+2. "summary": 2-4 oraciones dirigidas al dueño, claras y directas ("vas bien/mal/muy mal" + por qué).
+3. "by_agent": una línea breve por agente (CFO, CSO, CRO, Auditor) con su lectura del mes.
+4. "proposals": ajustes CONCRETOS al mes SIGUIENTE. Tipos válidos:
+   - {"type":"carry_over_task","task_id":"<id>","reason":"..."} para arrastrar una tarea incompleta.
+   - {"type":"new_objective","title":"...","description":"...","kpi_refs":["..."],"reason":"..."}.
+   - {"type":"new_task","objective_id":"<id de un objetivo del mes siguiente>","title":"...",
+      "owner":"...","priority":"alta|media|baja","kpi_ref":"...","reason":"..."}.
+   Propón entre 1 y 5 cambios, los más importantes. No inventes ids de tareas que no estén en la lista."""
+
+REVIEW_SCHEMA = """{
+  "grade": "bien|mal|muy_mal",
+  "summary": "string",
+  "by_agent": {"CFO": "string", "CSO": "string", "CRO": "string", "Auditor": "string"},
+  "proposals": [{"type": "carry_over_task|new_objective|new_task", "...": "..."}]
+}"""
+
+
+def run_month_review(signals: dict, month_focus, objectives: list[dict],
+                     memory_buffer: dict, period_label: str,
+                     incomplete_task_ids: list[str]) -> dict:
+    """Una llamada estructurada al consejo. Sin API key → review determinista."""
+    if not settings.ANTHROPIC_API_KEY:
+        return deterministic_review(signals, incomplete_task_ids)
+
+    fallback_grade = deterministic_review(signals, incomplete_task_ids)["grade"]
+
+    from app.services.ai.agents.base import _build_company_context
+    company_ctx = _build_company_context(memory_buffer)
+    obj_lines = "\n".join(f"  - {o.get('title','')}" for o in objectives) or "  (sin objetivos)"
+    incomplete = ", ".join(incomplete_task_ids) or "ninguna"
+
+    user_prompt = (
+        f"EMPRESA:\n{company_ctx}\n\n"
+        f"MES: {period_label} | Foco: {month_focus or 'N/D'}\n"
+        f"OBJETIVOS DEL MES:\n{obj_lines}\n\n"
+        f"SEÑALES DEL MES:\n{json.dumps(signals, ensure_ascii=False, indent=2)}\n"
+        f"IDs de tareas incompletas (para carry_over_task): {incomplete}\n\n"
+        "Emite el veredicto del consejo. Responde ÚNICAMENTE con JSON válido:\n"
+        f"{REVIEW_SCHEMA}"
+    )
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    response = _create_with_retry(
+        client, model=settings.AI_MODEL, max_tokens=2048,
+        system=REVIEW_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return parse_review(response.content[0].text, fallback_grade=fallback_grade)

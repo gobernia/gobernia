@@ -91,3 +91,38 @@ def test_parse_review_garbage_uses_fallback():
     out = parse_review("no json", fallback_grade="muy_mal")
     assert out["grade"] == "muy_mal"
     assert out["proposals"] == []
+
+
+import app.services.ai.month_review as mr
+
+
+class _Resp:
+    def __init__(self, text): self.content = [type("B", (), {"text": text})()]
+
+
+def test_run_month_review_sin_apikey_usa_determinista(monkeypatch):
+    monkeypatch.setattr(mr.settings, "ANTHROPIC_API_KEY", "", raising=False)
+    out = mr.run_month_review(
+        signals={"completion_pct": 90, "tasks_total": 2, "tasks_completed": 2,
+                 "tasks_overdue": 0, "kpis": []},
+        month_focus="Liquidez", objectives=[], memory_buffer={"company": {}},
+        period_label="Mayo 2026", incomplete_task_ids=[],
+    )
+    assert out["grade"] == "bien"
+
+
+def test_run_month_review_con_apikey_parsea(monkeypatch):
+    monkeypatch.setattr(mr.settings, "ANTHROPIC_API_KEY", "sk-test", raising=False)
+    raw = '{"grade":"mal","summary":"Vas regular","by_agent":{"CFO":"cuida la caja"},"proposals":[{"type":"carry_over_task","task_id":"t1"}]}'
+    monkeypatch.setattr(mr, "_create_with_retry", lambda *a, **k: _Resp(raw))
+    monkeypatch.setattr(mr.anthropic, "Anthropic", lambda **k: object())
+    out = mr.run_month_review(
+        signals={"completion_pct": 55, "tasks_total": 4, "tasks_completed": 2,
+                 "tasks_overdue": 1, "kpis": []},
+        month_focus="Liquidez", objectives=[{"title": "Mejorar caja"}],
+        memory_buffer={"company": {"name": "Demo"}}, period_label="Mayo 2026",
+        incomplete_task_ids=["t1"],
+    )
+    assert out["grade"] == "mal"
+    assert out["summary"] == "Vas regular"
+    assert out["proposals"][0]["type"] == "carry_over_task"
