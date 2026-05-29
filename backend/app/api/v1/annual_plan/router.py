@@ -13,6 +13,7 @@ Plan estratégico de 12 meses — API REST.
 import uuid
 from datetime import date, datetime
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,9 +25,12 @@ from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
 from app.schemas.annual_plan import (
     AnnualPlanOut, AnnualPlanStatusOut, AnnualTaskCreate, MonthlyPlanOut,
     ObjectiveCreate, ObjectiveOut, ObjectiveUpdate,
+    CloseMonthRequest, ApplyProposalRequest,
 )
 from app.schemas.action_plan import ActionTaskOut
 from app.services.ai.annual_plan_generator import compute_active_month_index
+from app.services.ai.month_review import compute_signals, run_month_review
+from app.services.ai.agents.base import _MONTH_NAMES
 
 router = APIRouter()
 
@@ -285,3 +289,168 @@ async def create_task(
     await db.commit()
     await db.refresh(task)
     return _task_out(task)
+
+
+# ── Cierre de mes / revisión ──────────────────────────────────────────────────
+
+async def _load_owned_month(month_index: int, user_id: str, db: AsyncSession) -> MonthlyPlan | None:
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        return None
+    res = await db.execute(
+        select(MonthlyPlan)
+        .where(MonthlyPlan.annual_plan_id == plan.id, MonthlyPlan.month_index == month_index)
+        .options(selectinload(MonthlyPlan.objectives))
+    )
+    return res.scalar_one_or_none()
+
+
+async def _get_or_create_carryover_objective(monthly_plan_id: uuid.UUID, db: AsyncSession) -> Objective:
+    res = await db.execute(
+        select(Objective).where(
+            Objective.monthly_plan_id == monthly_plan_id,
+            Objective.title == "Tareas arrastradas",
+        )
+    )
+    obj = res.scalar_one_or_none()
+    if obj is None:
+        obj = Objective(monthly_plan_id=monthly_plan_id, title="Tareas arrastradas",
+                        kpi_refs=[], order_index=99)
+        db.add(obj)
+        await db.flush()
+    return obj
+
+
+async def _run_close(month: MonthlyPlan, kpis: dict, user_id: str) -> dict:
+    """
+    Corre la revisión y persiste en sesiones nuevas (patrón /analyse: los agentes
+    corren fuera de la conexión de la request). Devuelve {month_index, active_month_index, grade}.
+    """
+    from app.db.session import AsyncSessionLocal
+    from sqlalchemy.orm.attributes import flag_modified
+    from app.models.onboarding_session import OnboardingSession
+
+    today = date.today()
+    obj_ids = [o.id for o in month.objectives]
+    month_id = month.id
+    month_index = month.month_index
+    annual_plan_id = month.annual_plan_id
+    focus = month.focus
+    period_label = f"{_MONTH_NAMES[month.period_month]} {month.period_year}"
+    objectives = [{"title": o.title} for o in month.objectives]
+
+    async with AsyncSessionLocal() as db:
+        tasks = []
+        if obj_ids:
+            res = await db.execute(select(ActionTask).where(ActionTask.objective_id.in_(obj_ids)))
+            tasks = list(res.scalars().all())
+        onb = await db.execute(
+            select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+            .order_by(OnboardingSession.created_at.desc()).limit(1)
+        )
+        onboarding = onb.scalar_one_or_none()
+        memory_buffer = (onboarding.memory_buffer if onboarding else {}) or {}
+        incomplete_ids = [str(t.id) for t in tasks if t.status != "completada"]
+        signals = compute_signals(tasks, kpis, memory_buffer, today)
+
+    review = await anyio.to_thread.run_sync(
+        lambda: run_month_review(
+            signals=signals, month_focus=focus, objectives=objectives,
+            memory_buffer=memory_buffer, period_label=period_label,
+            incomplete_task_ids=incomplete_ids,
+        )
+    )
+    review["closed_at"] = today.isoformat()
+    review["signals"] = signals
+    for p in review["proposals"]:
+        p["id"] = str(uuid.uuid4())
+        p["applied"] = False
+
+    async with AsyncSessionLocal() as db:
+        m = await db.get(MonthlyPlan, month_id)
+        m.review = review
+        m.status = "done"
+        flag_modified(m, "review")
+        nxt = await db.execute(
+            select(MonthlyPlan).where(
+                MonthlyPlan.annual_plan_id == annual_plan_id,
+                MonthlyPlan.month_index == month_index + 1,
+            )
+        )
+        nxt_m = nxt.scalar_one_or_none()
+        if nxt_m is not None and nxt_m.status == "locked":
+            nxt_m.status = "active"
+        await db.commit()
+
+    active_idx = month_index + 1 if month_index < 12 else month_index
+    return {"month_index": month_index, "active_month_index": active_idx, "grade": review["grade"]}
+
+
+@router.post("/annual-plan/months/{month_index}/close")
+async def close_month(
+    month_index: int,
+    body: CloseMonthRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    month = await _load_owned_month(month_index, user_id, db)
+    if month is None:
+        raise HTTPException(status_code=404, detail="Mes no encontrado.")
+    if month.status != "active":
+        raise HTTPException(status_code=409, detail="Solo puedes cerrar el mes activo.")
+    return await _run_close(month, body.kpis, user_id)
+
+
+@router.post("/annual-plan/months/{month_index}/apply-proposal")
+async def apply_proposal(
+    month_index: int,
+    body: ApplyProposalRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    month = await _load_owned_month(month_index, user_id, db)
+    if month is None or not month.review:
+        raise HTTPException(status_code=404, detail="Mes o revisión no encontrada.")
+
+    review = dict(month.review)
+    proposals = review.get("proposals", [])
+    prop = next((p for p in proposals if p.get("id") == body.proposal_id), None)
+    if prop is None:
+        raise HTTPException(status_code=404, detail="Propuesta no encontrada.")
+    if prop.get("applied"):
+        return review
+
+    nxt_res = await db.execute(
+        select(MonthlyPlan).where(
+            MonthlyPlan.annual_plan_id == month.annual_plan_id,
+            MonthlyPlan.month_index == month.month_index + 1,
+        )
+    )
+    nxt = nxt_res.scalar_one_or_none()
+    if nxt is None:
+        raise HTTPException(status_code=409, detail="No hay mes siguiente para aplicar la propuesta.")
+
+    t = prop["type"]
+    if t == "carry_over_task":
+        carry = await _get_or_create_carryover_objective(nxt.id, db)
+        task = (await db.execute(
+            select(ActionTask).where(ActionTask.id == uuid.UUID(prop["task_id"]))
+        )).scalar_one_or_none()
+        if task is not None:
+            task.objective_id = carry.id
+    elif t == "new_objective":
+        db.add(Objective(monthly_plan_id=nxt.id, title=prop["title"],
+                         description=prop.get("description"), kpi_refs=prop.get("kpi_refs", [])))
+    elif t == "new_task":
+        db.add(ActionTask(objective_id=uuid.UUID(prop["objective_id"]), title=prop["title"],
+                          status="pendiente", priority=prop.get("priority", "media"),
+                          owner=prop.get("owner"), kpi_ref=prop.get("kpi_ref"),
+                          tags=[], order_index=0))
+
+    prop["applied"] = True
+    month.review = review
+    flag_modified(month, "review")
+    await db.flush()
+    await db.commit()
+    return review
