@@ -186,6 +186,28 @@ async def test_list_board_sessions_ok():
 
 # ── POST /board-sessions/{id}/analyse ────────────────────────────────────────
 
+class _FakePersistSession:
+    """
+    Sesión falsa para el bloque de persistencia de /analyse, que abre su propia
+    AsyncSessionLocal() (separada de la inyectada por get_db) para guardar los
+    análisis tras liberar la conexión durante las llamadas a Claude.
+    """
+    def __init__(self, refreshed):
+        self._refreshed = refreshed
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def get(self, model, _id):
+        return self._refreshed
+
+    async def commit(self):
+        return None
+
+
 @pytest.mark.asyncio
 async def test_analyse_sin_api_key_devuelve_placeholder():
     onboarding = _mock_onboarding()
@@ -215,7 +237,13 @@ async def test_analyse_sin_api_key_devuelve_placeholder():
     app.dependency_overrides[get_db] = override
     app.dependency_overrides[get_current_user_id] = _user_override
 
-    with patch("app.services.ai.agents.base.settings") as mock_s:
+    # El endpoint reabre una AsyncSessionLocal() propia para persistir; la mockeamos
+    # con una BoardSession transitoria para no golpear la DB real ni dar 404 al persistir.
+    from app.models.board_session import BoardSession
+    refreshed = BoardSession()
+
+    with patch("app.services.ai.agents.base.settings") as mock_s, \
+         patch("app.db.session.AsyncSessionLocal", lambda: _FakePersistSession(refreshed)):
         mock_s.ANTHROPIC_API_KEY = ""
         try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
