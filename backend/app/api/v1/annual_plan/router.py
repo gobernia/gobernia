@@ -443,7 +443,20 @@ async def apply_proposal(
         db.add(Objective(monthly_plan_id=nxt.id, title=prop["title"],
                          description=prop.get("description"), kpi_refs=prop.get("kpi_refs", [])))
     elif t == "new_task":
-        db.add(ActionTask(objective_id=uuid.UUID(prop["objective_id"]), title=prop["title"],
+        # El objetivo destino debe existir y pertenecer al mes siguiente (evita FK 500
+        # si se aplica la tarea antes que su objetivo, o con un id inventado por el LLM).
+        target_obj = (await db.execute(
+            select(Objective).where(
+                Objective.id == uuid.UUID(prop["objective_id"]),
+                Objective.monthly_plan_id == nxt.id,
+            )
+        )).scalar_one_or_none()
+        if target_obj is None:
+            raise HTTPException(
+                status_code=409,
+                detail="El objetivo destino no existe en el mes siguiente. Aplica primero el objetivo propuesto.",
+            )
+        db.add(ActionTask(objective_id=target_obj.id, title=prop["title"],
                           status="pendiente", priority=prop.get("priority", "media"),
                           owner=prop.get("owner"), kpi_ref=prop.get("kpi_ref"),
                           tags=[], order_index=0))
