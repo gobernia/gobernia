@@ -66,3 +66,16 @@ class AnnualTaskCreate(BaseModel):
     due_date:     date | None = None
     kpi_ref:      str | None = None
     tags:         list[str] = Field(default_factory=list)
+
+
+class CloseMonthRequest(BaseModel):
+    kpis: dict[str, float] = Field(default_factory=dict)
+
+
+class ApplyProposalRequest(BaseModel):
+    proposal_id: str
+
+
+class CloseMonthResponse(BaseModel):
+    month:              MonthlyPlanOut
+    active_month_index: int
