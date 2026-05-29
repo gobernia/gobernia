@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { X, Trash2, User, Calendar, Tag, Target } from "lucide-react"
 import type { Task, TaskStatus, TaskPriority } from "@/lib/annualPlan"
+import InfoHint from "@/components/ui/InfoHint"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -30,6 +31,7 @@ export default function TaskDrawer({
   onDelete: () => void
 }) {
   const [local, setLocal] = useState<Task>(task)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setLocal(task), [task])
 
   const save = (patch: Partial<Task>) => {
@@ -87,7 +89,7 @@ export default function TaskDrawer({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Prioridad</label>
+            <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Prioridad <InfoHint text="Qué tan importante o urgente es la tarea: alta, media o baja." /></label>
             <div className="flex gap-1.5">
               {PRIORITIES.map(p => (
                 <button
@@ -144,7 +146,7 @@ export default function TaskDrawer({
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase flex items-center gap-1.5">
-              <Target className="h-3 w-3" /> Impacto KPI
+              <Target className="h-3 w-3" /> Impacto KPI <InfoHint text="El indicador clave (KPI) al que ayuda esta tarea cuando se completa." />
             </label>
             <select
               value={local.kpi_ref ?? ""}

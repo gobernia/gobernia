@@ -2,6 +2,7 @@
 
 import type { MonthReview, Proposal, Grade } from "@/lib/annualPlan"
 import { Check, ArrowRight } from "lucide-react"
+import InfoHint from "@/components/ui/InfoHint"
 
 const GRADE_STYLE: Record<Grade, { label: string; cls: string }> = {
   bien:    { label: "Vas bien",     cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -24,8 +25,11 @@ export default function MonthReviewPanel({
   const g = GRADE_STYLE[review.grade]
   return (
     <div className="space-y-4">
-      <div className={`inline-flex items-center px-3 py-1.5 rounded-lg border text-sm font-bold ${g.cls}`}>
-        {g.label}
+      <div className="flex items-center gap-2">
+        <div className={`inline-flex items-center px-3 py-1.5 rounded-lg border text-sm font-bold ${g.cls}`}>
+          {g.label}
+        </div>
+        <InfoHint text="El veredicto del consejo sobre tu mes, según el cumplimiento de tareas y el avance de tus KPIs." />
       </div>
       <p className="text-sm text-gray-600 leading-relaxed">{review.summary}</p>
 
@@ -46,7 +50,7 @@ export default function MonthReviewPanel({
 
       {review.proposals.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Propuestas para el mes siguiente</p>
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Propuestas para el mes siguiente <InfoHint text="Cambios que el consejo sugiere para el mes siguiente; tú eliges cuáles aplicar." /></p>
           {review.proposals.map(p => (
             <div key={p.id} className="flex items-center gap-3 border border-gray-100 rounded-xl px-3 py-2.5">
               <div className="flex-1">
