@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.action_plan import ActionPlan, ActionTask
+from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
 from app.models.board_session import BoardSession
 from app.models.onboarding_session import OnboardingSession
 from app.schemas.action_plan import (
@@ -290,16 +291,37 @@ async def delete_task(
 async def _get_user_task_or_404(
     task_id: uuid.UUID, user_id: str, db: AsyncSession,
 ) -> ActionTask:
-    """Carga una tarea verificando que el plan pertenezca al user_id."""
-    result = await db.execute(
-        select(ActionTask, ActionPlan)
-        .join(ActionPlan, ActionTask.plan_id == ActionPlan.id)
-        .where(ActionTask.id == task_id, ActionPlan.user_id == user_id)
-    )
-    row = result.first()
-    if not row:
+    """
+    Carga una tarea verificando propiedad por CUALQUIERA de los dos caminos:
+    - legacy: plan_id → ActionPlan.user_id
+    - plan anual: objective_id → MonthlyPlan → AnnualPlan.user_id
+    """
+    result = await db.execute(select(ActionTask).where(ActionTask.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
-    return row[0]
+
+    if task.plan_id is not None:
+        owner = await db.execute(
+            select(ActionPlan.id).where(
+                ActionPlan.id == task.plan_id, ActionPlan.user_id == user_id,
+            )
+        )
+        if owner.scalar_one_or_none() is not None:
+            return task
+
+    if task.objective_id is not None:
+        owner = await db.execute(
+            select(AnnualPlan.id)
+            .select_from(Objective)
+            .join(MonthlyPlan, Objective.monthly_plan_id == MonthlyPlan.id)
+            .join(AnnualPlan, MonthlyPlan.annual_plan_id == AnnualPlan.id)
+            .where(Objective.id == task.objective_id, AnnualPlan.user_id == user_id)
+        )
+        if owner.scalar_one_or_none() is not None:
+            return task
+
+    raise HTTPException(status_code=404, detail="Tarea no encontrada")
 
 
 def _parse_iso_date(value):
