@@ -139,3 +139,55 @@ async def test_etapa8_encola_generacion(monkeypatch):
 
     assert r.status_code == 200
     assert "pid" in called      # se encoló la generación
+
+
+@pytest.mark.asyncio
+async def test_etapa8_no_rompe_si_cola_caida(monkeypatch):
+    """Si encolar la generación falla (Redis/Celery caído), el onboarding se completa igual (200)."""
+    import app.tasks.annual_plan_tasks as orch
+
+    def _boom(pid):
+        raise RuntimeError("broker unavailable")
+    monkeypatch.setattr(orch.generate_annual_plan_task, "delay", _boom)
+
+    onboarding = MagicMock()
+    onboarding.id = uuid.uuid4()
+    onboarding.user_id = MOCK_USER_ID
+    onboarding.completed_stages = [1, 2, 3, 4, 5, 6, 7]
+    onboarding.memory_buffer = {"company": {"industry": "manufacturing"},
+                                "ai_context": {"company_narrative": "Demo"}}
+
+    def _make_result(val):
+        r = MagicMock(); r.scalar_one_or_none.return_value = val; return r
+
+    async def override_db():
+        db = AsyncMock()
+        seq = [_make_result(onboarding), _make_result(None)]
+        db.execute = AsyncMock(side_effect=lambda *a, **k: seq.pop(0) if seq else _make_result(None))
+        db.flush = AsyncMock(); db.commit = AsyncMock(); db.rollback = AsyncMock()
+        db.add = MagicMock()
+        yield db
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user_id] = _user_override
+    body = {
+        "vision_statement": "Ser referente de gobierno corporativo en México en 5 años.",
+        "main_goals": ["Duplicar ingresos", "Internacionalizar", "Consolidar gobierno"],
+        "board_expectations": {"session_frequency": "monthly",
+                               "priority_topics": ["Finanzas"], "success_definition": "KPIs y score >80."},
+        "agent_configs": [
+            {"agent": "CFO", "tone": "formal", "alert_sensitivity": "high"},
+            {"agent": "CSO", "tone": "strategic", "alert_sensitivity": "medium"},
+            {"agent": "CRO", "tone": "direct", "alert_sensitivity": "high"},
+            {"agent": "Auditor", "tone": "collaborative", "alert_sensitivity": "medium"},
+        ],
+    }
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.post(f"/api/v1/onboarding/{onboarding.id}/etapa-8", json=body)
+    finally:
+        app.dependency_overrides.clear()
+
+    # El onboarding se completa pese al fallo de la cola (best-effort, no rompe).
+    assert r.status_code == 200
+    assert 8 in r.json()["completed_stages"]
