@@ -7,12 +7,12 @@ import "./globals.css"
 // Una sola familia para todo el sistema — la jerarquía se construye con pesos.
 
 export const metadata: Metadata = {
-  title: "GOBERNIA — Sesión de consejo cada mes, con cuatro agentes de IA",
+  title: "GOBERNIA — La evolución del Consejo de Administración",
   description:
-    "Tu consejo de administración impulsado por IA. CFO, CSO, CRO y Auditor revisan tu empresa, detectan riesgos y proponen decisiones cada mes. Sin contratar consultores.",
+    "Cinco consejeros con IA sesionan sobre tu empresa cada mes: detectan riesgos y proponen decisiones accionables. Las mejores prácticas corporativas, por una fracción del costo — sin contratar consultores.",
   keywords: [
     "consejo de administración con IA",
-    "agentes de IA para empresas",
+    "consejeros con IA para empresas",
     "junta directiva virtual",
     "consejeros corporativos",
     "CFO IA",
@@ -20,9 +20,9 @@ export const metadata: Metadata = {
     "Gobernia",
   ],
   openGraph: {
-    title: "GOBERNIA — Sesión de consejo cada mes, con cuatro agentes de IA",
+    title: "GOBERNIA — La evolución del Consejo de Administración",
     description:
-      "CFO, CSO, CRO y Auditor de IA analizan tu empresa cada mes, detectan riesgos y proponen decisiones. Sin consultores, sin esperas.",
+      "Cinco consejeros con IA analizan tu empresa cada mes, detectan riesgos y proponen decisiones. Sin consultores, sin esperas.",
     type: "website",
     locale: "es_MX",
     siteName: "GOBERNIA",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "GOBERNIA — Tu consejo de administración con IA",
     description:
-      "Cuatro agentes de IA — CFO, CSO, CRO y Auditor — revisan tu empresa cada mes.",
+      "Cinco consejeros con IA sesionan sobre tu empresa cada mes.",
   },
 }
 

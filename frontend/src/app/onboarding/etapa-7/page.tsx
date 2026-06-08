@@ -103,7 +103,7 @@ export default function Etapa7Page() {
             Sube documentos de tu empresa
           </h1>
           <p className="text-sm text-muted-foreground">
-            Tus agentes los analizarán para enriquecer el diagnóstico. PDF, Excel, Word o imagen. Máx 10 MB por archivo.
+            Tus consejeros con IA los analizarán para enriquecer el diagnóstico. PDF, Excel, Word o imagen. Máx 10 MB por archivo.
           </p>
         </div>
 

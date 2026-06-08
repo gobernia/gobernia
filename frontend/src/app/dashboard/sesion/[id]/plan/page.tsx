@@ -350,7 +350,7 @@ function TaskEditor({
 
           {local.source_agent && (
             <div className="border-t border-gray-100 pt-4 text-[11px] text-gray-400">
-              Tarea generada por el agente <span className="font-medium text-gray-600">{local.source_agent}</span>
+              Tarea generada por el consejero <span className="font-medium text-gray-600">{local.source_agent}</span>
             </div>
           )}
 
@@ -596,7 +596,7 @@ export default function PlanPage() {
               <div className="space-y-2 max-w-md">
                 <p className="text-base font-medium text-black">Genera el plan a partir del análisis</p>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Convertiremos los hallazgos y recomendaciones de los 4 agentes en tareas
+                  Convertiremos los hallazgos y recomendaciones de los cinco consejeros en tareas
                   con responsable, prioridad y plazo. Después puedes editarlas, moverlas
                   entre columnas o agregar más manualmente.
                 </p>

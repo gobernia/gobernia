@@ -198,7 +198,7 @@ export default function AnnualPlanPage() {
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Construyendo tu plan</p>
           <h1 className="text-2xl font-bold text-black">Tu consejo está diseñando los 12 meses</h1>
         </div>
-        <AgentsCollaboration caption="Los agentes analizan tu empresa, el Challenger aplica pre-mortem, y con eso se arma tu plan estratégico anual. Esto puede tardar un par de minutos." />
+        <AgentsCollaboration caption="Tus consejeros con IA analizan tu empresa, el Retador aplica pre-mortem, y con eso se arma tu plan estratégico anual. Esto puede tardar un par de minutos." />
       </div>
     )
   }

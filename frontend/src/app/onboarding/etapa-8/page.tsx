@@ -327,13 +327,13 @@ export default function Etapa8Page() {
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-primary mb-3">
                 <Bot className="h-5 w-5" />
-                <span className="text-sm font-medium">Tus agentes de IA</span>
+                <span className="text-sm font-medium">Tus consejeros con IA</span>
               </div>
               <h1 className="text-2xl font-bold text-foreground leading-tight">
                 Configura cómo quieres que se comuniquen
               </h1>
               <p className="text-sm text-muted-foreground">
-                Personaliza el tono y sensibilidad de cada agente.
+                Personaliza el tono y sensibilidad de cada consejero.
               </p>
             </div>
 
@@ -347,7 +347,7 @@ export default function Etapa8Page() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tono <InfoHint text="El estilo con que te hablan los agentes: formal, directo, estratégico o colaborativo." /></p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tono <InfoHint text="El estilo con que te hablan tus consejeros: formal, directo, estratégico o colaborativo." /></p>
                     <div className="grid grid-cols-2 gap-1.5">
                       {TONES.map(t => (
                         <motion.button
@@ -370,7 +370,7 @@ export default function Etapa8Page() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sensibilidad de alertas <InfoHint text="Qué tan fácil saltan las alertas de los agentes: alta = te avisan ante cualquier señal; baja = solo lo crítico." /></p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sensibilidad de alertas <InfoHint text="Qué tan fácil saltan las alertas de tus consejeros: alta = te avisan ante cualquier señal; baja = solo lo crítico." /></p>
                     <div className="grid grid-cols-3 gap-1.5">
                       {SENSITIVITIES.map(s => (
                         <motion.button

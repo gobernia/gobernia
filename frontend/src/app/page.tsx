@@ -109,17 +109,18 @@ function Heavy({
 }
 
 // ── Data ──────────────────────────────────────────────────
-const AGENTS = [
-  { id: "CFO",     role: "Finanzas",   desc: "Rentabilidad, flujo de caja y estructura de capital. Detecta fugas y oportunidades antes de que el mes cierre." },
-  { id: "CSO",     role: "Estrategia", desc: "Posicionamiento, mercado y crecimiento. Propone iniciativas alineadas a tu visión de largo plazo." },
-  { id: "CRO",     role: "Riesgos",    desc: "Riesgos operativos, legales y de mercado. Planes de mitigación antes de que escalen." },
-  { id: "Auditor", role: "Gobierno",   desc: "Cumplimiento y control interno. Mide tu Governance Score y cierra brechas críticas." },
+const CONSEJEROS = [
+  { id: "CFO",     role: "Finanzas",   desc: "Tus números bajo la lupa: rentabilidad, flujo de caja y estructura de capital, antes de que el mes cierre." },
+  { id: "CSO",     role: "Estrategia", desc: "Define dónde ganar: posicionamiento, mercado y crecimiento alineados a tu visión de largo plazo." },
+  { id: "CRO",     role: "Riesgos",    desc: "Anticipa lo que viene: riesgos operativos, legales y de mercado, con planes de mitigación antes de que escalen." },
+  { id: "Auditor", role: "Auditoría",  desc: "Orden, control y cumplimiento: mide tu Governance Score y cierra brechas críticas." },
+  { id: "Retador", role: "Retador",    desc: "Cuestiona cada decisión: aplica un pre-mortem que expone supuestos débiles y riesgos ocultos antes de actuar." },
 ]
 
 const STEPS = [
-  { n: "01", title: "Configura tu empresa",  desc: "8 pasos conversacionales. Industria, equipo, prioridades, KPIs y expectativas. Menos de 15 minutos." },
-  { n: "02", title: "Tu consejo se activa",  desc: "Los cuatro agentes leen tu perfil y generan el primer diagnóstico completo: MEFI, MEFE y SWOT." },
-  { n: "03", title: "Sesiones cada mes",     desc: "Análisis actualizado cada periodo. Chatea con cualquier agente sobre cualquier decisión en tiempo real." },
+  { n: "01", title: "Configura tu empresa",  desc: "8 pasos conversacionales. Industria, equipo, prioridades, KPIs y expectativas. Menos de 30 minutos para conocerte bien." },
+  { n: "02", title: "Tu consejo se activa",  desc: "Los cinco consejeros con IA leen tu perfil, generan el primer diagnóstico completo y proponen un plan de acción." },
+  { n: "03", title: "Sesiones cada mes",     desc: "Análisis actualizado cada periodo. Chatea con cualquier consejero sobre cualquier decisión en tiempo real." },
 ]
 
 const FOR_WHO = [
@@ -131,10 +132,10 @@ const FOR_WHO = [
 const FAQS = [
   { q: "¿Gobernia reemplaza a mi consejo de administración?",  a: "No. Es un copiloto que complementa o prepara el camino hacia un consejo humano. Te da el rigor analítico que normalmente solo tienen las grandes corporaciones, mientras decides cuándo incorporar consejeros externos." },
   { q: "¿Qué tan segura está mi información?",                 a: "Toda la información está cifrada en tránsito y en reposo. Infraestructura en AWS vía Supabase. Tus datos nunca se usan para entrenar modelos ni se comparten con terceros." },
-  { q: "¿Necesito experiencia en consejeros corporativos?",       a: "Para nada. Gobernia está diseñado para directivos y dueños que quieren profesionalizar su toma de decisiones sin ser expertos. El onboarding es conversacional y guiado." },
+  { q: "¿Necesito experiencia en Consejos de Administración?",       a: "Para nada. Gobernia está diseñado para directivos y dueños que quieren profesionalizar su toma de decisiones sin ser expertos. El onboarding es conversacional y guiado." },
   { q: "¿Funciona para empresas familiares?",                  a: "Especialmente para ellas. Activa módulos de protocolo familiar, análisis de concentración de decisiones y planificación de sucesión cuando detecta que la empresa es familiar." },
-  { q: "¿Con qué frecuencia se actualiza el análisis?",        a: "Tú controlas la frecuencia: mensual, bimestral, trimestral o semestral. Además puedes chatear con los agentes en cualquier momento entre sesiones." },
-  { q: "¿Cuánto tiempo toma ver los primeros resultados?",     a: "El primer diagnóstico completo está disponible al terminar el onboarding. Entre 10 y 20 minutos desde que entras por primera vez." },
+  { q: "¿Con qué frecuencia se actualiza el análisis?",        a: "Tú controlas la frecuencia: mensual, bimestral, trimestral o semestral. Además puedes chatear con tus consejeros con IA en cualquier momento entre sesiones." },
+  { q: "¿Cuánto tiempo toma ver los primeros resultados?",     a: "El primer diagnóstico completo está disponible al terminar el onboarding. Menos de 30 minutos desde que entras por primera vez." },
 ]
 
 function FAQItem({ q, a }: { q: string; a: string }) {
@@ -291,17 +292,15 @@ export default function LandingPage() {
             }}
           >
             <motion.span variants={heroItem} className="block">
-              <span style={{ opacity: 0.4 }}>Sesión de </span>
-              <Heavy>consejo</Heavy>
+              <span style={{ opacity: 0.4 }}>La </span>
+              <Heavy>evolución</Heavy>
             </motion.span>
             <motion.span variants={heroItem} className="block">
-              <Heavy>cada mes,</Heavy>
-              <span style={{ opacity: 0.4 }}> con cuatro</span>
+              <span style={{ opacity: 0.4 }}>del </span>
+              <Heavy>Consejo de</Heavy>
             </motion.span>
             <motion.span variants={heroItem} className="block">
-              <Heavy>agentes</Heavy>
-              <span style={{ opacity: 0.4 }}> de </span>
-              <Heavy>IA.</Heavy>
+              <Heavy>Administración.</Heavy>
             </motion.span>
           </motion.h1>
 
@@ -337,9 +336,9 @@ export default function LandingPage() {
               className="text-sm text-[var(--gob-muted)] leading-relaxed sm:text-right"
               style={{ maxWidth: "32em" }}
             >
-              GOBERNIA es una plataforma de consejeros corporativos impulsada por IA.
-              CFO, CSO, CRO y Auditor analizan tu empresa cada mes y entregan
-              decisiones accionables — sin contratar consultores.
+              Cinco consejeros con IA sesionan sobre tu empresa cada mes. Las mejores
+              prácticas corporativas, por una fracción del costo — sin contratar
+              consultores.
             </p>
           </motion.div>
 
@@ -381,10 +380,10 @@ export default function LandingPage() {
       <section className="py-12 sm:py-16 3xl:py-24 px-[var(--px-fluid)]">
         <div className="w-full max-w-[var(--container-fluid)] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
           {[
-            { n: "4",    label: "Agentes especializados" },
+            { n: "5",    label: "Consejeros con IA" },
             { n: "8",    label: "Etapas de diagnóstico" },
             { n: "100%", label: "Cifrado y confidencial" },
-            { n: "15′",  label: "Para tu primer análisis" },
+            { n: "30′",  label: "Para tu primer diagnóstico" },
           ].map((s, i) => (
             <FadeUp key={s.label} delay={i * 0.08}>
               <p className="text-4xl font-bold text-[var(--gob-navy)] tracking-tight" style={{ letterSpacing: "-0.03em" }}>{s.n}</p>
@@ -401,7 +400,7 @@ export default function LandingPage() {
       <section id="producto" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
         <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
           <FadeUp>
-            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase mb-4">El equipo</p>
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase mb-4">Cinco consejeros</p>
             <ScrollReveal>
               <h2
                 className="font-light text-[var(--gob-ink)]"
@@ -411,16 +410,16 @@ export default function LandingPage() {
                   letterSpacing: "-0.03em",
                 }}
               >
-                <span style={{ opacity: 0.4 }}>Cuatro </span>
-                <Heavy range={[0.1, 0.45]}>expertos de IA</Heavy>
+                <span style={{ opacity: 0.4 }}>Cinco </span>
+                <Heavy range={[0.1, 0.45]}>consejeros con IA</Heavy>
                 <span style={{ opacity: 0.4 }}> en tu </span>
-                <Heavy range={[0.4, 0.8]}>mesa directiva.</Heavy>
+                <Heavy range={[0.4, 0.8]}>Sesión de Consejo.</Heavy>
               </h2>
             </ScrollReveal>
           </FadeUp>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {AGENTS.map((a, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+            {CONSEJEROS.map((a, i) => (
               <FadeUp key={a.id} delay={i * 0.09}>
                 <div className="h-full">
                   <span
@@ -606,7 +605,7 @@ export default function LandingPage() {
             </h2>
           </ScrollReveal>
           <p className="italic font-light text-xl text-[var(--gob-muted)] max-w-xl leading-relaxed">
-            Sin consultores. Sin contratos. Primer diagnóstico en menos de 15 minutos.
+            Cinco consejeros listos para sesionar sobre tu empresa. Sin consultores, cancela cuando quieras — primer diagnóstico en menos de 30 minutos.
           </p>
           <Link
             href="/sign-up"

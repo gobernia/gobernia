@@ -47,7 +47,7 @@ const SECTIONS = [
   { etapa: 5, icon: BarChart3,    title: "KPIs",        desc: "Indicadores clave y benchmarks" },
   { etapa: 6, icon: ShieldCheck,  title: "Gobierno",    desc: "Checklist de gobierno corporativo" },
   { etapa: 7, icon: FileText,     title: "Documentos",  desc: "Archivos cargados" },
-  { etapa: 8, icon: Compass,      title: "Visión",      desc: "Visión, metas y configuración de agentes" },
+  { etapa: 8, icon: Compass,      title: "Visión",      desc: "Visión, metas y configuración de consejeros" },
 ]
 
 export default function DatosPage() {
@@ -92,7 +92,7 @@ export default function DatosPage() {
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Configuración</p>
             <h1 className="text-3xl font-bold text-black tracking-tight">Mis datos</h1>
             <p className="text-sm text-gray-500 max-w-xl">
-              Información que usan los agentes para sus análisis. Edita cualquier sección
+              Información que usan tus consejeros con IA para sus análisis. Edita cualquier sección
               cuando tu empresa cambie — los nuevos datos se aplicarán a las próximas sesiones.
             </p>
           </motion.div>

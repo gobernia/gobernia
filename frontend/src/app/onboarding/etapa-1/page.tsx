@@ -538,7 +538,7 @@ export default function Etapa1Page() {
                 ¿Cuál es el rango de ingresos anuales?
               </h1>
               <p className="text-sm text-muted-foreground">
-                Confidencial — solo la usan tus agentes para calibrar análisis.
+                Confidencial — solo la usan tus consejeros con IA para calibrar análisis.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-2">

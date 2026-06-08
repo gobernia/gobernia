@@ -23,7 +23,8 @@ const AGENTS = [
   { id: "CFO",     role: "Finanzas",   desc: "Rentabilidad, flujo de caja y estructura de capital." },
   { id: "CSO",     role: "Estrategia", desc: "Posicionamiento, mercado y crecimiento a largo plazo." },
   { id: "CRO",     role: "Riesgos",    desc: "Riesgos operativos, legales y planes de mitigación." },
-  { id: "Auditor", role: "Gobierno",   desc: "Cumplimiento, control interno y Governance Score." },
+  { id: "Auditor", role: "Auditoría",  desc: "Cumplimiento, control interno y Governance Score." },
+  { id: "Retador", role: "Retador",    desc: "Cuestiona cada decisión con un pre-mortem antes de actuar." },
 ]
 
 const ETAPAS = [
@@ -598,10 +599,10 @@ export default function DashboardPage() {
           >
             <div>
               <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Tu consejo</p>
-              <h2 className="text-2xl font-bold text-black tracking-tight">Agentes de IA</h2>
+              <h2 className="text-2xl font-bold text-black tracking-tight">Cinco consejeros con IA</h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {AGENTS.map((a, i) => (
                 <motion.div
                   key={a.id}
@@ -731,7 +732,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
                     {onboardingComplete
                       ? "Inicia tu primera sesión de consejo para generar el diagnóstico completo de tu empresa."
-                      : "Una vez que configures tu empresa, tus agentes generarán el primer análisis de gobierno."}
+                      : "Una vez que configures tu empresa, tus consejeros con IA generarán el primer análisis de gobierno."}
                   </p>
                 </div>
                 {onboardingComplete && (

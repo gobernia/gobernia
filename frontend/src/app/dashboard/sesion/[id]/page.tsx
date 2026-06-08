@@ -316,8 +316,8 @@ export default function SessionPage() {
                       Tu consejo está listo para analizar
                     </p>
                     <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
-                      Los 4 agentes revisarán tu perfil y un Challenger aplicará
-                      pre-mortem a cada análisis antes de mostrártelo.
+                      Los cinco consejeros con IA revisarán tu perfil, y el Retador
+                      aplicará un pre-mortem a cada análisis antes de mostrártelo.
                     </p>
                   </div>
 
@@ -517,7 +517,7 @@ export default function SessionPage() {
                         Habla con {activeAgent}
                       </p>
                       <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
-                        Tu agente tiene contexto completo de tu empresa. Pregunta lo que necesites.
+                        Tu consejero tiene contexto completo de tu empresa. Pregunta lo que necesites.
                       </p>
                     </div>
                   </div>

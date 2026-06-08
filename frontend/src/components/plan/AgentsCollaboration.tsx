@@ -24,12 +24,12 @@ const AGENT_ANGLES: Record<PipelineAgent, number> = {
 
 const PHASE_COPY: Record<Phase, (agent: PipelineAgent) => string> = {
   analiza:   a => `${a} está analizando tu información…`,
-  challenge: a => `Challenger aplica pre-mortem al ${a}…`,
+  challenge: a => `El Retador aplica pre-mortem al ${a}…`,
   revisa:    a => `${a} revisa su análisis con la crítica…`,
 }
 
 export default function AgentsCollaboration({
-  caption = "Cada agente entrega su diagnóstico al Challenger, que imagina cómo podría fracasar en 12 meses y devuelve la crítica antes de mostrarte el resultado.",
+  caption = "Cada consejero entrega su diagnóstico al Retador, que imagina cómo podría fracasar en 12 meses y devuelve la crítica antes de mostrarte el resultado.",
 }: {
   caption?: string
 }) {
@@ -126,7 +126,7 @@ export default function AgentsCollaboration({
           }`}>
             <span className="text-[10px] font-black tracking-tight">PRE</span>
           </div>
-          <span className={`text-[9px] mt-1.5 font-medium tracking-wide ${phase === "challenge" ? "text-black" : "text-gray-500"}`}>Challenger</span>
+          <span className={`text-[9px] mt-1.5 font-medium tracking-wide ${phase === "challenge" ? "text-black" : "text-gray-500"}`}>Retador</span>
           <span className="text-[8px] text-gray-400 leading-none mt-0.5">Pre-mortem</span>
         </motion.div>
       </div>

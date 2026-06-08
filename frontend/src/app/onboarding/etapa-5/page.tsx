@@ -179,7 +179,7 @@ export default function Etapa5Page() {
             Ingresa tus números clave
           </h1>
           <p className="text-sm text-muted-foreground">
-            Valor actual y meta. Si no lo sabes, marca "No lo sé" — el agente lo gestionará como gap.
+            Valor actual y meta. Si no lo sabes, marca «No lo sé» — el consejero lo gestionará como gap.
           </p>
         </div>
 
@@ -260,7 +260,7 @@ export default function Etapa5Page() {
 
                   {v.unknown && (
                     <p className="text-xs text-primary bg-primary/5 px-3 py-2 rounded-lg">
-                      El agente identificará este KPI como gap prioritario.
+                      El consejero identificará este KPI como gap prioritario.
                     </p>
                   )}
                 </div>
