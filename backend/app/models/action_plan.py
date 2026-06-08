@@ -3,7 +3,7 @@ from datetime import date
 
 from sqlalchemy import Date, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
@@ -55,3 +55,6 @@ class ActionTask(Base, UUIDMixin, TimestampMixin):
     due_date:     Mapped[date | None]       = mapped_column(Date, nullable=True)
     tags:         Mapped[list | None]       = mapped_column(JSONB, nullable=True, default=list)
     order_index:  Mapped[int]               = mapped_column(Integer, nullable=False, default=0)
+    evidences: Mapped[list["Evidence"]] = relationship(
+        "Evidence", cascade="all, delete-orphan", order_by="Evidence.created_at",
+    )
