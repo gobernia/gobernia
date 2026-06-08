@@ -34,8 +34,12 @@ export default function ThemesPanel() {
   const addCustom = async () => {
     const label = window.prompt("Nombre del tema")
     if (!label) return
-    const created = await createTheme({ label, type: "cobertura", every_n_sessions: 3 })
-    setThemes(ts => [...ts, created])
+    try {
+      const created = await createTheme({ label, type: "cobertura", every_n_sessions: 3 })
+      setThemes(ts => [...ts, created])
+    } catch {
+      await getThemes().then(setThemes)
+    }
   }
 
   if (loading) return <p className="text-sm text-gray-400">Cargando temas…</p>
