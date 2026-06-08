@@ -33,6 +33,12 @@ class AnnualPlan(Base, UUIDMixin, TimestampMixin):
         order_by="MonthlyPlan.month_index",
     )
 
+    themes: Mapped[list["BoardTheme"]] = relationship(
+        "BoardTheme",
+        cascade="all, delete-orphan",
+        order_by="BoardTheme.order_index",
+    )
+
 
 class MonthlyPlan(Base, UUIDMixin, TimestampMixin):
     """Un mes (1..12) dentro del plan anual."""
