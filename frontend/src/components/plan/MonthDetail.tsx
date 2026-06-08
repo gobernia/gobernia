@@ -6,6 +6,7 @@ import type { MonthlyPlan, Task, MonthReview } from "@/lib/annualPlan"
 import { MONTH_NAMES } from "@/lib/annualPlan"
 import ObjectiveCard from "./ObjectiveCard"
 import MonthReviewPanel from "./MonthReviewPanel"
+import OrdenDelDiaPanel from "@/components/plan/OrdenDelDiaPanel"
 
 export default function MonthDetail({
   month, onTaskClick, onAddTask, onRenameObjective, onDeleteObjective, onAddObjective,
@@ -34,6 +35,8 @@ export default function MonthDetail({
         </p>
         {month.focus && <h2 className="text-xl font-bold text-black mt-1">{month.focus}</h2>}
       </div>
+
+      <OrdenDelDiaPanel monthIndex={month.month_index} />
 
       {month.status === "done" && month.review && (
         <MonthReviewPanel
