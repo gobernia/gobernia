@@ -56,3 +56,22 @@ def test_scheduled_for_session_mes_1():
                     "resultados_operativos", "kpis_estrategicos", "riesgos_criticos"}
     assert "auditoria" in cob and "talento_sucesion" in cob and "planeacion_estrategica" in cob
     assert "cumplimiento_normativo" not in cob and "esg" not in cob and "tecnologia_ciberseguridad" not in cob
+
+
+def test_scheduled_for_session_mes_2():
+    sched = scheduled_for_session(_default_themes(), 2)
+    cob = {t.key for t in sched["cobertura"]}
+    # mes 2: tecnologia (bimestral par) y cumplimiento (trimestral i=1) — el resto NO
+    assert cob == {"tecnologia_ciberseguridad", "cumplimiento_normativo"}
+    assert len(sched["permanente"]) == 5
+
+
+def test_tema_cobertura_personalizado_se_ubica_en_su_grupo():
+    themes = _default_themes()
+    themes.append(BoardTheme(
+        key="custom_x", label="Custom X", type="cobertura",
+        every_n_sessions=3, active=True, order_index=99,
+    ))
+    by_key = {t.key: s for t, s in theme_sessions(themes)}
+    # 4º trimestral (i=3, offset 3%3=0) cae como el 1º: 1,4,7,10
+    assert by_key["custom_x"] == [1, 4, 7, 10]

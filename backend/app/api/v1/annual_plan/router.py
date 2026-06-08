@@ -568,6 +568,7 @@ async def delete_theme(
 ):
     theme = await _load_owned_theme(theme_id, user_id, db)
     await db.delete(theme)
+    await db.flush()
 
 
 # ── Orden del día (B2) ────────────────────────────────────────────────────────
