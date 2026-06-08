@@ -112,3 +112,37 @@ async def test_create_theme_validation_422():
     finally:
         app.dependency_overrides.clear()
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_generate_seeds_themes(monkeypatch):
+    """generate_plan crea el plan y siembra los temas por defecto."""
+    seeded = {"called": False, "count": 0}
+
+    async def fake_seed(db, plan_id):
+        seeded["called"] = True
+        seeded["count"] = 13
+        return 13
+
+    monkeypatch.setattr("app.api.v1.annual_plan.router.seed_default_themes", fake_seed)
+
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None  # no hay plan previo
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=result)
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+
+    def boom(*a, **k):
+        raise RuntimeError("no celery")
+    monkeypatch.setattr("app.tasks.annual_plan_tasks.generate_annual_plan_task.delay", boom)
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            await c.post("/api/v1/annual-plan/generate")
+    finally:
+        app.dependency_overrides.clear()
+    assert seeded["called"] is True

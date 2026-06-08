@@ -33,6 +33,7 @@ from app.schemas.board_theme import BoardThemeOut, BoardThemeCreate, BoardThemeU
 from app.services.ai.annual_plan_generator import compute_active_month_index
 from app.services.ai.month_review import compute_signals, run_month_review
 from app.services.ai.agents.base import _MONTH_NAMES
+from app.services.governance.theme_seeder import seed_default_themes
 
 router = APIRouter()
 
@@ -107,6 +108,7 @@ async def generate_plan(
     )
     db.add(plan)
     await db.flush()
+    await seed_default_themes(db, plan.id)
     await db.commit()
 
     try:

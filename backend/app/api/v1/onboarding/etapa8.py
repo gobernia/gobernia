@@ -129,6 +129,12 @@ async def submit_etapa8(
                 await db.flush()
                 await db.commit()
                 try:
+                    from app.services.governance.theme_seeder import seed_default_themes
+                    await seed_default_themes(db, plan.id)
+                    await db.commit()
+                except Exception:
+                    logging.getLogger(__name__).warning("No se pudieron sembrar temas del plan", exc_info=True)
+                try:
                     from app.tasks.annual_plan_tasks import generate_annual_plan_task
                     generate_annual_plan_task.delay(str(plan.id))
                 except Exception:
