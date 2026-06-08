@@ -19,7 +19,7 @@ const AGENTS = [
   { id: "CFO",     role: "Finanzas" },
   { id: "CSO",     role: "Estrategia" },
   { id: "CRO",     role: "Riesgos" },
-  { id: "Auditor", role: "Gobierno" },
+  { id: "Auditor", role: "Auditoría" },
 ]
 
 // ── Types ─────────────────────────────────────────────────

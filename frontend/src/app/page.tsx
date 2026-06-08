@@ -110,11 +110,11 @@ function Heavy({
 
 // ── Data ──────────────────────────────────────────────────
 const CONSEJEROS = [
-  { id: "CFO",     role: "Finanzas",   desc: "Tus números bajo la lupa: rentabilidad, flujo de caja y estructura de capital, antes de que el mes cierre." },
-  { id: "CSO",     role: "Estrategia", desc: "Define dónde ganar: posicionamiento, mercado y crecimiento alineados a tu visión de largo plazo." },
-  { id: "CRO",     role: "Riesgos",    desc: "Anticipa lo que viene: riesgos operativos, legales y de mercado, con planes de mitigación antes de que escalen." },
-  { id: "Auditor", role: "Auditoría",  desc: "Orden, control y cumplimiento: mide tu Governance Score y cierra brechas críticas." },
-  { id: "Retador", role: "Retador",    desc: "Cuestiona cada decisión: aplica un pre-mortem que expone supuestos débiles y riesgos ocultos antes de actuar." },
+  { tag: "Consejero en", name: "Finanzas",     desc: "Tus números bajo la lupa: rentabilidad, flujo de caja y estructura de capital, antes de que el mes cierre." },
+  { tag: "Consejero en", name: "Estrategia",   desc: "Define dónde ganar: posicionamiento, mercado y crecimiento alineados a tu visión de largo plazo." },
+  { tag: "Consejero en", name: "Riesgos",      desc: "Anticipa lo que viene: riesgos operativos, legales y de mercado, con planes de mitigación antes de que escalen." },
+  { tag: "Consejero en", name: "Auditoría",    desc: "Orden, control y cumplimiento: mide tu Governance Score y cierra brechas críticas." },
+  { tag: "Consejero",    name: "Independiente", desc: "El Retador: cuestiona cada decisión con un pre-mortem que expone supuestos débiles y riesgos ocultos antes de actuar." },
 ]
 
 const STEPS = [
@@ -420,19 +420,19 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
             {CONSEJEROS.map((a, i) => (
-              <FadeUp key={a.id} delay={i * 0.09}>
+              <FadeUp key={a.name} delay={i * 0.09}>
                 <div className="h-full">
                   <span
                     className="text-xs uppercase"
                     style={{ color: "var(--gob-stone)", letterSpacing: "0.05em" }}
                   >
-                    {a.id}
+                    {a.tag}
                   </span>
                   <h3
                     className="text-2xl font-normal text-[var(--gob-ink)]"
                     style={{ marginTop: 12, marginBottom: 0, letterSpacing: "-0.01em" }}
                   >
-                    {a.role}
+                    {a.name}
                   </h3>
                   <div
                     className="w-full"

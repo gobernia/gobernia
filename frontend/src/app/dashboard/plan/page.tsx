@@ -79,7 +79,10 @@ export default function AnnualPlanPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { init(); return stopPolling }, [init, stopPolling])
 
-  const onGenerate = async () => {
+  const onGenerate = async (isRegenerate = false) => {
+    if (isRegenerate && !window.confirm("Se borrará el plan mensual anterior y se generará uno nuevo desde cero. ¿Continuar?")) {
+      return
+    }
     setView("generating")
     try {
       await generateAnnualPlan()
@@ -196,7 +199,7 @@ export default function AnnualPlanPage() {
       <div className="min-h-dvh bg-white flex flex-col items-center justify-center gap-10 px-6">
         <div className="text-center space-y-1">
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Construyendo tu plan</p>
-          <h1 className="text-2xl font-bold text-black">Tu consejo está diseñando los 12 meses</h1>
+          <h1 className="text-2xl font-bold text-black">Tu consejo está diseñando tu plan estratégico</h1>
         </div>
         <AgentsCollaboration caption="Tus consejeros con IA analizan tu empresa, el Retador aplica pre-mortem, y con eso se arma tu plan estratégico anual. Esto puede tardar un par de minutos." />
       </div>
@@ -221,11 +224,16 @@ export default function AnnualPlanPage() {
           </p>
         </div>
         <button
-          onClick={onGenerate}
+          onClick={() => onGenerate(isFail)}
           className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
         >
           <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar plan"}
         </button>
+        {isFail && (
+          <p className="text-xs text-gray-400 max-w-xs">
+            Al regenerar se borrará el plan mensual anterior.
+          </p>
+        )}
       </div>
     )
   }

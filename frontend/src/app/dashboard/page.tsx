@@ -20,11 +20,11 @@ const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
 // ── Data ──────────────────────────────────────────────────
 const AGENTS = [
-  { id: "CFO",     role: "Finanzas",   desc: "Rentabilidad, flujo de caja y estructura de capital." },
-  { id: "CSO",     role: "Estrategia", desc: "Posicionamiento, mercado y crecimiento a largo plazo." },
-  { id: "CRO",     role: "Riesgos",    desc: "Riesgos operativos, legales y planes de mitigación." },
-  { id: "Auditor", role: "Auditoría",  desc: "Cumplimiento, control interno y Governance Score." },
-  { id: "Retador", role: "Retador",    desc: "Cuestiona cada decisión con un pre-mortem antes de actuar." },
+  { tag: "Consejero en", name: "Finanzas",     desc: "Rentabilidad, flujo de caja y estructura de capital." },
+  { tag: "Consejero en", name: "Estrategia",   desc: "Posicionamiento, mercado y crecimiento a largo plazo." },
+  { tag: "Consejero en", name: "Riesgos",      desc: "Riesgos operativos, legales y planes de mitigación." },
+  { tag: "Consejero en", name: "Auditoría",    desc: "Cumplimiento, control interno y Governance Score." },
+  { tag: "Consejero",    name: "Independiente", desc: "El Retador: cuestiona cada decisión con un pre-mortem antes de actuar." },
 ]
 
 const ETAPAS = [
@@ -605,7 +605,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {AGENTS.map((a, i) => (
                 <motion.div
-                  key={a.id}
+                  key={a.name}
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: EASE, delay: 0.28 + i * 0.07 }}
@@ -613,8 +613,8 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-base font-bold text-black">{a.id}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{a.role}</p>
+                      <p className="text-xs text-gray-400">{a.tag}</p>
+                      <p className="text-base font-bold text-black mt-0.5">{a.name}</p>
                     </div>
                     <ArrowUpRight className={`h-4 w-4 mt-0.5 transition-colors ${
                       onboardingComplete

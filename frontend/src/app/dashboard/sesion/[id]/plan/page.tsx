@@ -26,6 +26,7 @@ import {
   Calendar, User, Tag, AlertCircle,
 } from "lucide-react"
 import api from "@/lib/api"
+import { agentShort, agentLabel } from "@/lib/agents"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -116,7 +117,7 @@ function TaskCard({
         </span>
         {task.source_agent && (
           <span className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-md border ${AGENT_COLORS[task.source_agent] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
-            {task.source_agent}
+            {agentShort(task.source_agent)}
           </span>
         )}
         {task.tags.slice(0, 2).map(t => (
@@ -350,7 +351,7 @@ function TaskEditor({
 
           {local.source_agent && (
             <div className="border-t border-gray-100 pt-4 text-[11px] text-gray-400">
-              Tarea generada por el consejero <span className="font-medium text-gray-600">{local.source_agent}</span>
+              Tarea generada por el <span className="font-medium text-gray-600">{agentLabel(local.source_agent)}</span>
             </div>
           )}
 

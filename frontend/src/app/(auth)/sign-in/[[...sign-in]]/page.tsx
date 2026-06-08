@@ -6,6 +6,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import GoogleSignInButton from "@/components/ui/GoogleSignInButton"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -43,6 +44,14 @@ export default function SignInPage() {
       <div className="space-y-1 mb-8 text-center">
         <h1 className="text-2xl font-bold text-black tracking-tight">Bienvenido de vuelta</h1>
         <p className="text-sm text-gray-400 italic font-light">Ingresa a tu espacio de gobierno corporativo</p>
+      </div>
+
+      <GoogleSignInButton />
+
+      <div className="flex items-center gap-3 my-6">
+        <div className="h-px flex-1 bg-gray-100" />
+        <span className="text-xs text-gray-400">o con tu correo</span>
+        <div className="h-px flex-1 bg-gray-100" />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
