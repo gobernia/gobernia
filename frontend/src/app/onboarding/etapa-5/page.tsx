@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
 import InfoHint from "@/components/ui/InfoHint"
+import { formatNumberInput, parseNumberInput, isMoneyUnit } from "@/lib/format"
 
 interface KPITemplate {
   key: string
@@ -222,25 +223,37 @@ export default function Etapa5Page() {
                         <label className="text-xs text-muted-foreground">
                           Actual ({t.unit})
                         </label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={v.current_value}
-                          onChange={e => setField(t.key, "current_value", e.target.value)}
-                          className="h-10 text-sm"
-                        />
+                        <div className="relative">
+                          {isMoneyUnit(t.unit) && (
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">$</span>
+                          )}
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={formatNumberInput(v.current_value)}
+                            onChange={e => setField(t.key, "current_value", parseNumberInput(e.target.value))}
+                            className={cn("h-10 text-sm", isMoneyUnit(t.unit) && "pl-6")}
+                          />
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-muted-foreground">
                           Meta ({t.unit})
                         </label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={v.target_value}
-                          onChange={e => setField(t.key, "target_value", e.target.value)}
-                          className="h-10 text-sm"
-                        />
+                        <div className="relative">
+                          {isMoneyUnit(t.unit) && (
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">$</span>
+                          )}
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={formatNumberInput(v.target_value)}
+                            onChange={e => setField(t.key, "target_value", parseNumberInput(e.target.value))}
+                            className={cn("h-10 text-sm", isMoneyUnit(t.unit) && "pl-6")}
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

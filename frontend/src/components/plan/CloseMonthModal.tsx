@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { X, Loader2 } from "lucide-react"
 import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
 import type { MonthlyPlan } from "@/lib/annualPlan"
+import { formatNumberInput, parseNumberInput } from "@/lib/format"
 
 export default function CloseMonthModal({
   month, running, onClose, onSubmit,
@@ -58,9 +59,9 @@ export default function CloseMonthModal({
                   <div key={label} className="space-y-1">
                     <label className="text-xs font-medium text-gray-600">{label}</label>
                     <input
-                      type="number" inputMode="decimal"
-                      value={values[label] ?? ""}
-                      onChange={e => setValues(v => ({ ...v, [label]: e.target.value }))}
+                      type="text" inputMode="decimal"
+                      value={formatNumberInput(values[label] ?? "")}
+                      onChange={e => setValues(v => ({ ...v, [label]: parseNumberInput(e.target.value) }))}
                       placeholder="Valor actual"
                       className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[var(--gob-navy)]"
                     />
