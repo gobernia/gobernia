@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { ArrowLeft, Loader2, Sparkles, AlertCircle } from "lucide-react"
 import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
+import ThemesPanel from "@/components/plan/ThemesPanel"
 import DiagnosticoPanel from "@/components/plan/DiagnosticoPanel"
 import MonthTimeline from "@/components/plan/MonthTimeline"
 import MonthDetail from "@/components/plan/MonthDetail"
@@ -277,6 +278,10 @@ export default function AnnualPlanPage() {
               onApplyProposal={onApplyProposal}
             />
           )}
+
+          <div className="mt-12 border-t border-gray-100 pt-10">
+            <ThemesPanel />
+          </div>
         </div>
       </main>
 
