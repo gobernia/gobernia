@@ -34,6 +34,8 @@ from app.services.ai.annual_plan_generator import compute_active_month_index
 from app.services.ai.month_review import compute_signals, run_month_review
 from app.services.ai.agents.base import _MONTH_NAMES
 from app.services.governance.theme_seeder import seed_default_themes
+from app.schemas.orden_del_dia import OrdenDelDiaOut, ThemeRef
+from app.services.governance.coverage_calendar import scheduled_for_session
 
 router = APIRouter()
 
@@ -566,4 +568,45 @@ async def delete_theme(
 ):
     theme = await _load_owned_theme(theme_id, user_id, db)
     await db.delete(theme)
-    await db.flush()
+
+
+# ── Orden del día (B2) ────────────────────────────────────────────────────────
+
+def _theme_ref(t: BoardTheme) -> ThemeRef:
+    return ThemeRef(key=t.key, label=t.label, every_n_sessions=t.every_n_sessions)
+
+
+@router.get("/annual-plan/months/{month_index}/orden-del-dia", response_model=OrdenDelDiaOut)
+async def get_orden_del_dia(
+    month_index: int,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+
+    res = await db.execute(
+        select(BoardTheme).where(BoardTheme.annual_plan_id == plan.id)
+    )
+    themes = list(res.scalars().all())
+
+    mres = await db.execute(
+        select(MonthlyPlan)
+        .where(MonthlyPlan.annual_plan_id == plan.id, MonthlyPlan.month_index == month_index)
+        .options(selectinload(MonthlyPlan.objectives))
+    )
+    month = mres.scalar_one_or_none()
+    if not month:
+        raise HTTPException(status_code=404, detail="Mes no encontrado.")
+
+    sched = scheduled_for_session(themes, month_index)
+    grouped = await _tasks_by_objective([o.id for o in month.objectives], db)
+    return OrdenDelDiaOut(
+        month_index=month.month_index,
+        period_year=month.period_year,
+        period_month=month.period_month,
+        permanent_themes=[_theme_ref(t) for t in sched["permanente"]],
+        coverage_themes=[_theme_ref(t) for t in sched["cobertura"]],
+        objectives=[_objective_out(o, grouped.get(o.id, [])) for o in month.objectives],
+    )
