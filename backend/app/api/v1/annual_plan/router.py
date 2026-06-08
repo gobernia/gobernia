@@ -28,6 +28,8 @@ from app.schemas.annual_plan import (
     CloseMonthRequest, ApplyProposalRequest,
 )
 from app.schemas.action_plan import ActionTaskOut
+from app.models.board_theme import BoardTheme
+from app.schemas.board_theme import BoardThemeOut, BoardThemeCreate, BoardThemeUpdate
 from app.services.ai.annual_plan_generator import compute_active_month_index
 from app.services.ai.month_review import compute_signals, run_month_review
 from app.services.ai.agents.base import _MONTH_NAMES
@@ -476,3 +478,90 @@ async def apply_proposal(
     await db.flush()
     await db.commit()
     return review
+
+
+# ── Temas del Consejo (B1) ────────────────────────────────────────────────────
+
+def _theme_out(t: BoardTheme) -> BoardThemeOut:
+    return BoardThemeOut(
+        id=str(t.id), key=t.key, label=t.label, type=t.type,
+        every_n_sessions=t.every_n_sessions, active=t.active,
+        is_default=t.is_default, order_index=t.order_index,
+    )
+
+
+def _slugify(label: str) -> str:
+    base = "".join(c if c.isalnum() else "_" for c in label.lower()).strip("_")
+    return (base or "tema")[:50] + "_" + uuid.uuid4().hex[:6]
+
+
+async def _load_owned_theme(theme_id: uuid.UUID, user_id: str, db: AsyncSession) -> BoardTheme:
+    res = await db.execute(
+        select(BoardTheme)
+        .join(AnnualPlan, BoardTheme.annual_plan_id == AnnualPlan.id)
+        .where(BoardTheme.id == theme_id, AnnualPlan.user_id == user_id)
+    )
+    theme = res.scalar_one_or_none()
+    if not theme:
+        raise HTTPException(status_code=404, detail="Tema no encontrado")
+    return theme
+
+
+@router.get("/annual-plan/themes", response_model=list[BoardThemeOut])
+async def list_themes(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No tienes un plan anual")
+    res = await db.execute(
+        select(BoardTheme)
+        .where(BoardTheme.annual_plan_id == plan.id)
+        .order_by(BoardTheme.type, BoardTheme.order_index)
+    )
+    return [_theme_out(t) for t in res.scalars().all()]
+
+
+@router.post("/annual-plan/themes", response_model=BoardThemeOut)
+async def create_theme(
+    body: BoardThemeCreate,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No tienes un plan anual")
+    theme = BoardTheme(
+        annual_plan_id=plan.id, key=_slugify(body.label), label=body.label,
+        type=body.type, every_n_sessions=body.every_n_sessions,
+        is_default=False, active=True, order_index=999,
+    )
+    db.add(theme)
+    await db.flush()
+    return _theme_out(theme)
+
+
+@router.patch("/annual-plan/themes/{theme_id}", response_model=BoardThemeOut)
+async def update_theme(
+    theme_id: uuid.UUID,
+    body: BoardThemeUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    theme = await _load_owned_theme(theme_id, user_id, db)
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(theme, field, value)
+    await db.flush()
+    return _theme_out(theme)
+
+
+@router.delete("/annual-plan/themes/{theme_id}", status_code=204)
+async def delete_theme(
+    theme_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    theme = await _load_owned_theme(theme_id, user_id, db)
+    await db.delete(theme)
+    await db.flush()
