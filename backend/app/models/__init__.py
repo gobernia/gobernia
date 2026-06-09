@@ -7,9 +7,10 @@ from app.models.action_plan import ActionPlan, ActionTask
 from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
 from app.models.board_theme import BoardTheme
 from app.models.evidence import Evidence
+from app.models.compromiso import Compromiso
 
 __all__ = [
     "Base", "OnboardingSession", "Document", "BoardSession", "ChatMessage",
     "ActionPlan", "ActionTask", "AnnualPlan", "MonthlyPlan", "Objective",
-    "BoardTheme", "Evidence",
+    "BoardTheme", "Evidence", "Compromiso",
 ]
