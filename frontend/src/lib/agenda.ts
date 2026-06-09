@@ -12,7 +12,18 @@ export interface AgendaItem {
   score: number
 }
 
-export async function getAgenda(): Promise<AgendaItem[]> {
-  const r = await api.get<AgendaItem[]>("/annual-plan/agenda")
+export interface AgendaOut {
+  curada: boolean
+  carta: string
+  items: AgendaItem[]
+}
+
+export async function getAgenda(): Promise<AgendaOut> {
+  const r = await api.get<AgendaOut>("/annual-plan/agenda")
+  return r.data
+}
+
+export async function convocarChair(): Promise<AgendaOut> {
+  const r = await api.post<AgendaOut>("/annual-plan/agenda/chair")
   return r.data
 }
