@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AvanceItem(BaseModel):
@@ -28,7 +28,7 @@ class CompromisoPublicOut(BaseModel):
 
 
 class AvanceIn(BaseModel):
-    pct: int
+    pct: int = Field(ge=0, le=100)
     nota: str | None = None
     evidencia_url: str | None = None
 
