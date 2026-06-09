@@ -5,14 +5,15 @@ import { motion } from "framer-motion"
 import { X, Trash2, User, Calendar, Tag, Target } from "lucide-react"
 import type { Task, TaskStatus, TaskPriority } from "@/lib/annualPlan"
 import InfoHint from "@/components/ui/InfoHint"
+import EvidenceSection from "@/components/plan/EvidenceSection"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
 const STATUSES: { id: TaskStatus; label: string }[] = [
-  { id: "pendiente", label: "Por hacer" },
-  { id: "en_progreso", label: "En progreso" },
-  { id: "completada", label: "Completada" },
+  { id: "pendiente", label: "Pendiente" },
+  { id: "en_progreso", label: "En proceso" },
+  { id: "completada", label: "Validado" },
 ]
 
 const PRIORITIES: { id: TaskPriority; label: string }[] = [
@@ -31,12 +32,23 @@ export default function TaskDrawer({
   onDelete: () => void
 }) {
   const [local, setLocal] = useState<Task>(task)
+  const [evidenceCount, setEvidenceCount] = useState(0)
+  const [statusError, setStatusError] = useState<string | null>(null)
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setLocal(task), [task])
 
   const save = (patch: Partial<Task>) => {
     setLocal(prev => ({ ...prev, ...patch }))
     onUpdate(patch)
+  }
+
+  const onStatusClick = (s: string) => {
+    if (s === "completada" && evidenceCount === 0) {
+      setStatusError("Sube una evidencia para validar este acuerdo.")
+      return
+    }
+    setStatusError(null)
+    save({ status: s as TaskStatus })
   }
 
   return (
@@ -75,7 +87,7 @@ export default function TaskDrawer({
               {STATUSES.map(s => (
                 <button
                   key={s.id}
-                  onClick={() => save({ status: s.id })}
+                  onClick={() => onStatusClick(s.id)}
                   className={`flex-1 text-xs font-medium py-2 rounded-lg border-2 transition-all ${
                     local.status === s.id
                       ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
@@ -86,6 +98,7 @@ export default function TaskDrawer({
                 </button>
               ))}
             </div>
+            {statusError && <p className="text-xs text-red-500">{statusError}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -173,6 +186,8 @@ export default function TaskDrawer({
               className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[var(--gob-navy)]"
             />
           </div>
+
+          <EvidenceSection taskId={task.id} onCountChange={setEvidenceCount} />
 
           <button
             onClick={onDelete}
