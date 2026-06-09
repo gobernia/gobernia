@@ -10,12 +10,13 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.action_plan import ActionPlan, ActionTask
+from app.models.evidence import Evidence
 from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
 from app.models.board_session import BoardSession
 from app.models.onboarding_session import OnboardingSession
@@ -261,6 +262,16 @@ async def update_task(
     task = await _get_user_task_or_404(task_id, user_id, db)
 
     payload = body.model_dump(exclude_unset=True)
+    if payload.get("status") == "completada":
+        count = await db.execute(
+            select(func.count()).select_from(Evidence).where(Evidence.action_task_id == task.id)
+        )
+        if (count.scalar() or 0) == 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Se requiere al menos una evidencia para validar este acuerdo.",
+            )
+
     for key, value in payload.items():
         setattr(task, key, value)
     task.updated_at = datetime.utcnow()
