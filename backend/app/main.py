@@ -11,6 +11,7 @@ from app.api.v1.board_sessions.router import router as board_sessions_router
 from app.api.v1.action_plans.router import router as action_plans_router
 from app.api.v1.annual_plan.router import router as annual_plan_router
 from app.api.v1.evidence.router import router as evidence_router
+from app.api.v1.pm.router import router as pm_router
 
 
 @asynccontextmanager
@@ -47,6 +48,7 @@ app.include_router(board_sessions_router, prefix="/api/v1", tags=["board-session
 app.include_router(action_plans_router, prefix="/api/v1", tags=["action-plans"])
 app.include_router(annual_plan_router, prefix="/api/v1", tags=["annual-plan"])
 app.include_router(evidence_router, prefix="/api/v1", tags=["evidence"])
+app.include_router(pm_router, prefix="/api/v1", tags=["pm"])
 
 
 @app.get("/health", tags=["system"])
