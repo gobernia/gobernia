@@ -19,7 +19,14 @@ export default function AgendaPanel() {
   }, [])
 
   if (items === null) return null
-  if (items.length === 0) return null
+  if (items.length === 0) {
+    return (
+      <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4">
+        <h3 className="text-sm font-bold text-black uppercase tracking-wide mb-1">Agenda del mes</h3>
+        <p className="text-sm text-gray-400">Sin temas priorizados este mes.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4">
