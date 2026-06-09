@@ -10,6 +10,7 @@ import DiagnosticoPanel from "@/components/plan/DiagnosticoPanel"
 import MonthTimeline from "@/components/plan/MonthTimeline"
 import MonthDetail from "@/components/plan/MonthDetail"
 import TaskDrawer from "@/components/plan/TaskDrawer"
+import AcuerdosBoard from "@/components/plan/AcuerdosBoard"
 import CloseMonthModal from "@/components/plan/CloseMonthModal"
 import {
   getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
@@ -30,6 +31,7 @@ export default function AnnualPlanPage() {
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(1)
   const [openTask, setOpenTask] = useState<Task | null>(null)
+  const [boardView, setBoardView] = useState<"meses" | "tablero">("meses")
   const [closingMonthId, setClosingMonthId] = useState<string | null>(null)
   const [closeRunning, setCloseRunning] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -262,21 +264,47 @@ export default function AnnualPlanPage() {
 
           <DiagnosticoPanel summary={plan?.diagnostico_summary ?? null} />
 
-          {plan && (
-            <MonthTimeline months={plan.months} selectedIndex={selectedMonth} onSelect={setSelectedMonth} />
-          )}
+          <div className="flex gap-1.5 mb-4">
+            {(["meses", "tablero"] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setBoardView(v)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                  boardView === v
+                    ? "bg-[var(--gob-navy)] text-[var(--gob-bone)]"
+                    : "text-gray-500 hover:bg-gray-100"
+                }`}
+              >
+                {v === "meses" ? "Meses" : "Tablero de acuerdos"}
+              </button>
+            ))}
+          </div>
 
-          {month && (
-            <MonthDetail
-              month={month}
+          {boardView === "tablero" ? (
+            <AcuerdosBoard
+              plan={plan!}
+              onMoveTask={(taskId, status) => onUpdateTask(taskId, { status })}
               onTaskClick={setOpenTask}
-              onAddTask={onAddTask}
-              onRenameObjective={onRenameObjective}
-              onDeleteObjective={onDeleteObjective}
-              onAddObjective={onAddObjective}
-              onCloseMonth={onCloseMonth}
-              onApplyProposal={onApplyProposal}
             />
+          ) : (
+            <>
+              {plan && (
+                <MonthTimeline months={plan.months} selectedIndex={selectedMonth} onSelect={setSelectedMonth} />
+              )}
+
+              {month && (
+                <MonthDetail
+                  month={month}
+                  onTaskClick={setOpenTask}
+                  onAddTask={onAddTask}
+                  onRenameObjective={onRenameObjective}
+                  onDeleteObjective={onDeleteObjective}
+                  onAddObjective={onAddObjective}
+                  onCloseMonth={onCloseMonth}
+                  onApplyProposal={onApplyProposal}
+                />
+              )}
+            </>
           )}
 
           <div className="mt-12 border-t border-gray-100 pt-10">

@@ -20,6 +20,7 @@ export interface Task {
   order_index: number
   created_at: string
   updated_at: string
+  evidence_count: number
 }
 
 export interface Objective {
