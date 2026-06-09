@@ -11,6 +11,7 @@ import MonthTimeline from "@/components/plan/MonthTimeline"
 import MonthDetail from "@/components/plan/MonthDetail"
 import TaskDrawer from "@/components/plan/TaskDrawer"
 import AcuerdosBoard from "@/components/plan/AcuerdosBoard"
+import CoberturaBoard from "@/components/plan/CoberturaBoard"
 import CloseMonthModal from "@/components/plan/CloseMonthModal"
 import {
   getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
@@ -31,7 +32,7 @@ export default function AnnualPlanPage() {
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(1)
   const [openTask, setOpenTask] = useState<Task | null>(null)
-  const [boardView, setBoardView] = useState<"meses" | "tablero">("meses")
+  const [boardView, setBoardView] = useState<"meses" | "tablero" | "cobertura">("meses")
   const [closingMonthId, setClosingMonthId] = useState<string | null>(null)
   const [closeRunning, setCloseRunning] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -265,7 +266,7 @@ export default function AnnualPlanPage() {
           <DiagnosticoPanel summary={plan?.diagnostico_summary ?? null} />
 
           <div className="flex gap-1.5 mb-4">
-            {(["meses", "tablero"] as const).map(v => (
+            {(["meses", "tablero", "cobertura"] as const).map(v => (
               <button
                 key={v}
                 onClick={() => setBoardView(v)}
@@ -275,7 +276,7 @@ export default function AnnualPlanPage() {
                     : "text-gray-500 hover:bg-gray-100"
                 }`}
               >
-                {v === "meses" ? "Meses" : "Tablero de acuerdos"}
+                {v === "meses" ? "Meses" : v === "tablero" ? "Tablero de acuerdos" : "Cobertura"}
               </button>
             ))}
           </div>
@@ -286,6 +287,8 @@ export default function AnnualPlanPage() {
               onMoveTask={(taskId, status) => onUpdateTask(taskId, { status })}
               onTaskClick={setOpenTask}
             />
+          ) : boardView === "cobertura" ? (
+            <CoberturaBoard />
           ) : (
             <>
               {plan && (

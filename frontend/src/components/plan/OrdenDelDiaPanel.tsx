@@ -1,17 +1,34 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { OrdenDelDia, getOrdenDelDia } from "@/lib/ordenDelDia"
+import { OrdenDelDia, getOrdenDelDia, markCoverage } from "@/lib/ordenDelDia"
 import { FREQ_LABEL } from "@/lib/boardThemes"
 
 export default function OrdenDelDiaPanel({ monthIndex }: { monthIndex: number }) {
   const [orden, setOrden] = useState<OrdenDelDia | null>(null)
+  const [covered, setCovered] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let active = true
-    getOrdenDelDia(monthIndex).then(o => { if (active) setOrden(o) }).catch(() => {})
+    getOrdenDelDia(monthIndex).then(o => { if (active) { setOrden(o); setCovered(new Set(o.covered_keys)) } }).catch(() => {})
     return () => { active = false }
   }, [monthIndex])
+
+  const toggle = (key: string) => {
+    const isCovered = covered.has(key)
+    setCovered(prev => {
+      const next = new Set(prev)
+      if (isCovered) next.delete(key); else next.add(key)
+      return next
+    })
+    markCoverage(monthIndex, key, !isCovered).catch(() => {
+      setCovered(prev => {
+        const next = new Set(prev)
+        if (isCovered) next.add(key); else next.delete(key)
+        return next
+      })
+    })
+  }
 
   if (!orden) return null
   if (orden.permanent_themes.length === 0 && orden.coverage_themes.length === 0) return null
@@ -25,6 +42,12 @@ export default function OrdenDelDiaPanel({ monthIndex }: { monthIndex: number })
         <ul className="space-y-1">
           {orden.permanent_themes.map(t => (
             <li key={t.key} className="text-sm text-black flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={covered.has(t.key)}
+                onChange={() => toggle(t.key)}
+                className="accent-[var(--gob-navy)] cursor-pointer flex-shrink-0"
+              />
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--gob-navy)] flex-shrink-0" />
               {t.label}
             </li>
@@ -38,6 +61,12 @@ export default function OrdenDelDiaPanel({ monthIndex }: { monthIndex: number })
           <ul className="space-y-1">
             {orden.coverage_themes.map(t => (
               <li key={t.key} className="text-sm text-black flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={covered.has(t.key)}
+                  onChange={() => toggle(t.key)}
+                  className="accent-[var(--gob-navy)] cursor-pointer flex-shrink-0"
+                />
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
                 {t.label}
                 {t.every_n_sessions != null && (
