@@ -42,6 +42,8 @@ from app.services.governance.coverage_board import coverage_rows
 from sqlalchemy.orm.attributes import flag_modified as _flag_modified
 from app.models.onboarding_session import OnboardingSession
 from app.services.pdf.orden_del_dia_pdf import build_orden_pdf
+from app.schemas.alerts import AlertItem
+from app.services.governance.alerts import compute_alerts
 
 router = APIRouter()
 
@@ -715,3 +717,39 @@ async def mark_coverage(
     _flag_modified(month, "covered_themes")
     await db.flush()
     return {"month_index": month_index, "covered_themes": keys}
+
+
+# ── Alertas (B6) ──────────────────────────────────────────────────────────────
+
+@router.get("/annual-plan/alertas", response_model=list[AlertItem])
+async def get_alertas(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+
+    mres = await db.execute(
+        select(MonthlyPlan)
+        .where(MonthlyPlan.annual_plan_id == plan.id)
+        .options(selectinload(MonthlyPlan.objectives))
+    )
+    months = list(mres.scalars().all())
+    obj_ids = [o.id for m in months for o in m.objectives]
+    grouped = await _tasks_by_objective(obj_ids, db)
+    tasks = [t for ts in grouped.values() for t in ts]
+
+    tres = await db.execute(select(BoardTheme).where(BoardTheme.annual_plan_id == plan.id))
+    themes = list(tres.scalars().all())
+    active = compute_active_month_index(plan.start_date, date.today())
+    rows = coverage_rows(themes, months, active)
+
+    kpi_signals: list = []
+    done = [m for m in months if m.status == "done" and m.review]
+    if done:
+        latest = max(done, key=lambda m: m.month_index)
+        kpi_signals = ((latest.review or {}).get("signals") or {}).get("kpis") or []
+
+    alerts = compute_alerts(tasks, rows, kpi_signals, date.today())
+    return [AlertItem(**a) for a in alerts]
