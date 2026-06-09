@@ -44,6 +44,8 @@ from app.models.onboarding_session import OnboardingSession
 from app.services.pdf.orden_del_dia_pdf import build_orden_pdf
 from app.schemas.alerts import AlertItem
 from app.services.governance.alerts import compute_alerts
+from app.schemas.agenda import AgendaItem
+from app.services.governance.agenda_engine import build_agenda
 
 router = APIRouter()
 
@@ -764,3 +766,41 @@ async def get_alertas(
 
     alerts = compute_alerts(tasks, rows, kpi_signals, date.today())
     return [AlertItem(**a) for a in alerts]
+
+
+# ── Agenda del mes (Motor de Orden del Día por señales) ───────────────────────
+
+@router.get("/annual-plan/agenda", response_model=list[AgendaItem])
+async def get_agenda(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+
+    mres = await db.execute(
+        select(MonthlyPlan)
+        .where(MonthlyPlan.annual_plan_id == plan.id)
+        .options(selectinload(MonthlyPlan.objectives))
+    )
+    months = list(mres.scalars().all())
+    obj_ids = [o.id for m in months for o in m.objectives]
+    grouped = await _tasks_by_objective(obj_ids, db)
+    tasks = [t for ts in grouped.values() for t in ts]
+
+    tres = await db.execute(select(BoardTheme).where(BoardTheme.annual_plan_id == plan.id))
+    themes = list(tres.scalars().all())
+    active = compute_active_month_index(plan.start_date, date.today())
+    sched = scheduled_for_session(themes, active)
+    scheduled_themes = list(sched["permanente"]) + list(sched["cobertura"])
+    rows = coverage_rows(themes, months, active)
+
+    kpi_signals: list = []
+    done = [m for m in months if m.status == "done" and m.review]
+    if done:
+        latest = max(done, key=lambda m: m.month_index)
+        kpi_signals = ((latest.review or {}).get("signals") or {}).get("kpis") or []
+
+    agenda = build_agenda(scheduled_themes, rows, kpi_signals, tasks, date.today())
+    return [AgendaItem(**a) for a in agenda]
