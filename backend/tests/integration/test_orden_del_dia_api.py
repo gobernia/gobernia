@@ -38,6 +38,7 @@ async def test_orden_del_dia_mes_1():
     month = MagicMock()
     month.id = uuid.uuid4(); month.month_index = 1
     month.period_year = 2026; month.period_month = 1; month.objectives = []
+    month.covered_themes = []
 
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan          # _current_plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = themes  # themes query

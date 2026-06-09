@@ -37,6 +37,9 @@ from app.services.ai.agents.base import _MONTH_NAMES
 from app.services.governance.theme_seeder import seed_default_themes
 from app.schemas.orden_del_dia import OrdenDelDiaOut, ThemeRef
 from app.services.governance.coverage_calendar import scheduled_for_session
+from app.schemas.coverage import CoverageRow, CoverageMarkIn
+from app.services.governance.coverage_board import coverage_rows
+from sqlalchemy.orm.attributes import flag_modified as _flag_modified
 
 router = APIRouter()
 
@@ -622,5 +625,56 @@ async def get_orden_del_dia(
         period_month=month.period_month,
         permanent_themes=[_theme_ref(t) for t in sched["permanente"]],
         coverage_themes=[_theme_ref(t) for t in sched["cobertura"]],
+        covered_keys=list(month.covered_themes or []),
         objectives=[_objective_out(o, grouped.get(o.id, [])) for o in month.objectives],
     )
+
+
+# ── Cobertura (B4) ────────────────────────────────────────────────────────────
+
+@router.get("/annual-plan/cobertura", response_model=list[CoverageRow])
+async def get_cobertura(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    tres = await db.execute(select(BoardTheme).where(BoardTheme.annual_plan_id == plan.id))
+    themes = list(tres.scalars().all())
+    mres = await db.execute(select(MonthlyPlan).where(MonthlyPlan.annual_plan_id == plan.id))
+    months = list(mres.scalars().all())
+    active = compute_active_month_index(plan.start_date, date.today())
+    return [CoverageRow(**row) for row in coverage_rows(themes, months, active)]
+
+
+@router.post("/annual-plan/months/{month_index}/coverage")
+async def mark_coverage(
+    month_index: int,
+    body: CoverageMarkIn,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    active = compute_active_month_index(plan.start_date, date.today())
+    if month_index > active:
+        raise HTTPException(status_code=400, detail="No puedes marcar cobertura de una sesión futura.")
+    mres = await db.execute(
+        select(MonthlyPlan).where(
+            MonthlyPlan.annual_plan_id == plan.id, MonthlyPlan.month_index == month_index
+        )
+    )
+    month = mres.scalar_one_or_none()
+    if not month:
+        raise HTTPException(status_code=404, detail="Mes no encontrado.")
+    keys = list(month.covered_themes or [])
+    if body.covered and body.theme_key not in keys:
+        keys.append(body.theme_key)
+    elif not body.covered and body.theme_key in keys:
+        keys.remove(body.theme_key)
+    month.covered_themes = keys
+    _flag_modified(month, "covered_themes")
+    await db.flush()
+    return {"month_index": month_index, "covered_themes": keys}

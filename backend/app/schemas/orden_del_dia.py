@@ -15,4 +15,5 @@ class OrdenDelDiaOut(BaseModel):
     period_month: int
     permanent_themes: list[ThemeRef] = Field(default_factory=list)
     coverage_themes: list[ThemeRef] = Field(default_factory=list)
+    covered_keys: list[str] = Field(default_factory=list)
     objectives: list[ObjectiveOut] = Field(default_factory=list)
