@@ -26,7 +26,9 @@ def coverage_rows(themes: list[BoardTheme], months, active_index: int, total_ses
     for t, sessions in theme_sessions(themes, total_sessions):
         if t.type not in ("permanente", "cobertura"):
             continue
-        esperadas = sum(1 for s in sessions if s <= active_index)
+        # esperadas a la fecha = sesiones de meses que YA pasaron (estrictamente antes del
+        # mes activo). El mes en curso aún no se "celebra", no cuenta como atrasado.
+        esperadas = sum(1 for s in sessions if s < active_index)
         realizadas = covered_by_key.get(t.key, 0)
         rows.append({
             "key": t.key, "label": t.label, "type": t.type,

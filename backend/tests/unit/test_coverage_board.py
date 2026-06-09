@@ -34,7 +34,8 @@ def test_coverage_rows():
         SimpleNamespace(covered_themes=["fin", "aud"]),  # mes 1
         SimpleNamespace(covered_themes=["fin"]),         # mes 2
     ]
-    rows = {r["key"]: r for r in coverage_rows(themes, months, active_index=4)}
+    # mes activo = 5 → esperadas cuenta meses YA pasados (1..4, estrictamente < activo)
+    rows = {r["key"]: r for r in coverage_rows(themes, months, active_index=5)}
 
     assert rows["fin"]["frecuencia_anual"] == 12
     assert rows["fin"]["esperadas"] == 4

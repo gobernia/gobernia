@@ -30,7 +30,7 @@ async def _user_override():
 @pytest.mark.asyncio
 async def test_get_cobertura():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date.today()
+    plan.start_date = date(2020, 1, 1)  # mes activo = 12 (cap) → hay meses ya pasados
     themes = [_theme("fin", "permanente", 1, 0), _theme("aud", "cobertura", 3, 1)]
     m1 = MagicMock(); m1.covered_themes = ["fin"]
 
@@ -49,9 +49,11 @@ async def test_get_cobertura():
 
     assert r.status_code == 200
     rows = {row["key"]: row for row in r.json()}
-    assert rows["fin"]["estado"] == "en_tiempo"
-    assert rows["aud"]["esperadas"] == 1
-    assert rows["aud"]["estado"] == "riesgo"
+    # activo=12: fin permanente esperadas 11 (1..11) realizadas 1 -> critico;
+    # aud cobertura esperadas 4 (1,4,7,10) realizadas 0 -> critico
+    assert rows["fin"]["estado"] == "critico"
+    assert rows["aud"]["esperadas"] == 4
+    assert rows["aud"]["estado"] == "critico"
 
 
 @pytest.mark.asyncio
