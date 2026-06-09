@@ -15,13 +15,14 @@ from datetime import date, datetime
 
 import anyio
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.action_plan import ActionTask
 from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
+from app.models.evidence import Evidence
 from app.schemas.annual_plan import (
     AnnualPlanOut, AnnualPlanStatusOut, AnnualTaskCreate, MonthlyPlanOut,
     ObjectiveCreate, ObjectiveOut, ObjectiveUpdate,
@@ -42,7 +43,7 @@ router = APIRouter()
 
 # ── Serializers ───────────────────────────────────────────────────────────────
 
-def _task_out(t: ActionTask) -> ActionTaskOut:
+def _task_out(t: ActionTask, evidence_count: int = 0) -> ActionTaskOut:
     return ActionTaskOut(
         id=str(t.id),
         plan_id=str(t.plan_id) if t.plan_id else None,
@@ -52,14 +53,16 @@ def _task_out(t: ActionTask) -> ActionTaskOut:
         status=t.status, priority=t.priority, owner=t.owner, due_date=t.due_date,
         tags=list(t.tags or []), order_index=t.order_index,
         created_at=t.created_at, updated_at=t.updated_at,
+        evidence_count=evidence_count,
     )
 
 
-def _objective_out(o: Objective, tasks: list[ActionTask]) -> ObjectiveOut:
+def _objective_out(o: Objective, tasks: list[ActionTask], evidence_counts: dict | None = None) -> ObjectiveOut:
+    counts = evidence_counts or {}
     return ObjectiveOut(
         id=str(o.id), title=o.title, description=o.description,
         kpi_refs=list(o.kpi_refs or []), order_index=o.order_index,
-        tasks=[_task_out(t) for t in tasks],
+        tasks=[_task_out(t, counts.get(t.id, 0)) for t in tasks],
     )
 
 
@@ -164,12 +167,22 @@ async def get_plan(
     all_obj_ids = [o.id for m in plan.months for o in m.objectives]
     grouped = await _tasks_by_objective(all_obj_ids, db)
 
+    task_ids = [t.id for tasks in grouped.values() for t in tasks]
+    evidence_counts: dict = {}
+    if task_ids:
+        cres = await db.execute(
+            select(Evidence.action_task_id, func.count())
+            .where(Evidence.action_task_id.in_(task_ids))
+            .group_by(Evidence.action_task_id)
+        )
+        evidence_counts = {tid: cnt for tid, cnt in cres.all()}
+
     months_out = [
         MonthlyPlanOut(
             id=str(m.id), month_index=m.month_index,
             period_year=m.period_year, period_month=m.period_month,
             focus=m.focus, status=m.status, review=m.review,
-            objectives=[_objective_out(o, grouped.get(o.id, [])) for o in m.objectives],
+            objectives=[_objective_out(o, grouped.get(o.id, []), evidence_counts) for o in m.objectives],
         )
         for m in plan.months
     ]

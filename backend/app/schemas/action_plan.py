@@ -49,6 +49,7 @@ class ActionTaskOut(ActionTaskBase):
     kpi_ref:      str | None = None
     created_at:   datetime
     updated_at:   datetime
+    evidence_count: int = 0
 
 
 class ActionPlanOut(BaseModel):
