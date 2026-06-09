@@ -126,10 +126,11 @@ async def test_generate_seeds_themes(monkeypatch):
 
     monkeypatch.setattr("app.api.v1.annual_plan.router.seed_default_themes", fake_seed)
 
-    result = MagicMock()
-    result.scalar_one_or_none.return_value = None  # no hay plan previo
+    onb = MagicMock(); onb.completed_stages = [1, 2, 3, 4, 5, 6, 7, 8]  # onboarding completo
+    onb_result = MagicMock(); onb_result.scalar_one_or_none.return_value = onb
+    plan_result = MagicMock(); plan_result.scalar_one_or_none.return_value = None  # no hay plan previo
     db = AsyncMock()
-    db.execute = AsyncMock(return_value=result)
+    db.execute = AsyncMock(side_effect=[onb_result, plan_result])
     db.add = MagicMock()
     db.flush = AsyncMock()
     db.commit = AsyncMock()
@@ -146,3 +147,38 @@ async def test_generate_seeds_themes(monkeypatch):
     finally:
         app.dependency_overrides.clear()
     assert seeded["called"] is True
+
+
+@pytest.mark.asyncio
+async def test_generate_requires_onboarding_completo():
+    """generate_plan bloquea (400) si el onboarding no tiene las 8 etapas."""
+    onb = MagicMock(); onb.completed_stages = [1, 2, 3]  # incompleto
+    onb_result = MagicMock(); onb_result.scalar_one_or_none.return_value = onb
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=[onb_result])
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.post("/api/v1/annual-plan/generate")
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_generate_requires_onboarding_existe():
+    """generate_plan bloquea (400) si el usuario no tiene sesión de onboarding."""
+    onb_result = MagicMock(); onb_result.scalar_one_or_none.return_value = None  # sin sesión
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=[onb_result])
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.post("/api/v1/annual-plan/generate")
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 400

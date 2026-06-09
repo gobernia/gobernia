@@ -125,36 +125,28 @@ export default function DashboardPage() {
       setUserEmail(data.user?.email ?? null)
     })
 
-    // Si no hay sessionId en local (usuario en navegador nuevo / cleared storage),
-    // pregunta al backend si ya hay una sesión y la hidrata.
-    if (!sessionId) {
-      api.get("/onboarding/my-session")
-        .then(r => {
-          if (r.data?.session_id) {
-            hydrate(r.data.session_id, r.data.completed_stages ?? [])
-          }
-        })
-        .catch(() => {})
-    } else {
-      api.get(`/onboarding/${sessionId}/summary`)
-        .then(r => setSummary(r.data))
-        .catch(() => {})
-      // Re-sincroniza completed_stages del backend por si difieren
-      api.get(`/onboarding/session/${sessionId}`)
-        .then(r => {
-          const backendStages = r.data?.completed_stages ?? []
-          if (Array.isArray(backendStages)) {
-            hydrate(sessionId, backendStages)
-          }
-        })
-        .catch(() => {})
-    }
+    // Siempre resolvemos la sesión del usuario ACTUAL vía /my-session (va con su token).
+    // Si el backend no tiene sesión (usuario nuevo → 204), reseteamos el store para no
+    // arrastrar el onboarding de un usuario anterior guardado en localStorage.
+    api.get("/onboarding/my-session")
+      .then(r => {
+        const sid = r.data?.session_id
+        if (sid) {
+          hydrate(sid, r.data.completed_stages ?? [])
+          api.get(`/onboarding/${sid}/summary`)
+            .then(rr => setSummary(rr.data))
+            .catch(() => {})
+        } else {
+          reset()
+        }
+      })
+      .catch(() => {})
 
     api.get("/board-sessions")
       .then(r => setSessions(r.data))
       .catch(() => {})
       .finally(() => setSessLoading(false))
-  }, [sessionId, hydrate])
+  }, [hydrate, reset])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

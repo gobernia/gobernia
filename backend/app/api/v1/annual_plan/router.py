@@ -107,6 +107,17 @@ async def generate_plan(
 ):
     """Crea el AnnualPlan en estado 'generating' y encola la generación en Celery.
     Si ya existe un plan que no falló, lo retorna sin duplicar."""
+    onb = await db.execute(
+        select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+        .order_by(OnboardingSession.created_at.desc()).limit(1)
+    )
+    onboarding = onb.scalar_one_or_none()
+    if not onboarding or 8 not in (onboarding.completed_stages or []):
+        raise HTTPException(
+            status_code=400,
+            detail="Debes completar el onboarding antes de generar tu plan.",
+        )
+
     existing = await _current_plan(user_id, db)
     if existing and existing.status != "failed":
         return AnnualPlanStatusOut(
