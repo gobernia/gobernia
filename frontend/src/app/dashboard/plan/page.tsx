@@ -13,6 +13,7 @@ import TaskDrawer from "@/components/plan/TaskDrawer"
 import AcuerdosBoard from "@/components/plan/AcuerdosBoard"
 import CoberturaBoard from "@/components/plan/CoberturaBoard"
 import MinutaView from "@/components/plan/MinutaView"
+import CompromisosBoard from "@/components/plan/CompromisosBoard"
 import AlertsPanel from "@/components/plan/AlertsPanel"
 import AgendaPanel from "@/components/plan/AgendaPanel"
 import CloseMonthModal from "@/components/plan/CloseMonthModal"
@@ -35,7 +36,7 @@ export default function AnnualPlanPage() {
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(1)
   const [openTask, setOpenTask] = useState<Task | null>(null)
-  const [boardView, setBoardView] = useState<"meses" | "tablero" | "cobertura" | "minuta">("meses")
+  const [boardView, setBoardView] = useState<"meses" | "tablero" | "cobertura" | "minuta" | "compromisos">("meses")
   const [closingMonthId, setClosingMonthId] = useState<string | null>(null)
   const [closeRunning, setCloseRunning] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -273,7 +274,7 @@ export default function AnnualPlanPage() {
           <AlertsPanel />
 
           <div className="flex gap-1.5 mb-4">
-            {(["meses", "tablero", "cobertura", "minuta"] as const).map(v => (
+            {(["meses", "tablero", "cobertura", "minuta", "compromisos"] as const).map(v => (
               <button
                 key={v}
                 onClick={() => setBoardView(v)}
@@ -283,12 +284,14 @@ export default function AnnualPlanPage() {
                     : "text-gray-500 hover:bg-gray-100"
                 }`}
               >
-                {v === "meses" ? "Meses" : v === "tablero" ? "Tablero de acuerdos" : v === "cobertura" ? "Cobertura" : "Minuta"}
+                {v === "meses" ? "Meses" : v === "tablero" ? "Tablero de acuerdos" : v === "cobertura" ? "Cobertura" : v === "minuta" ? "Minuta" : "Compromisos"}
               </button>
             ))}
           </div>
 
-          {boardView === "minuta" ? (
+          {boardView === "compromisos" ? (
+            <CompromisosBoard />
+          ) : boardView === "minuta" ? (
             <MinutaView />
           ) : boardView === "tablero" ? (
             <AcuerdosBoard
