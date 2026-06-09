@@ -61,6 +61,9 @@ class MonthlyPlan(Base, UUIDMixin, TimestampMixin):
     # Reservado para el subproyecto E (revisión de fin de mes: vas bien/mal/muy mal).
     review: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # B4 — keys de tema marcados como cubiertos este mes
+    covered_themes: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+
     annual_plan: Mapped["AnnualPlan"] = relationship(back_populates="months")
     objectives: Mapped[list["Objective"]] = relationship(
         back_populates="monthly_plan",
