@@ -10,6 +10,7 @@ Plan estratégico de 12 meses — API REST.
 - POST   /annual-plan/tasks              → crear tarea bajo un objetivo
 (las tareas se editan/borran con los endpoints existentes PATCH/DELETE /tasks/{id})
 """
+import secrets
 import uuid
 from datetime import date, datetime, timedelta
 
@@ -49,6 +50,7 @@ from app.services.governance.agenda_engine import build_agenda
 from app.services.ai.agenda_chair import chair_curate_agenda
 from app.schemas.minuta import MinutaOut, DecisionIn
 from app.services.ai.minuta import generate_minuta
+from app.models.compromiso import Compromiso
 
 router = APIRouter()
 
@@ -944,9 +946,16 @@ async def cerrar_decision(
     tema["decision"]["decision_tomada"] = body.decision
     if body.decision in ("A", "B"):
         opcion = tema["decision"]["opcion_a"] if body.decision == "A" else tema["decision"]["opcion_b"]
+        fecha = date.today() + timedelta(days=14)
+        comp = Compromiso(
+            user_id=user_id, descripcion=opcion, fecha_compromiso=fecha,
+            status="abierto", token=secrets.token_urlsafe(16), avances=[],
+            source={"month_id": str(active_month.id), "tema_id": body.tema_id},
+        )
+        db.add(comp)
+        await db.flush()
         tema["compromiso"] = {
-            "descripcion": opcion,
-            "fecha": (date.today() + timedelta(days=14)).isoformat(),
+            "descripcion": opcion, "fecha": fecha.isoformat(), "compromiso_id": str(comp.id),
         }
     else:
         tema["compromiso"] = None

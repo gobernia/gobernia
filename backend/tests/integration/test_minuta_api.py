@@ -100,12 +100,14 @@ async def test_get_minuta_vacia():
 
 @pytest.mark.asyncio
 async def test_decision_A_genera_compromiso():
+    from app.models.compromiso import Compromiso
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
     plan.start_date = date(2020, 1, 1)
     month = _month(12, minuta={"carta": "C", "temas": [_tema(0)]})
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month]
     db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2])
+    db.add = MagicMock(); db.flush = AsyncMock()
 
     _setup(db)
     try:
@@ -118,6 +120,12 @@ async def test_decision_A_genera_compromiso():
     body = r.json()
     assert body["temas"][0]["decision"]["decision_tomada"] == "A"
     assert body["temas"][0]["compromiso"]["descripcion"] == "Acción A"
+    # se creó un Compromiso rastreable
+    assert db.add.call_count == 1
+    added = db.add.call_args[0][0]
+    assert isinstance(added, Compromiso)
+    assert added.descripcion == "Acción A"
+    assert added.token
 
 
 @pytest.mark.asyncio
@@ -128,6 +136,7 @@ async def test_decision_aplazar_sin_compromiso():
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month]
     db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2])
+    db.add = MagicMock(); db.flush = AsyncMock()
 
     _setup(db)
     try:
@@ -140,6 +149,7 @@ async def test_decision_aplazar_sin_compromiso():
     body = r.json()
     assert body["temas"][0]["decision"]["decision_tomada"] == "aplazar"
     assert body["temas"][0]["compromiso"] is None
+    assert db.add.call_count == 0  # aplazar no crea Compromiso
 
 
 @pytest.mark.asyncio
