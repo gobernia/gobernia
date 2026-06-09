@@ -14,7 +14,7 @@ import uuid
 from datetime import date, datetime
 
 import anyio
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -40,6 +40,8 @@ from app.services.governance.coverage_calendar import scheduled_for_session
 from app.schemas.coverage import CoverageRow, CoverageMarkIn
 from app.services.governance.coverage_board import coverage_rows
 from sqlalchemy.orm.attributes import flag_modified as _flag_modified
+from app.models.onboarding_session import OnboardingSession
+from app.services.pdf.orden_del_dia_pdf import build_orden_pdf
 
 router = APIRouter()
 
@@ -593,6 +595,30 @@ def _theme_ref(t: BoardTheme) -> ThemeRef:
     return ThemeRef(key=t.key, label=t.label, every_n_sessions=t.every_n_sessions)
 
 
+async def _build_orden_data(plan, month_index: int, db: AsyncSession) -> dict | None:
+    res = await db.execute(select(BoardTheme).where(BoardTheme.annual_plan_id == plan.id))
+    themes = list(res.scalars().all())
+    mres = await db.execute(
+        select(MonthlyPlan)
+        .where(MonthlyPlan.annual_plan_id == plan.id, MonthlyPlan.month_index == month_index)
+        .options(selectinload(MonthlyPlan.objectives))
+    )
+    month = mres.scalar_one_or_none()
+    if not month:
+        return None
+    sched = scheduled_for_session(themes, month_index)
+    grouped = await _tasks_by_objective([o.id for o in month.objectives], db)
+    return {
+        "month_index": month.month_index,
+        "period_year": month.period_year,
+        "period_month": month.period_month,
+        "permanent_themes": [_theme_ref(t) for t in sched["permanente"]],
+        "coverage_themes": [_theme_ref(t) for t in sched["cobertura"]],
+        "covered_keys": list(month.covered_themes or []),
+        "objectives": [_objective_out(o, grouped.get(o.id, [])) for o in month.objectives],
+    }
+
+
 @router.get("/annual-plan/months/{month_index}/orden-del-dia", response_model=OrdenDelDiaOut)
 async def get_orden_del_dia(
     month_index: int,
@@ -602,31 +628,42 @@ async def get_orden_del_dia(
     plan = await _current_plan(user_id, db)
     if not plan:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
-
-    res = await db.execute(
-        select(BoardTheme).where(BoardTheme.annual_plan_id == plan.id)
-    )
-    themes = list(res.scalars().all())
-
-    mres = await db.execute(
-        select(MonthlyPlan)
-        .where(MonthlyPlan.annual_plan_id == plan.id, MonthlyPlan.month_index == month_index)
-        .options(selectinload(MonthlyPlan.objectives))
-    )
-    month = mres.scalar_one_or_none()
-    if not month:
+    data = await _build_orden_data(plan, month_index, db)
+    if data is None:
         raise HTTPException(status_code=404, detail="Mes no encontrado.")
+    return OrdenDelDiaOut(**data)
 
-    sched = scheduled_for_session(themes, month_index)
-    grouped = await _tasks_by_objective([o.id for o in month.objectives], db)
-    return OrdenDelDiaOut(
-        month_index=month.month_index,
-        period_year=month.period_year,
-        period_month=month.period_month,
-        permanent_themes=[_theme_ref(t) for t in sched["permanente"]],
-        coverage_themes=[_theme_ref(t) for t in sched["cobertura"]],
-        covered_keys=list(month.covered_themes or []),
-        objectives=[_objective_out(o, grouped.get(o.id, [])) for o in month.objectives],
+
+@router.get("/annual-plan/months/{month_index}/orden-del-dia/pdf")
+async def get_orden_del_dia_pdf(
+    month_index: int,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    data = await _build_orden_data(plan, month_index, db)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Mes no encontrado.")
+    data["period_label"] = f"{_MONTH_NAMES[data['period_month']]} {data['period_year']}"
+
+    company_name = None
+    try:
+        onb = await db.execute(
+            select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+            .order_by(OnboardingSession.created_at.desc()).limit(1)
+        )
+        onboarding = onb.scalar_one_or_none()
+        mb = (onboarding.memory_buffer if onboarding else {}) or {}
+        company_name = (mb.get("company") or {}).get("name")
+    except Exception:
+        company_name = None
+
+    pdf = build_orden_pdf(data, company_name)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="orden-del-dia-mes-{month_index}.pdf"'},
     )
 
 
