@@ -67,6 +67,9 @@ class MonthlyPlan(Base, UUIDMixin, TimestampMixin):
     # Chair IA — agenda generada por el chair para la sesión del mes
     chair_agenda: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # Nodo 5 — minuta de la sesión del mes
+    minuta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     annual_plan: Mapped["AnnualPlan"] = relationship(back_populates="months")
     objectives: Mapped[list["Objective"]] = relationship(
         back_populates="monthly_plan",
