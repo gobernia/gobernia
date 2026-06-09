@@ -11,7 +11,7 @@ Plan estratégico de 12 meses — API REST.
 (las tareas se editan/borran con los endpoints existentes PATCH/DELETE /tasks/{id})
 """
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import anyio
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -47,6 +47,8 @@ from app.services.governance.alerts import compute_alerts
 from app.schemas.agenda import AgendaItem, AgendaOut
 from app.services.governance.agenda_engine import build_agenda
 from app.services.ai.agenda_chair import chair_curate_agenda
+from app.schemas.minuta import MinutaOut, DecisionIn
+from app.services.ai.minuta import generate_minuta
 
 router = APIRouter()
 
@@ -851,3 +853,104 @@ async def convocar_chair(
         _flag_modified(active_month, "chair_agenda")
 
     return AgendaOut(curada=True, carta=result["carta"], items=result["items"])
+
+
+async def _active_month(plan, db: AsyncSession):
+    """Devuelve el MonthlyPlan del mes activo (sin construir la agenda)."""
+    res = await db.execute(select(MonthlyPlan).where(MonthlyPlan.annual_plan_id == plan.id))
+    months = list(res.scalars().all())
+    active = compute_active_month_index(plan.start_date, date.today())
+    return next((m for m in months if m.month_index == active), None)
+
+
+# ── Minuta (nodo 5) ───────────────────────────────────────────────────────────
+
+@router.post("/annual-plan/minuta", response_model=MinutaOut)
+async def generar_minuta(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    agenda, _months, _active, active_month = await _agenda_estado(plan, db)
+    items = (
+        active_month.chair_agenda["items"]
+        if (active_month is not None and active_month.chair_agenda) else agenda
+    )
+    period_label = (
+        f"{_MONTH_NAMES[active_month.period_month]} {active_month.period_year}"
+        if active_month is not None else ""
+    )
+    memory_buffer: dict = {}
+    try:
+        onb = await db.execute(
+            select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+            .order_by(OnboardingSession.created_at.desc()).limit(1)
+        )
+        onboarding = onb.scalar_one_or_none()
+        memory_buffer = (onboarding.memory_buffer if onboarding else {}) or {}
+    except Exception:
+        memory_buffer = {}
+
+    result = await anyio.to_thread.run_sync(generate_minuta, items, memory_buffer, period_label)
+
+    if active_month is not None:
+        active_month.minuta = {
+            "carta": result["carta"], "temas": result["temas"],
+            "generated_at": date.today().isoformat(),
+        }
+        _flag_modified(active_month, "minuta")
+
+    return MinutaOut(generada=True, carta=result["carta"], temas=result["temas"])
+
+
+@router.get("/annual-plan/minuta", response_model=MinutaOut)
+async def get_minuta(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    active_month = await _active_month(plan, db)
+    if active_month is not None and active_month.minuta:
+        m = active_month.minuta
+        return MinutaOut(generada=True, carta=m.get("carta", ""), temas=m.get("temas", []))
+    return MinutaOut(generada=False, carta="", temas=[])
+
+
+@router.post("/annual-plan/minuta/decision", response_model=MinutaOut)
+async def cerrar_decision(
+    body: DecisionIn,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.decision not in ("A", "B", "aplazar"):
+        raise HTTPException(status_code=422, detail="Decisión inválida.")
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    active_month = await _active_month(plan, db)
+    if active_month is None or not active_month.minuta:
+        raise HTTPException(status_code=404, detail="Minuta no encontrada.")
+
+    minuta = dict(active_month.minuta)
+    temas = minuta.get("temas", [])
+    tema = next((t for t in temas if t.get("id") == body.tema_id), None)
+    if tema is None:
+        raise HTTPException(status_code=404, detail="Tema no encontrado.")
+
+    tema["decision"]["decision_tomada"] = body.decision
+    if body.decision in ("A", "B"):
+        opcion = tema["decision"]["opcion_a"] if body.decision == "A" else tema["decision"]["opcion_b"]
+        tema["compromiso"] = {
+            "descripcion": opcion,
+            "fecha": (date.today() + timedelta(days=14)).isoformat(),
+        }
+    else:
+        tema["compromiso"] = None
+
+    active_month.minuta = minuta
+    _flag_modified(active_month, "minuta")
+    return MinutaOut(generada=True, carta=minuta.get("carta", ""), temas=temas)
