@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { OrdenDelDia, getOrdenDelDia, markCoverage } from "@/lib/ordenDelDia"
+import { OrdenDelDia, getOrdenDelDia, markCoverage, downloadOrdenPdf } from "@/lib/ordenDelDia"
 import { FREQ_LABEL } from "@/lib/boardThemes"
 
 export default function OrdenDelDiaPanel({ monthIndex }: { monthIndex: number }) {
   const [orden, setOrden] = useState<OrdenDelDia | null>(null)
   const [covered, setCovered] = useState<Set<string>>(new Set())
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -30,12 +31,27 @@ export default function OrdenDelDiaPanel({ monthIndex }: { monthIndex: number })
     })
   }
 
+  const onDownload = async () => {
+    setDownloading(true)
+    try { await downloadOrdenPdf(monthIndex) } catch { /* noop */ } finally { setDownloading(false) }
+  }
+
   if (!orden) return null
   if (orden.permanent_themes.length === 0 && orden.coverage_themes.length === 0) return null
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-gray-50/60 p-5 space-y-4">
-      <h3 className="text-sm font-bold text-black uppercase tracking-wide">Orden del día</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-black uppercase tracking-wide">Orden del día</h3>
+        <button
+          type="button"
+          onClick={onDownload}
+          disabled={downloading}
+          className="text-xs font-medium text-[var(--gob-navy)] hover:underline disabled:opacity-50"
+        >
+          {downloading ? "Generando…" : "Descargar PDF"}
+        </button>
+      </div>
 
       <div>
         <p className="text-xs font-medium text-gray-400 uppercase mb-1.5">Permanentes</p>
