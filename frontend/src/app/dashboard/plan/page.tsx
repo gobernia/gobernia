@@ -13,6 +13,7 @@ import TaskDrawer from "@/components/plan/TaskDrawer"
 import AcuerdosBoard from "@/components/plan/AcuerdosBoard"
 import CoberturaBoard from "@/components/plan/CoberturaBoard"
 import AlertsPanel from "@/components/plan/AlertsPanel"
+import AgendaPanel from "@/components/plan/AgendaPanel"
 import CloseMonthModal from "@/components/plan/CloseMonthModal"
 import {
   getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
@@ -265,6 +266,8 @@ export default function AnnualPlanPage() {
           </motion.div>
 
           <DiagnosticoPanel summary={plan?.diagnostico_summary ?? null} />
+
+          <AgendaPanel />
 
           <AlertsPanel />
 
