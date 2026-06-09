@@ -44,8 +44,9 @@ from app.models.onboarding_session import OnboardingSession
 from app.services.pdf.orden_del_dia_pdf import build_orden_pdf
 from app.schemas.alerts import AlertItem
 from app.services.governance.alerts import compute_alerts
-from app.schemas.agenda import AgendaItem
+from app.schemas.agenda import AgendaItem, AgendaOut
 from app.services.governance.agenda_engine import build_agenda
+from app.services.ai.agenda_chair import chair_curate_agenda
 
 router = APIRouter()
 
@@ -770,15 +771,8 @@ async def get_alertas(
 
 # ── Agenda del mes (Motor de Orden del Día por señales) ───────────────────────
 
-@router.get("/annual-plan/agenda", response_model=list[AgendaItem])
-async def get_agenda(
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-):
-    plan = await _current_plan(user_id, db)
-    if not plan:
-        raise HTTPException(status_code=404, detail="No hay plan generado.")
-
+async def _agenda_estado(plan, db: AsyncSession):
+    """Reúne el EstadoMes en vivo y devuelve (agenda_determinista, months, active, active_month)."""
     mres = await db.execute(
         select(MonthlyPlan)
         .where(MonthlyPlan.annual_plan_id == plan.id)
@@ -803,4 +797,57 @@ async def get_agenda(
         kpi_signals = ((latest.review or {}).get("signals") or {}).get("kpis") or []
 
     agenda = build_agenda(scheduled_themes, rows, kpi_signals, tasks, date.today())
-    return [AgendaItem(**a) for a in agenda]
+    active_month = next((m for m in months if m.month_index == active), None)
+    return agenda, months, active, active_month
+
+
+@router.get("/annual-plan/agenda", response_model=AgendaOut)
+async def get_agenda(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    agenda, _months, _active, active_month = await _agenda_estado(plan, db)
+    if active_month is not None and active_month.chair_agenda:
+        ca = active_month.chair_agenda
+        return AgendaOut(curada=True, carta=ca.get("carta", ""), items=ca.get("items", []))
+    return AgendaOut(curada=False, carta="", items=agenda)
+
+
+@router.post("/annual-plan/agenda/chair", response_model=AgendaOut)
+async def convocar_chair(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    agenda, _months, _active, active_month = await _agenda_estado(plan, db)
+
+    period_label = (
+        f"{_MONTH_NAMES[active_month.period_month]} {active_month.period_year}"
+        if active_month is not None else ""
+    )
+    memory_buffer: dict = {}
+    try:
+        onb = await db.execute(
+            select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+            .order_by(OnboardingSession.created_at.desc()).limit(1)
+        )
+        onboarding = onb.scalar_one_or_none()
+        memory_buffer = (onboarding.memory_buffer if onboarding else {}) or {}
+    except Exception:
+        memory_buffer = {}
+
+    result = await anyio.to_thread.run_sync(chair_curate_agenda, agenda, memory_buffer, period_label)
+
+    if active_month is not None:
+        active_month.chair_agenda = {
+            "carta": result["carta"], "items": result["items"],
+            "generated_at": date.today().isoformat(),
+        }
+        _flag_modified(active_month, "chair_agenda")
+
+    return AgendaOut(curada=True, carta=result["carta"], items=result["items"])

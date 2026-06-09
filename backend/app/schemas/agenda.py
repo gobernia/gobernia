@@ -11,3 +11,9 @@ class AgendaItem(BaseModel):
     racional: str
     evidencia: list[str]
     score: float
+
+
+class AgendaOut(BaseModel):
+    curada: bool
+    carta: str
+    items: list[AgendaItem]
