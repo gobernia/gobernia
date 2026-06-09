@@ -12,6 +12,7 @@ import MonthDetail from "@/components/plan/MonthDetail"
 import TaskDrawer from "@/components/plan/TaskDrawer"
 import AcuerdosBoard from "@/components/plan/AcuerdosBoard"
 import CoberturaBoard from "@/components/plan/CoberturaBoard"
+import AlertsPanel from "@/components/plan/AlertsPanel"
 import CloseMonthModal from "@/components/plan/CloseMonthModal"
 import {
   getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
@@ -264,6 +265,8 @@ export default function AnnualPlanPage() {
           </motion.div>
 
           <DiagnosticoPanel summary={plan?.diagnostico_summary ?? null} />
+
+          <AlertsPanel />
 
           <div className="flex gap-1.5 mb-4">
             {(["meses", "tablero", "cobertura"] as const).map(v => (
