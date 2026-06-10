@@ -71,6 +71,28 @@ async def _entrypoint(annual_plan_id: str) -> dict:
     return {"status": "active", "annual_plan_id": annual_plan_id}
 
 
+# Cuántas llamadas de generación de tareas mensuales corren a la vez. Acota para no
+# tronar los límites de rate de Anthropic; ajustable.
+_MONTH_CONCURRENCY = 5
+
+
+async def _generate_all_month_tasks(skeleton, memory_buffer, start_year, start_month):
+    """Genera las tareas de los 12 meses EN PARALELO (cada llamada a Claude es I/O-bound y
+    corre en un thread). Devuelve los task_specs alineados al orden de `skeleton`."""
+    sem = asyncio.Semaphore(_MONTH_CONCURRENCY)
+
+    async def _one(m):
+        year, month = month_calendar(start_year, start_month, m["month_index"])
+        async with sem:
+            return await asyncio.to_thread(
+                generate_month_tasks,
+                focus=m.get("focus"), objectives=m["objectives"],
+                memory_buffer=memory_buffer, year=year, month=month,
+            )
+
+    return await asyncio.gather(*[_one(m) for m in skeleton])
+
+
 async def _run_generation(annual_plan_id: str, db) -> None:
     """Llena un AnnualPlan en estado 'generating'. Marca 'failed' y re-lanza ante error."""
     from datetime import date
@@ -128,8 +150,13 @@ async def _run_generation(annual_plan_id: str, db) -> None:
 
         active_idx = compute_active_month_index(plan.start_date, date.today())
 
-        # Paso 3: meses → objetivos → tareas
-        for m in skeleton:
+        # Paso 3: generar las tareas de los 12 meses EN PARALELO (antes 1x1 ≈ 7 min)
+        month_task_specs = await _generate_all_month_tasks(
+            skeleton, memory_buffer, plan.start_date.year, plan.start_date.month,
+        )
+
+        # Paso 4: escribir meses → objetivos → tareas (secuencial, rápido)
+        for m, task_specs in zip(skeleton, month_task_specs):
             year, month = month_calendar(plan.start_date.year, plan.start_date.month, m["month_index"])
             monthly = MonthlyPlan(
                 annual_plan_id=plan.id,
@@ -153,10 +180,6 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                 objectives_models.append(obj)
             await db.flush()
 
-            task_specs = generate_month_tasks(
-                focus=m.get("focus"), objectives=m["objectives"],
-                memory_buffer=memory_buffer, year=year, month=month,
-            )
             for ts in task_specs:
                 obj = objectives_models[ts["objective_index"]]
                 db.add(ActionTask(
