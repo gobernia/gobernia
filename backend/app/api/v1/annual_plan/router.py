@@ -12,7 +12,7 @@ Plan estratégico de 12 meses — API REST.
 """
 import secrets
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import anyio
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -91,6 +91,22 @@ async def _current_plan(user_id: str, db: AsyncSession) -> AnnualPlan | None:
     return res.scalar_one_or_none()
 
 
+# Si la generación tarda más que esto, asumimos que el worker murió/falló sin marcarlo.
+_GENERATING_TIMEOUT = timedelta(minutes=30)
+
+
+async def _expire_if_stale(plan: AnnualPlan | None, db: AsyncSession) -> AnnualPlan | None:
+    """Blindaje: un plan colgado en 'generating' (worker caído o error que rompió la
+    conexión antes de marcar 'failed') se pasa a 'failed' para que sea reintentable en vez
+    de quedarse pensando para siempre."""
+    if (plan is not None and plan.status == "generating"
+            and plan.created_at is not None
+            and datetime.now(timezone.utc) - plan.created_at > _GENERATING_TIMEOUT):
+        plan.status = "failed"
+        await db.commit()
+    return plan
+
+
 async def _tasks_by_objective(objective_ids: list[uuid.UUID], db: AsyncSession) -> dict:
     if not objective_ids:
         return {}
@@ -125,7 +141,7 @@ async def generate_plan(
             detail="Debes completar el onboarding antes de generar tu plan.",
         )
 
-    existing = await _current_plan(user_id, db)
+    existing = await _expire_if_stale(await _current_plan(user_id, db), db)
     if existing and existing.status != "failed":
         return AnnualPlanStatusOut(
             status=existing.status,
@@ -163,7 +179,7 @@ async def get_status(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    plan = await _current_plan(user_id, db)
+    plan = await _expire_if_stale(await _current_plan(user_id, db), db)
     if not plan:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
     return AnnualPlanStatusOut(

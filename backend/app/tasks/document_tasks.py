@@ -22,8 +22,7 @@ def process_document_task(self, document_id: str) -> dict:
 
 async def _process(document_id: str) -> dict:
     from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from app.db.session import async_session_factory
+    from app.db.session import task_session
     from app.models.document import Document
     from app.services.documents.processor import (
         analyze_document_with_claude,
@@ -32,7 +31,7 @@ async def _process(document_id: str) -> dict:
     import boto3
     from app.core.config import settings
 
-    async with async_session_factory() as db:
+    async with task_session() as db:
         result = await db.execute(
             select(Document).where(Document.id == uuid.UUID(document_id))
         )

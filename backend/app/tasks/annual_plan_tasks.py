@@ -65,8 +65,8 @@ def generate_annual_plan_task(self, annual_plan_id: str) -> dict:
 
 
 async def _entrypoint(annual_plan_id: str) -> dict:
-    from app.db.session import AsyncSessionLocal
-    async with AsyncSessionLocal() as db:
+    from app.db.session import task_session
+    async with task_session() as db:
         await _run_generation(annual_plan_id, db)
     return {"status": "active", "annual_plan_id": annual_plan_id}
 
