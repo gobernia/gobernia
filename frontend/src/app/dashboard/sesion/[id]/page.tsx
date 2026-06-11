@@ -232,7 +232,7 @@ export default function SessionPage() {
     <div className="min-h-dvh bg-white text-black font-sans antialiased flex flex-col">
 
       {/* ── Navbar ───────────────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <header className="fixed top-12 inset-x-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center gap-4">
           <button
             onClick={() => router.push("/dashboard")}
@@ -281,7 +281,7 @@ export default function SessionPage() {
       </div>
 
       {/* ── Main ─────────────────────────────────────────── */}
-      <main className="flex-1 pt-28">
+      <main className="flex-1 pt-40">
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] pb-10">
 
           {/* ── Análisis ─────────────────────────────────── */}

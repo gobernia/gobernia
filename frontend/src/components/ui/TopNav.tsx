@@ -14,7 +14,7 @@ export default function TopNav() {
   const pathname = usePathname()
   return (
     <nav className="sticky top-0 z-40 bg-[var(--gob-navy)] text-[var(--gob-bone)]">
-      <div className="max-w-6xl mx-auto px-4 flex items-center gap-1 overflow-x-auto">
+      <div className="max-w-6xl mx-auto px-4 h-12 flex items-center gap-1 overflow-x-auto">
         <Link href="/dashboard" className="font-bold tracking-widest text-sm py-3 pr-4 shrink-0">
           GOBERNIA
         </Link>

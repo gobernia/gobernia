@@ -70,7 +70,7 @@ export default function DatosPage() {
 
   return (
     <div className="min-h-dvh bg-white text-black font-sans antialiased">
-      <header className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <header className="fixed top-12 inset-x-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="w-full max-w-[1200px] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors">
             <ArrowLeft className="h-4 w-4" />
@@ -80,7 +80,7 @@ export default function DatosPage() {
         </div>
       </header>
 
-      <main className="pt-14">
+      <main className="pt-26">
         <div className="w-full max-w-[1200px] mx-auto px-[var(--px-fluid)] py-12 space-y-10">
 
           <motion.div
