@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { Loader2, Sparkles, AlertCircle } from "lucide-react"
 import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
@@ -30,6 +31,7 @@ export default function AnnualPlanPage() {
   const [selectedMonth, setSelectedMonth] = useState(1)
   const [openTask, setOpenTask] = useState<Task | null>(null)
   const [closingMonthId, setClosingMonthId] = useState<string | null>(null)
+  const [failReason, setFailReason] = useState<"datos" | "general" | null>(null)
   const [closeRunning, setCloseRunning] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -86,8 +88,11 @@ export default function AnnualPlanPage() {
     setView("generating")
     try {
       await generateAnnualPlan()
+      setFailReason(null)
       startPolling()
-    } catch {
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      setFailReason(status === 400 ? "datos" : "general")
       setView("failed")
     }
   }
@@ -208,6 +213,7 @@ export default function AnnualPlanPage() {
 
   if (view === "none" || view === "failed" || view === "error") {
     const isFail = view === "failed" || view === "error"
+    const isDatos = isFail && failReason === "datos"
     return (
       <div className="min-h-dvh bg-white flex flex-col items-center justify-center gap-6 px-6 text-center">
         <div className="w-14 h-14 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
@@ -215,21 +221,34 @@ export default function AnnualPlanPage() {
         </div>
         <div className="space-y-2 max-w-md">
           <p className="text-base font-medium text-black">
-            {isFail ? "No se pudo generar tu plan" : "Genera tu plan estratégico de 12 meses"}
+            {isDatos
+              ? "Completa los datos de tu empresa"
+              : isFail ? "No se pudo generar tu plan" : "Genera tu plan estratégico de 12 meses"}
           </p>
           <p className="text-sm text-gray-500 leading-relaxed">
-            {isFail
-              ? "Algo falló al construir el plan. Puedes reintentarlo."
-              : "A partir de tu onboarding, el consejo diseñará un plan anual con objetivos, tareas, responsables y KPIs."}
+            {isDatos
+              ? "Para que tu consejo diseñe el plan necesita conocer tu empresa. Termina las 8 etapas del onboarding y vuelve a intentarlo."
+              : isFail
+                ? "Algo falló al construir el plan. Puedes reintentarlo."
+                : "A partir de tu onboarding, el consejo diseñará un plan anual con objetivos, tareas, responsables y KPIs."}
           </p>
         </div>
-        <button
-          onClick={() => onGenerate(isFail)}
-          className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
-        >
-          <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar plan"}
-        </button>
-        {isFail && (
+        {isDatos ? (
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
+          >
+            Completar mis datos
+          </Link>
+        ) : (
+          <button
+            onClick={() => onGenerate(isFail)}
+            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
+          >
+            <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar plan"}
+          </button>
+        )}
+        {isFail && !isDatos && (
           <p className="text-xs text-gray-400 max-w-xs">
             Al regenerar se borrará el plan mensual anterior.
           </p>
