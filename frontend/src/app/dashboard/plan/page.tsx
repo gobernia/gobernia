@@ -10,12 +10,7 @@ import DiagnosticoPanel from "@/components/plan/DiagnosticoPanel"
 import MonthTimeline from "@/components/plan/MonthTimeline"
 import MonthDetail from "@/components/plan/MonthDetail"
 import TaskDrawer from "@/components/plan/TaskDrawer"
-import AcuerdosBoard from "@/components/plan/AcuerdosBoard"
 import CoberturaBoard from "@/components/plan/CoberturaBoard"
-import MinutaView from "@/components/plan/MinutaView"
-import CompromisosBoard from "@/components/plan/CompromisosBoard"
-import AlertsPanel from "@/components/plan/AlertsPanel"
-import AgendaPanel from "@/components/plan/AgendaPanel"
 import CloseMonthModal from "@/components/plan/CloseMonthModal"
 import {
   getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
@@ -36,7 +31,6 @@ export default function AnnualPlanPage() {
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(1)
   const [openTask, setOpenTask] = useState<Task | null>(null)
-  const [boardView, setBoardView] = useState<"meses" | "tablero" | "cobertura" | "minuta" | "compromisos">("meses")
   const [closingMonthId, setClosingMonthId] = useState<string | null>(null)
   const [closeRunning, setCloseRunning] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -269,63 +263,33 @@ export default function AnnualPlanPage() {
 
           <DiagnosticoPanel summary={plan?.diagnostico_summary ?? null} />
 
-          <AgendaPanel />
-
-          <AlertsPanel />
-
-          <div className="flex gap-1.5 mb-4">
-            {(["meses", "tablero", "cobertura", "minuta", "compromisos"] as const).map(v => (
-              <button
-                key={v}
-                onClick={() => setBoardView(v)}
-                className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                  boardView === v
-                    ? "bg-[var(--gob-navy)] text-[var(--gob-bone)]"
-                    : "text-gray-500 hover:bg-gray-100"
-                }`}
-              >
-                {v === "meses" ? "Meses" : v === "tablero" ? "Tablero de acuerdos" : v === "cobertura" ? "Cobertura" : v === "minuta" ? "Minuta" : "Compromisos"}
-              </button>
-            ))}
-          </div>
-
-          {boardView === "compromisos" ? (
-            <CompromisosBoard />
-          ) : boardView === "minuta" ? (
-            <MinutaView />
-          ) : boardView === "tablero" ? (
-            <AcuerdosBoard
-              plan={plan!}
-              onMoveTask={(taskId, status) => onUpdateTask(taskId, { status })}
-              onTaskClick={setOpenTask}
-            />
-          ) : boardView === "cobertura" ? (
-            <CoberturaBoard />
-          ) : (
-            <>
-              {plan && (
-                <MonthTimeline months={plan.months} selectedIndex={selectedMonth} onSelect={setSelectedMonth} />
-              )}
-
-              {month && (
-                <MonthDetail
-                  month={month}
-                  onTaskClick={setOpenTask}
-                  onUpdateTask={onUpdateTask}
-                  onAddTask={onAddTask}
-                  onRenameObjective={onRenameObjective}
-                  onDeleteObjective={onDeleteObjective}
-                  onAddObjective={onAddObjective}
-                  onCloseMonth={onCloseMonth}
-                  onApplyProposal={onApplyProposal}
-                />
-              )}
-            </>
+          {plan && (
+            <MonthTimeline months={plan.months} selectedIndex={selectedMonth} onSelect={setSelectedMonth} />
           )}
 
-          <div className="mt-12 border-t border-gray-100 pt-10">
-            <ThemesPanel />
-          </div>
+          {month && (
+            <MonthDetail
+              month={month}
+              onTaskClick={setOpenTask}
+              onUpdateTask={onUpdateTask}
+              onAddTask={onAddTask}
+              onRenameObjective={onRenameObjective}
+              onDeleteObjective={onDeleteObjective}
+              onAddObjective={onAddObjective}
+              onCloseMonth={onCloseMonth}
+              onApplyProposal={onApplyProposal}
+            />
+          )}
+
+          <details className="mt-10">
+            <summary className="text-xs font-medium text-gray-400 cursor-pointer hover:text-[var(--gob-navy)] select-none">
+              Ver cobertura anual y temas del consejo
+            </summary>
+            <div className="mt-4 space-y-5">
+              <CoberturaBoard />
+              <ThemesPanel />
+            </div>
+          </details>
         </div>
       </main>
 
