@@ -32,6 +32,7 @@ export default function AnnualPlanPage() {
   const [openTask, setOpenTask] = useState<Task | null>(null)
   const [closingMonthId, setClosingMonthId] = useState<string | null>(null)
   const [failReason, setFailReason] = useState<"datos" | "general" | null>(null)
+  const [failDetail, setFailDetail] = useState<string | null>(null)
   const [closeRunning, setCloseRunning] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -91,8 +92,10 @@ export default function AnnualPlanPage() {
       setFailReason(null)
       startPolling()
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status
-      setFailReason(status === 400 ? "datos" : "general")
+      const resp = (err as { response?: { status?: number; data?: { detail?: unknown } } })?.response
+      const detail = typeof resp?.data?.detail === "string" ? resp.data.detail : null
+      setFailReason(resp?.status === 400 ? "datos" : "general")
+      setFailDetail(detail)
       setView("failed")
     }
   }
@@ -227,7 +230,7 @@ export default function AnnualPlanPage() {
           </p>
           <p className="text-sm text-gray-500 leading-relaxed">
             {isDatos
-              ? "Para que tu consejo diseñe el plan necesita conocer tu empresa. Termina las 8 etapas del onboarding y vuelve a intentarlo."
+              ? (failDetail ?? "Para que tu consejo diseñe el plan necesita conocer tu empresa. Completa tus datos y vuelve a intentarlo.")
               : isFail
                 ? "Algo falló al construir el plan. Puedes reintentarlo."
                 : "A partir de tu onboarding, el consejo diseñará un plan anual con objetivos, tareas, responsables y KPIs."}
@@ -235,7 +238,7 @@ export default function AnnualPlanPage() {
         </div>
         {isDatos ? (
           <Link
-            href="/dashboard"
+            href="/dashboard/datos"
             className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
           >
             Completar mis datos

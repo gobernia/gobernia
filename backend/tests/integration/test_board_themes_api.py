@@ -127,6 +127,8 @@ async def test_generate_seeds_themes(monkeypatch):
     monkeypatch.setattr("app.api.v1.annual_plan.router.seed_default_themes", fake_seed)
 
     onb = MagicMock(); onb.completed_stages = [1, 2, 3, 4, 5, 6, 7, 8]  # onboarding completo
+    onb.memory_buffer = {"company": {"name": "ACME"},
+                         "kpis": {"finance": [{"label": "Margen", "current_value": 12.0, "unknown": False}]}}
     onb_result = MagicMock(); onb_result.scalar_one_or_none.return_value = onb
     plan_result = MagicMock(); plan_result.scalar_one_or_none.return_value = None  # no hay plan previo
     db = AsyncMock()
@@ -182,3 +184,24 @@ async def test_generate_requires_onboarding_existe():
     finally:
         app.dependency_overrides.clear()
     assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_generate_requires_kpis_con_valor():
+    """generate_plan bloquea (400) si los KPIs están en 'no sé' (sin valor)."""
+    onb = MagicMock(); onb.completed_stages = [1, 2, 3, 4, 5, 6, 7, 8]
+    onb.memory_buffer = {"company": {"name": "ACME"},
+                         "kpis": {"finance": [{"label": "Margen", "current_value": None, "unknown": True}]}}
+    onb_result = MagicMock(); onb_result.scalar_one_or_none.return_value = onb
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=[onb_result])
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.post("/api/v1/annual-plan/generate")
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 400
+    assert "KPIs sin valor" in r.json()["detail"]

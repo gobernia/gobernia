@@ -16,7 +16,7 @@ MOCK_ONBOARDING_ID = str(uuid.uuid4())
 MOCK_BOARD_ID = str(uuid.uuid4())
 
 FULL_BUFFER = {
-    "company": {"industry": "manufacturing", "employees": "11-50", "annual_revenue": "1M-5M"},
+    "company": {"name": "Empresa Demo", "industry": "manufacturing", "employees": "11-50", "annual_revenue": "1M-5M"},
     "ai_context": {"company_narrative": "Empresa Demo. Diagnóstico completo."},
     "vision": {"statement": "Ser líderes en 5 años."},
     "governance": {"score": 80.0, "level": "Consolidado"},
@@ -27,6 +27,7 @@ FULL_BUFFER = {
         "Auditor": {"tone": "collaborative", "alert_sensitivity": "medium"},
     },
     "documents": [],
+    "kpis": {"finance": [{"label": "Margen", "current_value": 12.0, "unknown": False}]},
 }
 
 
@@ -348,3 +349,23 @@ async def test_chat_sin_api_key_devuelve_respuesta():
     assert data["role"] == "assistant"
     assert data["agent"] == "CFO"
     assert len(data["content"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_create_session_kpis_sin_valor_400():
+    """Crear sesión bloquea (400) si los KPIs del onboarding no tienen valor."""
+    onboarding = _mock_onboarding()
+    onboarding.memory_buffer = {**FULL_BUFFER,
+        "kpis": {"finance": [{"label": "Margen", "current_value": None, "unknown": True}]}}
+    app.dependency_overrides[get_db] = _db_override_onboarding(onboarding)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/board-sessions",
+                json={"period_year": 2026, "period_month": 6},
+            )
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 400
+    assert "KPIs sin valor" in response.json()["detail"]

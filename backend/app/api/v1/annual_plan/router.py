@@ -50,6 +50,7 @@ from app.services.governance.agenda_engine import build_agenda
 from app.services.ai.agenda_chair import chair_curate_agenda
 from app.schemas.minuta import MinutaOut, DecisionIn
 from app.services.ai.minuta import generate_minuta
+from app.services.data_completeness import missing_company_data
 from app.models.compromiso import Compromiso
 
 router = APIRouter()
@@ -139,6 +140,13 @@ async def generate_plan(
         raise HTTPException(
             status_code=400,
             detail="Debes completar el onboarding antes de generar tu plan.",
+        )
+    faltantes = missing_company_data(onboarding.memory_buffer)
+    if faltantes:
+        raise HTTPException(
+            status_code=400,
+            detail="Faltan datos de tu empresa: " + "; ".join(faltantes)
+            + ". Complétalos en la sección Datos antes de generar tu plan.",
         )
 
     existing = await _expire_if_stale(await _current_plan(user_id, db), db)

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.services.data_completeness import missing_company_data
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.board_session import BoardSession
 from app.models.chat_message import ChatMessage
@@ -62,6 +63,13 @@ async def _get_onboarding_or_404(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Debes completar el onboarding antes de crear una sesión de consejo.",
+        )
+    faltantes = missing_company_data(session.memory_buffer)
+    if faltantes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Faltan datos de tu empresa: " + "; ".join(faltantes)
+            + ". Complétalos en la sección Datos antes de crear una sesión de consejo.",
         )
     return session
 
