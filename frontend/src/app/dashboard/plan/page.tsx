@@ -311,6 +311,7 @@ export default function AnnualPlanPage() {
                 <MonthDetail
                   month={month}
                   onTaskClick={setOpenTask}
+                  onUpdateTask={onUpdateTask}
                   onAddTask={onAddTask}
                   onRenameObjective={onRenameObjective}
                   onDeleteObjective={onDeleteObjective}
