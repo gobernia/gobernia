@@ -192,8 +192,16 @@ def _company_line(memory_buffer: dict) -> str:
     return f"Empresa: {c.get('name', 'la empresa')} | Industria: {c.get('industry', 'N/D')}"
 
 
+def _skeleton_vacio(months: list[dict]) -> bool:
+    return all(not m.get("objectives") for m in months)
+
+
 def generate_skeleton(memory_buffer: dict, diagnostico: str, kpi_labels: list[str]) -> list[dict]:
-    """Paso 2: una llamada genera el esqueleto de 12 meses. Fallback si no hay API key."""
+    """Paso 2: una llamada genera el esqueleto de 12 meses. Fallback si no hay API key.
+
+    Si la respuesta llega ilegible/truncada (parse → 12 meses sin objetivos), reintenta una
+    vez; si sigue vacía, LANZA para que el plan quede 'failed' (reintentable) en vez de
+    completarse como un cascarón sin objetivos ni tareas."""
     if not settings.ANTHROPIC_API_KEY:
         return fallback_skeleton()
 
@@ -205,12 +213,16 @@ def generate_skeleton(memory_buffer: dict, diagnostico: str, kpi_labels: list[st
         f"{SKELETON_SCHEMA}"
     )
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=4096,
-        system=SKELETON_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-    return parse_skeleton(response.content[0].text)
+    for _ in range(2):
+        response = _create_with_retry(
+            client, model=settings.AI_MODEL, max_tokens=8192,
+            system=SKELETON_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        skeleton = parse_skeleton(response.content[0].text)
+        if not _skeleton_vacio(skeleton):
+            return skeleton
+    raise RuntimeError("El esqueleto del plan llegó vacío o ilegible tras 2 intentos.")
 
 
 def generate_month_tasks(focus, objectives: list[dict], memory_buffer: dict,

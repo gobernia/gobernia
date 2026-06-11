@@ -122,3 +122,34 @@ def test_generate_month_tasks_con_apikey(monkeypatch):
     )
     assert tasks[0]["title"] == "Negociar crédito"
     assert tasks[0]["due_date"] == "2026-06-10"
+
+
+def test_generate_skeleton_reintenta_si_vacio(monkeypatch):
+    """Respuesta truncada/basura la primera vez → reintenta; la segunda válida → la usa."""
+    import json
+    monkeypatch.setattr(gen.settings, "ANTHROPIC_API_KEY", "sk-test", raising=False)
+    valido = json.dumps({"months": [
+        {"month_index": 1, "focus": "F", "objectives": [{"title": "O1"}]},
+    ]})
+    respuestas = iter([_FakeResponse("{basura truncada"), _FakeResponse(valido)])
+    calls = {"n": 0}
+
+    def fake_create(*a, **k):
+        calls["n"] += 1
+        return next(respuestas)
+
+    monkeypatch.setattr(gen, "_create_with_retry", fake_create)
+    monkeypatch.setattr(gen.anthropic, "Anthropic", lambda **k: object())
+    months = gen.generate_skeleton({"company": {"name": "Demo"}}, "Diag", kpi_labels=[])
+    assert calls["n"] == 2
+    assert months[0]["objectives"][0]["title"] == "O1"
+
+
+def test_generate_skeleton_lanza_si_sigue_vacio(monkeypatch):
+    """Dos respuestas ilegibles → RuntimeError (el plan debe quedar failed, no cascarón)."""
+    import pytest as _pytest
+    monkeypatch.setattr(gen.settings, "ANTHROPIC_API_KEY", "sk-test", raising=False)
+    monkeypatch.setattr(gen, "_create_with_retry", lambda *a, **k: _FakeResponse("{basura"))
+    monkeypatch.setattr(gen.anthropic, "Anthropic", lambda **k: object())
+    with _pytest.raises(RuntimeError):
+        gen.generate_skeleton({"company": {"name": "Demo"}}, "Diag", kpi_labels=[])
