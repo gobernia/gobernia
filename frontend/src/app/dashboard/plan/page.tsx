@@ -251,8 +251,6 @@ export default function AnnualPlanPage() {
             <h1 className="text-3xl font-bold text-black tracking-tight">{plan?.title ?? "Plan de 12 meses"}</h1>
           </motion.div>
 
-          <DiagnosticoPanel summary={plan?.diagnostico_summary ?? null} />
-
           {plan && (
             <MonthTimeline months={plan.months} selectedIndex={selectedMonth} onSelect={setSelectedMonth} />
           )}
@@ -270,6 +268,8 @@ export default function AnnualPlanPage() {
               onApplyProposal={onApplyProposal}
             />
           )}
+
+          <DiagnosticoPanel summary={plan?.diagnostico_summary ?? null} />
 
           <details className="mt-10">
             <summary className="text-xs font-medium text-gray-400 cursor-pointer hover:text-[var(--gob-navy)] select-none">
