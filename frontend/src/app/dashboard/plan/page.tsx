@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, Loader2, Sparkles, AlertCircle } from "lucide-react"
+import { Loader2, Sparkles, AlertCircle } from "lucide-react"
 import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
 import ThemesPanel from "@/components/plan/ThemesPanel"
 import DiagnosticoPanel from "@/components/plan/DiagnosticoPanel"
@@ -26,7 +25,6 @@ const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 type View = "loading" | "none" | "generating" | "failed" | "active" | "error"
 
 export default function AnnualPlanPage() {
-  const router = useRouter()
   const [view, setView] = useState<View>("loading")
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(1)
@@ -246,15 +244,7 @@ export default function AnnualPlanPage() {
 
   return (
     <div className="min-h-dvh bg-white text-black antialiased">
-      <header className="fixed top-0 inset-x-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
-          <button onClick={() => router.push("/dashboard")} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors">
-            <ArrowLeft className="h-3.5 w-3.5" /> Dashboard
-          </button>
-        </div>
-      </header>
-
-      <main className="pt-14">
+      <main>
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-10 space-y-8">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE }} className="space-y-1">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Plan estratégico</p>
