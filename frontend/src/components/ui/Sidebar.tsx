@@ -67,7 +67,11 @@ export default function Sidebar() {
         <Link
           href="/dashboard/datos"
           onClick={() => setOpen(false)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm opacity-70 hover:opacity-100 hover:bg-white/5"
+          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+            isActive("/dashboard/datos", false)
+              ? "bg-white/10 font-medium"
+              : "opacity-70 hover:opacity-100 hover:bg-white/5"
+          }`}
         >
           <Settings className="h-4 w-4 shrink-0" /> Datos
         </Link>
@@ -98,6 +102,7 @@ export default function Sidebar() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="relative w-60 h-dvh bg-[var(--gob-navy)] text-[var(--gob-bone)] flex flex-col">
             <button
+              autoFocus
               onClick={() => setOpen(false)}
               className="absolute top-3 right-3"
               aria-label="Cerrar menú"
