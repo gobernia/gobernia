@@ -209,7 +209,7 @@ export default function DashboardPage() {
     <div className="min-h-dvh bg-white text-black font-sans antialiased">
 
       {/* ── Navbar ───────────────────────────────────────── */}
-      <header className="fixed top-12 inset-x-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <header className="fixed top-0 inset-x-0 md:left-60 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
           <GoberniaLogo size={16} />
 
@@ -386,7 +386,7 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      <main className="pt-26">
+      <main className="pt-14">
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-12 space-y-14">
 
           {/* ── Greeting ─────────────────────────────────── */}
