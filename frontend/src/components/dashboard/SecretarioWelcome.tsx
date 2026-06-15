@@ -26,13 +26,12 @@ export default function SecretarioWelcome({
     if (ran.current) return
     if (typeof window === "undefined") return
     if (onboardingComplete || !userKey) return // espera a que cargue el usuario; si está completo, nunca se muestra
-    ran.current = true
-
     if (sessionStorage.getItem(SESSION_KEY) === "1") return // cerrado en esta sesión
+    ran.current = true
 
     const seen = localStorage.getItem(seenKey(userKey)) === "1"
     if (!seen) localStorage.setItem(seenKey(userKey), "1")
-    // Defer state updates out of the synchronous effect body
+    // setState diferido a un microtask: satisface la regla react-hooks/set-state-in-effect (prohíbe setState síncrono en efectos). El guard `ran` ya cubre el doble-invoke de StrictMode.
     queueMicrotask(() => {
       setMode(seen ? "reminder" : "full")
       setOpen(true)
@@ -60,6 +59,9 @@ export default function SecretarioWelcome({
             initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ duration: 0.25, ease: EASE }}
             className="fixed z-50 inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8 space-y-5"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sw-title"
           >
             <button
               onClick={dismiss}
@@ -74,7 +76,7 @@ export default function SecretarioWelcome({
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-lg font-bold text-black">
+              <h2 id="sw-title" className="text-lg font-bold text-black">
                 {isFull ? "Soy el Secretario de tu consejo" : "Aún falta completar tus datos"}
               </h2>
               <p className="text-sm text-gray-500 leading-relaxed">
@@ -93,7 +95,7 @@ export default function SecretarioWelcome({
               </button>
               <Link
                 href={nextStageHref}
-                onClick={() => setOpen(false)}
+                onClick={dismiss}
                 className="flex-[2] inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
               >
                 {isFull ? "Empezar" : "Continuar"}
