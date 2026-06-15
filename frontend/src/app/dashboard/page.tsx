@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
-  ArrowRight, LogOut, Play, ChevronRight,
+  ArrowRight, Play, ChevronRight,
   CheckCircle2, Circle, ArrowUpRight, X, Loader2, ChevronDown,
-  Settings, Sparkles,
+  Sparkles,
 } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 import { supabase } from "@/lib/supabase"
@@ -19,14 +19,6 @@ type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
 // ── Data ──────────────────────────────────────────────────
-const AGENTS = [
-  { tag: "Consejero en", name: "Finanzas",     desc: "Rentabilidad, flujo de caja y estructura de capital." },
-  { tag: "Consejero en", name: "Estrategia",   desc: "Posicionamiento, mercado y crecimiento a largo plazo." },
-  { tag: "Consejero en", name: "Riesgos",      desc: "Riesgos operativos, legales y planes de mitigación." },
-  { tag: "Consejero en", name: "Auditoría",    desc: "Cumplimiento, control interno y Governance Score." },
-  { tag: "Consejero",    name: "Independiente", desc: "El Retador: cuestiona cada decisión con un pre-mortem antes de actuar." },
-]
-
 const ETAPAS = [
   { n: 1, label: "Empresa" },
   { n: 2, label: "Equipo" },
@@ -103,7 +95,7 @@ function statusLabel(s: string) {
 // ── Page ──────────────────────────────────────────────────
 export default function DashboardPage() {
   const router = useRouter()
-  const { sessionId, completedStages, hydrate, reset } = useOnboardingStore()
+  const { completedStages, hydrate, reset } = useOnboardingStore()
 
   const [userEmail,   setUserEmail]   = useState<string | null>(null)
   const [summary,     setSummary]     = useState<CompanySummary | null>(null)
@@ -148,12 +140,6 @@ export default function DashboardPage() {
       .finally(() => setSessLoading(false))
   }, [hydrate, reset])
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    reset()
-    router.push("/")
-  }
-
   const openModal = () => {
     setModalYear(new Date().getFullYear())
     setModalMonth(new Date().getMonth() + 1)
@@ -192,7 +178,6 @@ export default function DashboardPage() {
   }
 
   const onboardingComplete = completedStages.length >= 8
-  const onboardingStarted  = completedStages.length > 0 || !!sessionId
   const nextEtapa          = ETAPAS.find(e => !completedStages.includes(e.n))
   const companyName        = summary?.company_name ?? null
   const governanceScore    = summary?.governance_score ?? null
@@ -214,25 +199,9 @@ export default function DashboardPage() {
           <GoberniaLogo size={16} />
 
           <div className="flex items-center gap-5">
-            {onboardingStarted && (
-              <Link
-                href="/dashboard/datos"
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
-              >
-                <Settings className="h-3.5 w-3.5" />
-                Mis datos
-              </Link>
-            )}
             {userEmail && (
               <span className="text-xs text-gray-400 hidden sm:block">{userEmail}</span>
             )}
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              Salir
-            </button>
           </div>
         </div>
       </header>
@@ -581,51 +550,6 @@ export default function DashboardPage() {
               </div>
             </motion.div>
           )}
-
-          {/* ── Agents ───────────────────────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: EASE, delay: 0.2 }}
-            className="space-y-6"
-          >
-            <div>
-              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Tu consejo</p>
-              <h2 className="text-2xl font-bold text-black tracking-tight">Cinco consejeros con IA</h2>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              {AGENTS.map((a, i) => (
-                <motion.div
-                  key={a.name}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, ease: EASE, delay: 0.28 + i * 0.07 }}
-                  className="group border border-gray-100 hover:border-gray-300 rounded-2xl p-6 space-y-4 transition-all duration-300 hover:shadow-sm flex flex-col"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs text-gray-400">{a.tag}</p>
-                      <p className="text-base font-bold text-black mt-0.5">{a.name}</p>
-                    </div>
-                    <ArrowUpRight className={`h-4 w-4 mt-0.5 transition-colors ${
-                      onboardingComplete
-                        ? "text-gray-200 group-hover:text-gray-400"
-                        : "text-gray-100"
-                    }`} />
-                  </div>
-                  <p className="text-xs text-gray-500 leading-relaxed flex-1">{a.desc}</p>
-                  <button
-                    onClick={tryCreateSession}
-                    className="w-full flex items-center justify-between text-xs font-medium py-2.5 px-3 rounded-xl border border-gray-200 text-gray-700 hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-all duration-150"
-                  >
-                    Iniciar sesión
-                    <Play className="h-3 w-3" />
-                  </button>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
 
           {/* ── Plan estratégico ─────────────────────────── */}
           <motion.div
