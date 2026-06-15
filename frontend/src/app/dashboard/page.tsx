@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
+import SecretarioWelcome from "@/components/dashboard/SecretarioWelcome"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
@@ -192,6 +193,12 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-dvh bg-white text-black font-sans antialiased">
+
+      <SecretarioWelcome
+        onboardingComplete={onboardingComplete}
+        nextStageHref={nextEtapa ? `/onboarding/etapa-${nextEtapa.n}` : "/onboarding/etapa-1"}
+        userKey={userEmail ?? ""}
+      />
 
       {/* ── Navbar ───────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 md:left-60 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
