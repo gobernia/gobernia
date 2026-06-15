@@ -14,8 +14,7 @@ import CoberturaBoard from "@/components/plan/CoberturaBoard"
 import CloseMonthModal from "@/components/plan/CloseMonthModal"
 import {
   getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
-  createObjective, updateObjective, deleteObjective,
-  createTask, updateTask, deleteTask,
+  updateTask, deleteTask,
   closeMonth, applyProposal,
   type AnnualPlan, type Task,
 } from "@/lib/annualPlan"
@@ -128,44 +127,6 @@ export default function AnnualPlanPage() {
       })),
     }))
     try { await deleteTask(taskId) } catch { loadPlan().catch(() => setView("error")) }
-  }
-
-  const onAddTask = async (objectiveId: string) => {
-    try {
-      const t = await createTask({ objective_id: objectiveId, title: "Nueva tarea", priority: "media" })
-      setPlan(p => p && ({
-        ...p,
-        months: p.months.map(m => ({
-          ...m, objectives: m.objectives.map(o => o.id === objectiveId ? { ...o, tasks: [...o.tasks, t] } : o),
-        })),
-      }))
-      setOpenTask(t)
-    } catch { loadPlan().catch(() => setView("error")) }
-  }
-
-  const onRenameObjective = async (objectiveId: string, title: string) => {
-    setPlan(p => p && ({
-      ...p, months: p.months.map(m => ({
-        ...m, objectives: m.objectives.map(o => o.id === objectiveId ? { ...o, title } : o),
-      })),
-    }))
-    try { await updateObjective(objectiveId, { title }) } catch { loadPlan().catch(() => setView("error")) }
-  }
-
-  const onDeleteObjective = async (objectiveId: string) => {
-    setPlan(p => p && ({
-      ...p, months: p.months.map(m => ({ ...m, objectives: m.objectives.filter(o => o.id !== objectiveId) })),
-    }))
-    try { await deleteObjective(objectiveId) } catch { loadPlan().catch(() => setView("error")) }
-  }
-
-  const onAddObjective = async (monthlyPlanId: string) => {
-    try {
-      const o = await createObjective({ monthly_plan_id: monthlyPlanId, title: "Nuevo objetivo", kpi_refs: [] })
-      setPlan(p => p && ({
-        ...p, months: p.months.map(m => m.id === monthlyPlanId ? { ...m, objectives: [...m.objectives, o] } : m),
-      }))
-    } catch { loadPlan().catch(() => setView("error")) }
   }
 
   const onCloseMonth = (monthlyPlanId: string) => setClosingMonthId(monthlyPlanId)
@@ -282,10 +243,6 @@ export default function AnnualPlanPage() {
               month={month}
               onTaskClick={setOpenTask}
               onUpdateTask={onUpdateTask}
-              onAddTask={onAddTask}
-              onRenameObjective={onRenameObjective}
-              onDeleteObjective={onDeleteObjective}
-              onAddObjective={onAddObjective}
               onCloseMonth={onCloseMonth}
               onApplyProposal={onApplyProposal}
             />

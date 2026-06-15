@@ -2,28 +2,23 @@
 
 import { useMemo, useState } from "react"
 import { motion } from "framer-motion"
-import { CheckCircle2, ChevronDown, FileText, Plus } from "lucide-react"
+import { CheckCircle2, ChevronDown } from "lucide-react"
 import type { MonthlyPlan, Task, MonthReview } from "@/lib/annualPlan"
 import { MONTH_NAMES } from "@/lib/annualPlan"
 import MonthReviewPanel from "./MonthReviewPanel"
-import TasksTable from "./TasksTable"
+import MonthKanban from "./MonthKanban"
 import OrdenDelDiaPanel from "@/components/plan/OrdenDelDiaPanel"
 
 export default function MonthDetail({
-  month, onTaskClick, onUpdateTask, onAddTask, onRenameObjective, onDeleteObjective,
-  onAddObjective, onCloseMonth, onApplyProposal,
+  month, onTaskClick, onUpdateTask, onCloseMonth, onApplyProposal,
 }: {
   month: MonthlyPlan
   onTaskClick: (t: Task) => void
   onUpdateTask: (taskId: string, patch: Partial<Task>) => void
-  onAddTask: (objectiveId: string) => void
-  onRenameObjective: (objectiveId: string, title: string) => void
-  onDeleteObjective: (objectiveId: string) => void
-  onAddObjective: (monthlyPlanId: string) => void
   onCloseMonth: (monthlyPlanId: string) => void
   onApplyProposal: (monthIndex: number, proposalId: string) => void
 }) {
-  const [ordenOpen, setOrdenOpen] = useState(false)
+  const [ordenOpen, setOrdenOpen] = useState(true)
 
   const kpis = useMemo(
     () => Array.from(new Set(month.objectives.flatMap(o => o.kpi_refs))).slice(0, 6),
@@ -38,24 +33,12 @@ export default function MonthDetail({
       transition={{ duration: 0.3 }}
       className="space-y-5"
     >
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
-            {MONTH_NAMES[month.period_month]} {month.period_year} · Mes {month.month_index}
-          </p>
-          {month.focus && <h2 className="text-xl font-bold text-black mt-1">{month.focus}</h2>}
-        </div>
-        <button
-          type="button"
-          onClick={() => setOrdenOpen(v => !v)}
-          className="flex items-center gap-1.5 text-xs font-medium text-[var(--gob-navy)] border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50"
-        >
-          <FileText className="h-3.5 w-3.5" /> Orden del día
-          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${ordenOpen ? "rotate-180" : ""}`} />
-        </button>
+      <div>
+        <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
+          {MONTH_NAMES[month.period_month]} {month.period_year} · Mes {month.month_index}
+        </p>
+        {month.focus && <h2 className="text-xl font-bold text-black mt-1">{month.focus}</h2>}
       </div>
-
-      {ordenOpen && <OrdenDelDiaPanel monthIndex={month.month_index} />}
 
       {kpis.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -75,14 +58,28 @@ export default function MonthDetail({
         />
       )}
 
-      <TasksTable
+      <MonthKanban
         objectives={month.objectives}
         onTaskClick={onTaskClick}
         onUpdateTask={onUpdateTask}
-        onAddTask={onAddTask}
-        onRenameObjective={onRenameObjective}
-        onDeleteObjective={onDeleteObjective}
       />
+
+      {/* Orden del día — legible, expandido por defecto, debajo de las tareas */}
+      <section className="border border-gray-100 rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setOrdenOpen(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
+        >
+          <span className="text-sm font-bold text-black">Orden del día</span>
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${ordenOpen ? "rotate-180" : ""}`} />
+        </button>
+        {ordenOpen && (
+          <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+            <OrdenDelDiaPanel monthIndex={month.month_index} />
+          </div>
+        )}
+      </section>
 
       {month.status === "active" && (
         <button
@@ -92,13 +89,6 @@ export default function MonthDetail({
           <CheckCircle2 className="h-4 w-4" /> Cerrar mes y revisar
         </button>
       )}
-
-      <button
-        onClick={() => onAddObjective(month.id)}
-        className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-500 hover:text-[var(--gob-navy)] border border-dashed border-gray-200 hover:border-gray-400 rounded-xl py-2.5 transition-colors"
-      >
-        <Plus className="h-3.5 w-3.5" /> Agregar objetivo
-      </button>
     </motion.div>
   )
 }
