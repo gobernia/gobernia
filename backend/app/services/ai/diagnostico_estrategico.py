@@ -3,8 +3,6 @@
 Lógica pura (prompt, parseo, validación) separada de la llamada de red para testear sin
 red ni DB. La generación corre en una task de Celery (app.tasks.diagnostico_tasks).
 """
-import json
-
 import anthropic
 
 from app.core.config import settings
