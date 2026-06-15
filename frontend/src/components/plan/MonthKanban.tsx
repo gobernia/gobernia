@@ -73,7 +73,7 @@ export default function MonthKanban({
   const onDragEnd = (e: DragEndEvent) => {
     const id = String(e.active.id)
     const over = e.over ? String(e.over.id) : null
-    if (!over) return
+    if (!over) { setWarn(null); return }
     const task = tasks.find(t => t.id === id)
     if (!task) return
     if (!COLUMNS.some(c => c.id === over)) return
