@@ -30,3 +30,16 @@ def missing_company_data(memory_buffer: dict | None) -> list[str]:
         faltantes.append(f"{sin_valor} de {total} KPIs sin valor (etapa 5)")
 
     return faltantes
+
+
+def missing_diagnostico_data(memory_buffer: dict | None) -> list[str]:
+    """Faltantes para generar el diagnóstico estratégico (no requiere KPIs)."""
+    company = (memory_buffer or {}).get("company") or {}
+    faltantes: list[str] = []
+    if not company.get("name"):
+        faltantes.append("el perfil de tu empresa (etapa 1)")
+    if not (company.get("website") or "").strip():
+        faltantes.append("la página web de tu empresa (etapa 1)")
+    if not [c for c in (company.get("competitors") or []) if c and str(c).strip()]:
+        faltantes.append("al menos un competidor (etapa 1)")
+    return faltantes
