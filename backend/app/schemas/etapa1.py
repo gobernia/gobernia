@@ -32,6 +32,17 @@ class Etapa1Input(BaseModel):
     has_family_protocol: bool | None = None
     has_board: BoardStatus
 
+    # Bloque 4 — Datos para investigación (opcionales en el schema; obligatorios al generar diagnóstico)
+    website: str | None = Field(default=None, max_length=300)
+    competitors: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def normalize_seed_fields(self) -> "Etapa1Input":
+        if self.website is not None:
+            self.website = self.website.strip() or None
+        self.competitors = [c.strip() for c in self.competitors if c and c.strip()][:10]
+        return self
+
     @model_validator(mode="after")
     def validate_family_fields(self) -> "Etapa1Input":
         if self.is_family_business:

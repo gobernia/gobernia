@@ -59,6 +59,8 @@ def build_etapa1_memory(data: Etapa1Input, activated_modules: list[str]) -> dict
             "family_generation": data.family_generation.value if data.family_generation else None,
             "has_family_protocol": data.has_family_protocol,
             "has_board": data.has_board.value,
+            "website": data.website,
+            "competitors": data.competitors,
         },
         "activated_modules": activated_modules,
     }

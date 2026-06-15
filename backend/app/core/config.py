@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # AI
     ANTHROPIC_API_KEY: str = ""
     AI_MODEL: str = "claude-sonnet-4-6"
+    DIAGNOSTICO_AI_MODEL: str = "claude-opus-4-8"
 
     # Storage (AWS S3)
     AWS_ACCESS_KEY_ID: str = ""
