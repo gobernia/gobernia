@@ -206,7 +206,7 @@ export default function ConsejoPage() {
         )}
       </AnimatePresence>
 
-      <main className="pt-14">
+      <main>
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-12 space-y-8">
           <div className="space-y-1">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Tu consejo</p>
