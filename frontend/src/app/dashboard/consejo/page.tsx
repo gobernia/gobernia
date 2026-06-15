@@ -103,7 +103,7 @@ export default function ConsejoPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-white text-black antialiased">
+    <div className="min-h-dvh bg-white text-black font-sans antialiased">
       {/* Setup-required modal */}
       <AnimatePresence>
         {showSetupModal && (
@@ -120,10 +120,17 @@ export default function ConsejoPage() {
               <div className="space-y-2">
                 <h2 className="text-lg font-bold text-black">Configura tu empresa primero</h2>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Para que el consejo de IA te entregue análisis útiles, necesitamos conocer tu empresa.
-                  Toma unos minutos y solo se hace una vez.
+                  Para que el consejo de IA te entregue análisis útiles, necesitamos conocer tu empresa: industria, equipo, prioridades, KPIs y gobierno. Toma unos minutos y solo se hace una vez. Después podrás iniciar sesiones cuando quieras.
                 </p>
               </div>
+              {!onboardingComplete && completedStages.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500">
+                    Vas en {completedStages.length} de 8 etapas
+                    {nextEtapa && ` · siguiente: ${nextEtapa.label}`}
+                  </p>
+                </div>
+              )}
               <div className="flex gap-2">
                 <button onClick={() => setShowSetupModal(false)}
                   className="flex-1 text-sm font-medium text-gray-500 hover:text-[var(--gob-navy)] transition-colors">
