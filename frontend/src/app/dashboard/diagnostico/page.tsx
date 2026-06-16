@@ -122,7 +122,7 @@ export default function DiagnosticoPage() {
           </p>
         </div>
         {isDatos ? (
-          <Link href="/onboarding/etapa-1"
+          <Link href="/dashboard/datos"
             className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
             Completar mis datos
           </Link>
