@@ -225,6 +225,77 @@ def generate_skeleton(memory_buffer: dict, diagnostico: str, kpi_labels: list[st
     raise RuntimeError("El esqueleto del plan llegó vacío o ilegible tras 2 intentos.")
 
 
+_MILESTONE_TYPES = {"trimestral", "semestral", "anual"}
+
+MILESTONES_SYSTEM_PROMPT = """Eres el director estratégico del consejo de Gobernia.
+A partir del diagnóstico, la visión y los KPIs, diseñas los HITOS de un plan estratégico
+de varios años. Para un horizonte de N años generas:
+- un hito TRIMESTRAL por cada trimestre (N×4),
+- un hito SEMESTRAL por cada semestre (N×2),
+- un hito ANUAL por cada año (N).
+Cada hito tiene "title" (corto) y "target" = META MEDIBLE (ej. "alcanzar 11% de margen
+después de impuestos"), atada a un KPI de la lista cuando aplique ("kpi_ref", o null).
+Progresión lógica: lo trimestral aporta a lo semestral, y eso a lo anual.
+Usa SOLO labels de la lista de KPIs provista."""
+
+MILESTONES_SCHEMA = """{
+  "milestones": [
+    {"type": "trimestral|semestral|anual", "year": 1, "period": 1,
+     "title": "string", "target": "string", "kpi_ref": "KPI label|null"}
+  ]
+}"""
+
+
+def parse_milestones(raw: str) -> dict:
+    """Parsea hitos a {"items": [{type, year, period, title, target, kpi_ref}]}."""
+    parsed = _extract_json_object(raw) or {}
+    items = []
+    for m in (parsed.get("milestones") or []):
+        if not isinstance(m, dict) or m.get("type") not in _MILESTONE_TYPES or not m.get("title"):
+            continue
+        try:
+            year = int(m.get("year", 1)); period = int(m.get("period", 1))
+        except (TypeError, ValueError):
+            continue
+        items.append({
+            "type": m["type"], "year": year, "period": period,
+            "title": str(m["title"])[:200],
+            "target": str(m.get("target") or "")[:300],
+            "kpi_ref": str(m["kpi_ref"])[:120] if m.get("kpi_ref") else None,
+        })
+    return {"items": items}
+
+
+def _milestones_vacio(milestones: dict) -> bool:
+    return not (milestones or {}).get("items")
+
+
+def generate_milestones(memory_buffer: dict, diagnostico: str, kpi_labels: list[str],
+                        horizon_years: int) -> dict:
+    """Paso 1: hitos del horizonte. Reintenta 1 vez; lanza si llega vacío (igual que el esqueleto)."""
+    if not settings.ANTHROPIC_API_KEY:
+        return {"items": []}
+    user_prompt = (
+        f"{_company_line(memory_buffer)}\n"
+        f"HORIZONTE: {horizon_years} año(s).\n\n"
+        f"DIAGNÓSTICO:\n{diagnostico}\n\n"
+        f"VISIÓN A 3 AÑOS: {(memory_buffer.get('vision') or {}).get('statement', 'N/D')}\n\n"
+        f"KPIs DISPONIBLES (usa solo estos labels): {kpi_labels or 'ninguno'}\n\n"
+        f"Diseña los hitos. Responde ÚNICAMENTE con JSON válido:\n{MILESTONES_SCHEMA}"
+    )
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    for _ in range(2):
+        response = _create_with_retry(
+            client, model=settings.AI_MODEL, max_tokens=4096,
+            system=MILESTONES_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        milestones = parse_milestones(response.content[0].text)
+        if not _milestones_vacio(milestones):
+            return milestones
+    raise RuntimeError("Los hitos del plan llegaron vacíos tras 2 intentos.")
+
+
 def generate_month_tasks(focus, objectives: list[dict], memory_buffer: dict,
                          year: int, month: int) -> list[dict]:
     """Paso 3: tareas de un mes. Sin API key u objetivos vacíos → []."""
