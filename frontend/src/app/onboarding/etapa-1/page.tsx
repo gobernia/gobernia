@@ -158,9 +158,12 @@ export default function Etapa1Page() {
     is_family_business: null as boolean | null,
     family_generation: "",
     has_family_protocol: null as boolean | null,
+    website: "",
+    competitors: [] as string[],
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [competidorInput, setCompetidorInput] = useState("")
 
   // Create session if it doesn't exist yet, or pre-populate from existing data
   useEffect(() => {
@@ -190,6 +193,8 @@ export default function Etapa1Page() {
         is_family_business:  c.is_family_business ?? null,
         family_generation:   c.family_generation ?? "",
         has_family_protocol: c.has_family_protocol ?? null,
+        website:             (c as { website?: string }).website ?? "",
+        competitors:         (c as { competitors?: string[] }).competitors ?? [],
       }))
     }).catch(() => {})
   }, [sessionId, setSessionId])
@@ -235,6 +240,8 @@ export default function Etapa1Page() {
         family_generation:   form.is_family_business ? form.family_generation : undefined,
         has_family_protocol: form.is_family_business ? form.has_family_protocol : undefined,
         has_board:           form.has_board,
+        website:             form.website.trim() || null,
+        competitors:         form.competitors,
       }
 
       try {
@@ -335,6 +342,78 @@ export default function Etapa1Page() {
                 onKeyDown={e => e.key === "Enter" && canUbicacion && next("industria")}
               />
             </div>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Página web de tu empresa
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://tuempresa.com"
+                  value={form.website}
+                  onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
+                  className="w-full h-12 rounded-xl border-2 border-gray-100 px-4 text-sm text-black placeholder:text-gray-300 focus:border-black focus:outline-none transition-colors"
+                />
+                <p className="text-xs text-gray-400">La usa tu consejo para investigar tu presencia digital real.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Competidores que crees tener
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nombre de un competidor"
+                    value={competidorInput}
+                    onChange={e => setCompetidorInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        const v = competidorInput.trim()
+                        if (v && form.competitors.length < 10 && !form.competitors.includes(v)) {
+                          setForm(f => ({ ...f, competitors: [...f.competitors, v] }))
+                        }
+                        setCompetidorInput("")
+                      }
+                    }}
+                    className="flex-1 h-12 rounded-xl border-2 border-gray-100 px-4 text-sm text-black placeholder:text-gray-300 focus:border-black focus:outline-none transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const v = competidorInput.trim()
+                      if (v && form.competitors.length < 10 && !form.competitors.includes(v)) {
+                        setForm(f => ({ ...f, competitors: [...f.competitors, v] }))
+                      }
+                      setCompetidorInput("")
+                    }}
+                    className="px-4 rounded-xl border-2 border-gray-100 text-sm font-medium text-gray-600 hover:border-gray-300"
+                  >
+                    Agregar
+                  </button>
+                </div>
+                {form.competitors.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {form.competitors.map(comp => (
+                      <span key={comp} className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 rounded-full pl-3 pr-1.5 py-1">
+                        {comp}
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, competitors: f.competitors.filter(x => x !== comp) }))}
+                          className="text-gray-400 hover:text-gray-700"
+                          aria-label={`Quitar ${comp}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-400">Tu consejo los contrasta con la competencia real que encuentre.</p>
+              </div>
+            </div>
+
             <div className="flex gap-3">
               <GoberniaButton variant="ghost" onClick={() => back("nombre")} className="flex-1">
                 Atrás
