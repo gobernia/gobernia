@@ -26,10 +26,10 @@ def month_calendar(start_year: int, start_month: int, month_index: int) -> tuple
     return zero_based // 12, zero_based % 12 + 1
 
 
-def compute_active_month_index(start_date: date, today: date) -> int:
-    """Índice (1..12) del mes vigente del plan según la fecha de hoy. Cap en [1, 12]."""
+def compute_active_month_index(start_date: date, today: date, total_months: int = 12) -> int:
+    """Índice (1..total_months) del mes vigente del plan según hoy. Cap en [1, total_months]."""
     elapsed = (today.year - start_date.year) * 12 + (today.month - start_date.month)
-    return min(max(elapsed + 1, 1), 12)
+    return min(max(elapsed + 1, 1), total_months)
 
 
 def due_date_within_month(year: int, month: int, day: int = 28) -> date:

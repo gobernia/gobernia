@@ -457,9 +457,12 @@ async def _run_close(month: MonthlyPlan, kpis: dict, user_id: str) -> dict:
         nxt_m = nxt.scalar_one_or_none()
         if nxt_m is not None and nxt_m.status == "locked":
             nxt_m.status = "active"
+        plan = await db.get(AnnualPlan, annual_plan_id)
+        horizon_years = (plan.horizon_years or 1) if plan else 1
         await db.commit()
 
-    active_idx = month_index + 1 if month_index < 12 else month_index
+    total_months = horizon_years * 12
+    active_idx = month_index + 1 if month_index < total_months else month_index
     return {"month_index": month_index, "active_month_index": active_idx, "grade": review["grade"]}
 
 
