@@ -55,6 +55,7 @@ class ActionTask(Base, UUIDMixin, TimestampMixin):
     due_date:     Mapped[date | None]       = mapped_column(Date, nullable=True)
     tags:         Mapped[list | None]       = mapped_column(JSONB, nullable=True, default=list)
     order_index:  Mapped[int]               = mapped_column(Integer, nullable=False, default=0)
+    required_doc: Mapped[str | None]        = mapped_column(Text, nullable=True)
     evidences: Mapped[list["Evidence"]] = relationship(
         "Evidence", cascade="all, delete-orphan", order_by="Evidence.created_at",
     )

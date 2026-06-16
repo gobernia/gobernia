@@ -27,6 +27,9 @@ class AnnualPlan(Base, UUIDMixin, TimestampMixin):
     )
     diagnostico_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    horizon_years: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    milestones: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     months: Mapped[list["MonthlyPlan"]] = relationship(
         back_populates="annual_plan",
         cascade="all, delete-orphan",
