@@ -26,3 +26,8 @@ export async function uploadEvidence(taskId: string, file: File): Promise<Eviden
 export async function deleteEvidence(evidenceId: string): Promise<void> {
   await api.delete(`/evidence/${evidenceId}`)
 }
+
+export async function downloadEvidenceUrl(evidenceId: string): Promise<string> {
+  const r = await api.get<{ url: string }>(`/evidence/${evidenceId}/download`)
+  return r.data.url
+}

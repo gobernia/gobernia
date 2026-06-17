@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Paperclip, Upload, X } from "lucide-react"
-import { Evidence, getEvidence, uploadEvidence, deleteEvidence } from "@/lib/evidence"
+import { Evidence, getEvidence, uploadEvidence, deleteEvidence, downloadEvidenceUrl } from "@/lib/evidence"
 
 export default function EvidenceSection({
   taskId, onCountChange,
@@ -40,6 +40,15 @@ export default function EvidenceSection({
     await deleteEvidence(id).catch(() => getEvidence(taskId).then(apply))
   }
 
+  const onView = async (id: string) => {
+    try {
+      const url = await downloadEvidenceUrl(id)
+      window.open(url, "_blank", "noopener,noreferrer")
+    } catch {
+      setError("No se pudo abrir la evidencia (¿almacenamiento sin configurar?).")
+    }
+  }
+
   return (
     <div className="space-y-1.5">
       <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Evidencia</label>
@@ -48,6 +57,9 @@ export default function EvidenceSection({
           <div key={e.id} className="flex items-center gap-2 text-sm text-black bg-gray-50 rounded-lg px-3 py-2">
             <Paperclip className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
             <span className="flex-1 truncate">{e.filename}</span>
+            <button type="button" onClick={() => onView(e.id)} className="text-xs text-[var(--gob-navy)] hover:underline">
+              Ver
+            </button>
             <button type="button" onClick={() => onRemove(e.id)} className="text-gray-300 hover:text-red-500">
               <X className="h-3.5 w-3.5" />
             </button>
