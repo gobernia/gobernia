@@ -25,11 +25,13 @@ class Settings(BaseSettings):
     AI_MODEL: str = "claude-sonnet-4-6"
     DIAGNOSTICO_AI_MODEL: str = "claude-opus-4-8"
 
-    # Storage (AWS S3)
+    # Storage (S3-compatible: AWS S3 o Supabase Storage)
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_REGION: str = "us-east-1"
     S3_BUCKET_DOCUMENTS: str = "gobernia-documents"
+    # Vacío → AWS S3. Para Supabase Storage: https://<project-ref>.supabase.co/storage/v1/s3
+    S3_ENDPOINT_URL: str = ""
 
     # Redis / Celery
     REDIS_URL: str = "redis://localhost:6379/0"
