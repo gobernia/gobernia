@@ -8,7 +8,8 @@ import { ArrowRight, Sparkles, X } from "lucide-react"
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
-const SESSION_KEY = "gobernia_secretario_welcome_dismissed"
+// Marca de "cerrado en esta sesión" — POR USUARIO (cerrar con una cuenta no silencia a otra).
+const dismissedKey = (userKey: string) => `gobernia_secretario_welcome_dismissed_${userKey}`
 const seenKey = (userKey: string) => `gobernia_secretario_welcome_seen_${userKey}`
 
 export default function SecretarioWelcome({
@@ -27,7 +28,7 @@ export default function SecretarioWelcome({
     if (ran.current) return
     if (typeof window === "undefined") return
     if (onboardingComplete || !userKey) return // espera a que cargue el usuario; si está completo, nunca se muestra
-    if (sessionStorage.getItem(SESSION_KEY) === "1") return // cerrado en esta sesión
+    if (sessionStorage.getItem(dismissedKey(userKey)) === "1") return // cerrado en esta sesión (por usuario)
     ran.current = true
 
     const seen = localStorage.getItem(seenKey(userKey)) === "1"
@@ -40,7 +41,7 @@ export default function SecretarioWelcome({
   }, [onboardingComplete, userKey])
 
   const dismiss = () => {
-    if (typeof window !== "undefined") sessionStorage.setItem(SESSION_KEY, "1")
+    if (typeof window !== "undefined" && userKey) sessionStorage.setItem(dismissedKey(userKey), "1")
     setOpen(false)
   }
 
