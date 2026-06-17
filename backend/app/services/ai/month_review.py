@@ -8,6 +8,7 @@ Revisión de fin de mes (subproyecto E).
 """
 import json
 from datetime import date
+from pathlib import Path
 
 import anthropic
 
@@ -17,6 +18,8 @@ from app.services.ai.kpi_engine import build_kpi_templates, _run_alert_rules
 
 VALID_GRADES = {"bien", "mal", "muy_mal"}
 VALID_PROPOSAL_TYPES = {"carry_over_task", "new_objective", "new_task"}
+
+_MAX_REVIEW_DOCS = 8
 
 
 def compute_signals(tasks, kpi_values: dict, memory_buffer: dict, today: date,
@@ -186,6 +189,42 @@ REVIEW_SCHEMA = """{
   "by_agent": {"CFO": "string", "CSO": "string", "CRO": "string", "Auditor": "string"},
   "proposals": [{"type": "carry_over_task|new_objective|new_task", "...": "..."}]
 }"""
+
+
+def select_review_documents(evidences, tasks_by_id: dict, max_docs: int = _MAX_REVIEW_DOCS):
+    """De las evidencias del mes, selecciona las legibles (PDF/imagen), las más recientes hasta
+    max_docs, con un label por documento. Devuelve (seleccionados, nota_texto). No descarga nada."""
+    evs = sorted(evidences, key=lambda e: e.created_at, reverse=True)
+    readable: list[dict] = []
+    unreadable: list[str] = []
+    for e in evs:
+        ext = Path(e.filename or "").suffix.lower()
+        if ext == ".pdf":
+            kind, media_type = "pdf", "application/pdf"
+        elif ext in (".png", ".jpg", ".jpeg"):
+            kind, media_type = "image", ("image/png" if ext == ".png" else "image/jpeg")
+        else:
+            unreadable.append(e.filename or "archivo")
+            continue
+        task = tasks_by_id.get(str(e.action_task_id))
+        label = f"Documento «{e.filename}»"
+        if task is not None:
+            label += f" de la tarea «{getattr(task, 'title', '')}»"
+            if getattr(task, "required_doc", None):
+                label += f" que pedía: {task.required_doc}"
+        readable.append({"s3_key": e.s3_key, "kind": kind, "media_type": media_type, "label": label})
+
+    selected = readable[:max_docs]
+    truncated = len(readable) - len(selected)
+    notes: list[str] = []
+    if unreadable:
+        notes.append(
+            "Documentos en un formato que no pude leer (pídele al usuario subirlos en PDF): "
+            + ", ".join(unreadable[:10]) + "."
+        )
+    if truncated > 0:
+        notes.append(f"Había más documentos; solo leí los {max_docs} más recientes.")
+    return selected, " ".join(notes)
 
 
 def _build_review_content(user_prompt: str, documents: list[dict] | None):

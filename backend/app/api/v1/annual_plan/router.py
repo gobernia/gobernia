@@ -10,6 +10,7 @@ Plan estratégico de 12 meses — API REST.
 - POST   /annual-plan/tasks              → crear tarea bajo un objetivo
 (las tareas se editan/borran con los endpoints existentes PATCH/DELETE /tasks/{id})
 """
+import base64
 import secrets
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -33,7 +34,8 @@ from app.schemas.action_plan import ActionTaskOut
 from app.models.board_theme import BoardTheme
 from app.schemas.board_theme import BoardThemeOut, BoardThemeCreate, BoardThemeUpdate
 from app.services.ai.annual_plan_generator import compute_active_month_index
-from app.services.ai.month_review import compute_signals, run_month_review
+from app.services.ai.month_review import compute_signals, run_month_review, select_review_documents
+from app.services.documents.storage import download_from_storage
 from app.services.ai.agents.base import _MONTH_NAMES
 from app.services.governance.theme_seeder import seed_default_themes
 from app.schemas.orden_del_dia import OrdenDelDiaOut, ThemeRef
@@ -421,6 +423,8 @@ async def _run_close(month: MonthlyPlan, kpis: dict, user_id: str) -> dict:
     period_label = f"{_MONTH_NAMES[month.period_month]} {month.period_year}"
     objectives = [{"title": o.title} for o in month.objectives]
 
+    selected_docs: list[dict] = []
+    docs_note = ""
     async with AsyncSessionLocal() as db:
         tasks = []
         if obj_ids:
@@ -442,13 +446,30 @@ async def _run_close(month: MonthlyPlan, kpis: dict, user_id: str) -> dict:
                 .group_by(Evidence.action_task_id)
             )
             evidence_counts = {str(tid): cnt for tid, cnt in cres.all()}
+            eres = await db.execute(
+                select(Evidence).where(Evidence.action_task_id.in_(task_ids)).order_by(Evidence.created_at)
+            )
+            evidences = list(eres.scalars().all())
+            tasks_by_id = {str(t.id): t for t in tasks}
+            selected_docs, docs_note = select_review_documents(evidences, tasks_by_id)
         signals = compute_signals(tasks, kpis, memory_buffer, today, evidence_counts=evidence_counts)
+
+    review_documents: list[dict] = []
+    for d in selected_docs:
+        raw = download_from_storage(d["s3_key"])
+        if raw is None:
+            continue
+        review_documents.append({
+            "kind": d["kind"], "media_type": d["media_type"],
+            "data": base64.b64encode(raw).decode("ascii"), "label": d["label"],
+        })
 
     review = await anyio.to_thread.run_sync(
         lambda: run_month_review(
             signals=signals, month_focus=focus, objectives=objectives,
             memory_buffer=memory_buffer, period_label=period_label,
             incomplete_task_ids=incomplete_ids,
+            documents=review_documents, documents_note=docs_note,
         )
     )
     review["closed_at"] = today.isoformat()
