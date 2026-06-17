@@ -12,11 +12,12 @@ const SESSION_KEY = "gobernia_secretario_welcome_dismissed"
 const seenKey = (userKey: string) => `gobernia_secretario_welcome_seen_${userKey}`
 
 export default function SecretarioWelcome({
-  onboardingComplete, nextStageHref, userKey,
+  onboardingComplete, nextStageHref, userKey, userName = "",
 }: {
   onboardingComplete: boolean
   nextStageHref: string
   userKey: string
+  userName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<"full" | "reminder">("full")
@@ -77,13 +78,21 @@ export default function SecretarioWelcome({
 
             <div className="space-y-2">
               <h2 id="sw-title" className="text-lg font-bold text-black">
-                {isFull ? "Soy el Secretario de tu consejo" : "Aún falta completar tus datos"}
-              </h2>
-              <p className="text-sm text-gray-500 leading-relaxed">
                 {isFull
-                  ? "Para que tus consejeros trabajen con tu empresa, necesito que completes tu información: empresa, equipo, prioridades, KPIs y gobierno. Toma unos minutos y se hace una sola vez."
-                  : "Para activar tu consejo necesito que termines tu información. Continúa donde lo dejaste."}
-              </p>
+                  ? `Hola${userName ? `, ${userName}` : ""}. ¡Bienvenida/o a Gobernia!`
+                  : "Aún falta completar tus datos"}
+              </h2>
+              {isFull ? (
+                <div className="space-y-2 text-sm text-gray-500 leading-relaxed">
+                  <p>Soy tu secretario virtual y te acompañaré en el proceso de fortalecer y llevar tu empresa al siguiente nivel.</p>
+                  <p>Antes de comenzar, necesito que respondas algunas preguntas adicionales. Con esta información podremos realizar un diagnóstico integral de tu negocio y posteriormente desarrollar un plan estratégico personalizado con acciones concretas para impulsar su crecimiento.</p>
+                  <p>A continuación te comparto el enlace para completar tu información:</p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Para activar tu consejo necesito que termines tu información. Continúa donde lo dejaste.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -98,7 +107,7 @@ export default function SecretarioWelcome({
                 onClick={dismiss}
                 className="flex-[2] inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
               >
-                {isFull ? "Empezar" : "Continuar"}
+                {isFull ? "Comencemos 🚀" : "Continuar"}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

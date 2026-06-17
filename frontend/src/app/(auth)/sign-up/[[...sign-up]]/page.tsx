@@ -13,13 +13,14 @@ const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
 export default function SignUpPage() {
   const router   = useRouter()
+  const [nombre,   setNombre]   = useState("")
   const [email,    setEmail]    = useState("")
   const [password, setPassword] = useState("")
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
   const [done,     setDone]     = useState(false)
 
-  const canSubmit = email.includes("@") && password.length >= 8
+  const canSubmit = nombre.trim().length > 0 && email.includes("@") && password.length >= 8
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,6 +31,7 @@ export default function SignUpPage() {
       email,
       password,
       options: {
+        data: { full_name: nombre.trim() },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
@@ -98,11 +100,25 @@ export default function SignUpPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            Nombre
+          </label>
+          <input
+            type="text"
+            autoFocus
+            autoComplete="name"
+            placeholder="Tu nombre"
+            value={nombre}
+            onChange={e => setNombre(e.target.value)}
+            className="w-full h-12 rounded-xl border-2 border-gray-100 px-4 text-sm text-black placeholder:text-gray-300 focus:border-black focus:outline-none transition-colors"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
             Correo electrónico
           </label>
           <input
             type="email"
-            autoFocus
             autoComplete="email"
             placeholder="correo@empresa.com"
             value={email}
