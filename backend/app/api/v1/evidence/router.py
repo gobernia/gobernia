@@ -9,7 +9,7 @@ from app.core.dependencies import get_current_user_id, get_db
 from app.models.evidence import Evidence
 from app.schemas.evidence import EvidenceOut
 from app.schemas.etapa7 import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_BYTES
-from app.services.documents.storage import generate_storage_key, upload_to_storage
+from app.services.documents.storage import generate_storage_key, upload_to_storage, presigned_get_url
 from app.api.v1.action_plans.router import _get_user_task_or_404
 
 router = APIRouter()
@@ -77,6 +77,23 @@ async def list_evidence(
         select(Evidence).where(Evidence.action_task_id == task_id).order_by(Evidence.created_at)
     )
     return [_evidence_out(e) for e in res.scalars().all()]
+
+
+@router.get("/evidence/{evidence_id}/download")
+async def download_evidence(
+    evidence_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    res = await db.execute(select(Evidence).where(Evidence.id == evidence_id))
+    ev = res.scalar_one_or_none()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Evidencia no encontrada")
+    await _get_user_task_or_404(ev.action_task_id, user_id, db)
+    url = presigned_get_url(ev.s3_key)
+    if not url:
+        raise HTTPException(status_code=404, detail="Almacenamiento no configurado")
+    return {"url": url}
 
 
 @router.delete("/evidence/{evidence_id}", status_code=204)

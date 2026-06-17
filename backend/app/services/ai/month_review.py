@@ -8,6 +8,7 @@ Revisión de fin de mes (subproyecto E).
 """
 import json
 from datetime import date
+from pathlib import Path
 
 import anthropic
 
@@ -17,6 +18,8 @@ from app.services.ai.kpi_engine import build_kpi_templates, _run_alert_rules
 
 VALID_GRADES = {"bien", "mal", "muy_mal"}
 VALID_PROPOSAL_TYPES = {"carry_over_task", "new_objective", "new_task"}
+
+_MAX_REVIEW_DOCS = 8
 
 
 def compute_signals(tasks, kpi_values: dict, memory_buffer: dict, today: date,
@@ -172,7 +175,13 @@ Reglas:
    Propón entre 1 y 5 cambios, los más importantes. No inventes ids de tareas que no estén en la lista.
 5. Si 'tasks_missing_doc' del JSON de señales trae tareas, esas NO pueden considerarse logradas
    sin su documento de sustento: dilo en el summary, pésalo en el grade, y propón subir el
-   documento (o arrastra la tarea con carry_over_task)."""
+   documento (o arrastra la tarea con carry_over_task).
+6. Si se adjuntan DOCUMENTOS (PDF/imágenes), son las evidencias subidas este mes. Cada uno trae
+   antes un texto que dice de qué tarea es y qué pedía. Léelos y valida si CADA documento respalda
+   la meta de su tarea: si no la respalda, no des la tarea por lograda — propón arrastrarla
+   (carry_over_task) o ajustarla, y dilo en el summary. NO inventes contenido de documentos que no
+   se adjuntaron. Si hay una NOTA SOBRE DOCUMENTOS, menciónala (p. ej. pídele al usuario subir en
+   PDF los formatos que no se pudieron leer)."""
 
 REVIEW_SCHEMA = """{
   "grade": "bien|mal|muy_mal",
@@ -182,9 +191,64 @@ REVIEW_SCHEMA = """{
 }"""
 
 
+def select_review_documents(evidences, tasks_by_id: dict, max_docs: int = _MAX_REVIEW_DOCS):
+    """De las evidencias del mes, selecciona las legibles (PDF/imagen), las más recientes hasta
+    max_docs, con un label por documento. Devuelve (seleccionados, nota_texto). No descarga nada."""
+    evs = sorted(evidences, key=lambda e: e.created_at, reverse=True)
+    readable: list[dict] = []
+    unreadable: list[str] = []
+    for e in evs:
+        ext = Path(e.filename or "").suffix.lower()
+        if ext == ".pdf":
+            kind, media_type = "pdf", "application/pdf"
+        elif ext in (".png", ".jpg", ".jpeg"):
+            kind, media_type = "image", ("image/png" if ext == ".png" else "image/jpeg")
+        else:
+            unreadable.append(e.filename or "archivo")
+            continue
+        task = tasks_by_id.get(str(e.action_task_id))
+        label = f"Documento «{e.filename}»"
+        if task is not None:
+            label += f" de la tarea «{getattr(task, 'title', '')}»"
+            if getattr(task, "required_doc", None):
+                label += f" que pedía: {task.required_doc}"
+        readable.append({"s3_key": e.s3_key, "kind": kind, "media_type": media_type, "label": label})
+
+    selected = readable[:max_docs]
+    truncated = len(readable) - len(selected)
+    notes: list[str] = []
+    if unreadable:
+        notes.append(
+            "Documentos en un formato que no pude leer (pídele al usuario subirlos en PDF): "
+            + ", ".join(unreadable[:10]) + "."
+        )
+    if truncated > 0:
+        notes.append(f"Había más documentos; solo leí los {max_docs} más recientes.")
+    return selected, " ".join(notes)
+
+
+def _build_review_content(user_prompt: str, documents: list[dict] | None):
+    """Sin documentos → string (comportamiento de hoy). Con documentos → lista de bloques multimodales."""
+    if not documents:
+        return user_prompt
+    blocks: list[dict] = []
+    for d in documents:
+        blocks.append({"type": "text", "text": d["label"]})
+        if d["kind"] == "pdf":
+            blocks.append({"type": "document",
+                           "source": {"type": "base64", "media_type": d["media_type"], "data": d["data"]}})
+        else:  # image
+            blocks.append({"type": "image",
+                           "source": {"type": "base64", "media_type": d["media_type"], "data": d["data"]}})
+    blocks.append({"type": "text", "text": user_prompt})
+    return blocks
+
+
 def run_month_review(signals: dict, month_focus, objectives: list[dict],
                      memory_buffer: dict, period_label: str,
-                     incomplete_task_ids: list[str]) -> dict:
+                     incomplete_task_ids: list[str],
+                     documents: list[dict] | None = None,
+                     documents_note: str = "") -> dict:
     """Una llamada estructurada al consejo. Sin API key → review determinista."""
     if not settings.ANTHROPIC_API_KEY:
         return deterministic_review(signals, incomplete_task_ids)
@@ -196,12 +260,14 @@ def run_month_review(signals: dict, month_focus, objectives: list[dict],
     obj_lines = "\n".join(f"  - {o.get('title','')}" for o in objectives) or "  (sin objetivos)"
     incomplete = ", ".join(incomplete_task_ids) or "ninguna"
 
+    nota_docs = f"NOTA SOBRE DOCUMENTOS: {documents_note}\n" if documents_note else ""
     user_prompt = (
         f"EMPRESA:\n{company_ctx}\n\n"
         f"MES: {period_label} | Foco: {month_focus or 'N/D'}\n"
         f"OBJETIVOS DEL MES:\n{obj_lines}\n\n"
         f"SEÑALES DEL MES:\n{json.dumps(signals, ensure_ascii=False, indent=2)}\n"
-        f"IDs de tareas incompletas (para carry_over_task): {incomplete}\n\n"
+        f"IDs de tareas incompletas (para carry_over_task): {incomplete}\n"
+        f"{nota_docs}\n"
         "Emite el veredicto del consejo. Responde ÚNICAMENTE con JSON válido:\n"
         f"{REVIEW_SCHEMA}"
     )
@@ -209,6 +275,6 @@ def run_month_review(signals: dict, month_focus, objectives: list[dict],
     response = _create_with_retry(
         client, model=settings.AI_MODEL, max_tokens=2048,
         system=REVIEW_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
+        messages=[{"role": "user", "content": _build_review_content(user_prompt, documents)}],
     )
     return parse_review(response.content[0].text, fallback_grade=fallback_grade)
