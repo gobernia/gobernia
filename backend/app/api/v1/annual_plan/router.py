@@ -242,8 +242,8 @@ async def get_plan(
         id=str(plan.id), title=plan.title, start_date=plan.start_date,
         status=plan.status, diagnostico_summary=plan.diagnostico_summary,
         genesis_session_id=str(plan.genesis_session_id) if plan.genesis_session_id else None,
-        horizon_years=plan.horizon_years if isinstance(plan.horizon_years, int) else 3,
-        milestones=plan.milestones if isinstance(plan.milestones, (dict, type(None))) else None,
+        horizon_years=plan.horizon_years,
+        milestones=plan.milestones,
         months=months_out,
     )
 

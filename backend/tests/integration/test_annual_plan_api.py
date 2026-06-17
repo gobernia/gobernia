@@ -21,6 +21,8 @@ def _mock_plan():
     plan.status = "active"
     plan.diagnostico_summary = "Diag"
     plan.genesis_session_id = None
+    plan.horizon_years = 3
+    plan.milestones = None
     plan.months = []
     return plan
 

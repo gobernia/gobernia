@@ -57,6 +57,7 @@ async def test_get_plan_includes_evidence_count():
     plan = AnnualPlan(id=uuid.uuid4(), user_id=MOCK_USER_ID, title="P",
                       start_date=date.today(), status="active")
     plan.diagnostico_summary = None; plan.genesis_session_id = None
+    plan.horizon_years = 3; plan.milestones = None
     month = MonthlyPlan(id=uuid.uuid4(), annual_plan_id=plan.id, month_index=1,
                         period_year=2026, period_month=1, status="active")
     month.focus = None; month.review = None
