@@ -12,6 +12,7 @@ import MonthDetail from "@/components/plan/MonthDetail"
 import TaskDrawer from "@/components/plan/TaskDrawer"
 import CoberturaBoard from "@/components/plan/CoberturaBoard"
 import CloseMonthModal from "@/components/plan/CloseMonthModal"
+import MilestoneRoadmap from "@/components/plan/MilestoneRoadmap"
 import {
   getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan,
   updateTask, deleteTask,
@@ -30,6 +31,7 @@ export default function AnnualPlanPage() {
   const [selectedMonth, setSelectedMonth] = useState(1)
   const [openTask, setOpenTask] = useState<Task | null>(null)
   const [closingMonthId, setClosingMonthId] = useState<string | null>(null)
+  const [horizonYears, setHorizonYears] = useState(3)
   const [failReason, setFailReason] = useState<"datos" | "general" | null>(null)
   const [failDetail, setFailDetail] = useState<string | null>(null)
   const [closeRunning, setCloseRunning] = useState(false)
@@ -87,7 +89,7 @@ export default function AnnualPlanPage() {
     }
     setView("generating")
     try {
-      await generateAnnualPlan()
+      await generateAnnualPlan(horizonYears)
       setFailReason(null)
       startPolling()
     } catch (err: unknown) {
@@ -205,12 +207,28 @@ export default function AnnualPlanPage() {
             Completar mis datos
           </Link>
         ) : (
-          <button
-            onClick={() => onGenerate(isFail)}
-            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
-          >
-            <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar plan"}
-          </button>
+          <>
+            {!isDatos && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">Horizonte:</span>
+                {[1, 2, 3].map(y => (
+                  <button key={y} type="button" onClick={() => setHorizonYears(y)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors ${
+                      horizonYears === y
+                        ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
+                        : "border-gray-100 text-gray-500 hover:border-gray-300"}`}>
+                    {y} año{y > 1 ? "s" : ""}{y === 3 ? " ·rec" : ""}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => onGenerate(isFail)}
+              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
+            >
+              <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar plan"}
+            </button>
+          </>
         )}
         {isFail && !isDatos && (
           <p className="text-xs text-gray-400 max-w-xs">
@@ -231,12 +249,14 @@ export default function AnnualPlanPage() {
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-10 space-y-8">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE }} className="space-y-1">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Plan estratégico</p>
-            <h1 className="text-3xl font-bold text-black tracking-tight">{plan?.title ?? "Plan de 12 meses"}</h1>
+            <h1 className="text-3xl font-bold text-black tracking-tight">{plan?.title ?? "Plan estratégico"}</h1>
           </motion.div>
 
           {plan && (
             <MonthTimeline months={plan.months} selectedIndex={selectedMonth} onSelect={setSelectedMonth} />
           )}
+
+          {plan?.milestones && <MilestoneRoadmap milestones={plan.milestones} />}
 
           {month && (
             <MonthDetail
