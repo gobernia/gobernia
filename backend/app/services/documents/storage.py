@@ -11,6 +11,19 @@ def generate_storage_key(session_id: uuid.UUID, doc_id: uuid.UUID, filename: str
     return f"documents/{session_id}/{doc_id}/{filename}"
 
 
+def _s3_client():
+    import boto3  # lazy — no instalar en dev si no se usa S3
+    kwargs = {
+        "aws_access_key_id": settings.AWS_ACCESS_KEY_ID,
+        "aws_secret_access_key": settings.AWS_SECRET_ACCESS_KEY,
+        "region_name": settings.AWS_REGION,
+    }
+    # Endpoint personalizado (Supabase Storage u otro compatible-S3); vacío → AWS S3.
+    if settings.S3_ENDPOINT_URL:
+        kwargs["endpoint_url"] = settings.S3_ENDPOINT_URL
+    return boto3.client("s3", **kwargs)
+
+
 async def upload_to_storage(
     content: bytes,
     key: str,
@@ -19,29 +32,12 @@ async def upload_to_storage(
     if not settings.AWS_ACCESS_KEY_ID:
         return key
 
-    import boto3  # lazy — no instalar en dev si no se usa S3
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name=settings.AWS_REGION,
-    )
-    s3.put_object(
+    _s3_client().put_object(
         Bucket=settings.S3_BUCKET_DOCUMENTS,
         Key=key,
         Body=content,
     )
     return key
-
-
-def _s3_client():
-    import boto3  # lazy — no instalar en dev si no se usa S3
-    return boto3.client(
-        "s3",
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name=settings.AWS_REGION,
-    )
 
 
 def download_from_storage(key: str) -> bytes | None:
