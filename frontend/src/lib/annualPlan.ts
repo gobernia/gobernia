@@ -4,6 +4,15 @@ export type TaskStatus = "pendiente" | "en_progreso" | "completada"
 export type TaskPriority = "alta" | "media" | "baja"
 export type PlanStatus = "generating" | "active" | "failed" | "completed"
 
+export interface Milestone {
+  type: "trimestral" | "semestral" | "anual"
+  year: number
+  period: number
+  title: string
+  target: string
+  kpi_ref: string | null
+}
+
 export interface Task {
   id: string
   plan_id: string | null
@@ -21,6 +30,7 @@ export interface Task {
   created_at: string
   updated_at: string
   evidence_count: number
+  required_doc: string | null
 }
 
 export interface Objective {
@@ -51,6 +61,8 @@ export interface AnnualPlan {
   diagnostico_summary: string | null
   genesis_session_id: string | null
   months: MonthlyPlan[]
+  horizon_years: number
+  milestones: { items: Milestone[] } | null
 }
 
 export interface AnnualPlanStatus {
@@ -73,8 +85,8 @@ export async function getAnnualPlanStatus(): Promise<AnnualPlanStatus> {
   return r.data
 }
 
-export async function generateAnnualPlan(): Promise<AnnualPlanStatus> {
-  const r = await api.post<AnnualPlanStatus>("/annual-plan/generate")
+export async function generateAnnualPlan(horizonYears: number = 3): Promise<AnnualPlanStatus> {
+  const r = await api.post<AnnualPlanStatus>("/annual-plan/generate", { horizon_years: horizonYears })
   return r.data
 }
 
