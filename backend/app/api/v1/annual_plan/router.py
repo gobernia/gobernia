@@ -27,7 +27,7 @@ from app.models.evidence import Evidence
 from app.schemas.annual_plan import (
     AnnualPlanOut, AnnualPlanStatusOut, AnnualTaskCreate, MonthlyPlanOut,
     ObjectiveCreate, ObjectiveOut, ObjectiveUpdate,
-    CloseMonthRequest, ApplyProposalRequest,
+    CloseMonthRequest, ApplyProposalRequest, GeneratePlanRequest,
 )
 from app.schemas.action_plan import ActionTaskOut
 from app.models.board_theme import BoardTheme
@@ -69,6 +69,7 @@ def _task_out(t: ActionTask, evidence_count: int = 0) -> ActionTaskOut:
         tags=list(t.tags or []), order_index=t.order_index,
         created_at=t.created_at, updated_at=t.updated_at,
         evidence_count=evidence_count,
+        required_doc=t.required_doc,
     )
 
 
@@ -126,6 +127,7 @@ async def _tasks_by_objective(objective_ids: list[uuid.UUID], db: AsyncSession) 
 
 @router.post("/annual-plan/generate", response_model=AnnualPlanStatusOut)
 async def generate_plan(
+    body: GeneratePlanRequest = GeneratePlanRequest(),
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
@@ -157,8 +159,9 @@ async def generate_plan(
         )
 
     plan = AnnualPlan(
-        user_id=user_id, title="Plan estratégico de 12 meses",
+        user_id=user_id, title=f"Plan estratégico de {body.horizon_years} año(s)",
         start_date=date.today(), status="generating",
+        horizon_years=body.horizon_years,
     )
     db.add(plan)
     await db.flush()
@@ -239,6 +242,8 @@ async def get_plan(
         id=str(plan.id), title=plan.title, start_date=plan.start_date,
         status=plan.status, diagnostico_summary=plan.diagnostico_summary,
         genesis_session_id=str(plan.genesis_session_id) if plan.genesis_session_id else None,
+        horizon_years=plan.horizon_years if isinstance(plan.horizon_years, int) else 3,
+        milestones=plan.milestones if isinstance(plan.milestones, (dict, type(None))) else None,
         months=months_out,
     )
 

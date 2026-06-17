@@ -32,7 +32,13 @@ class AnnualPlanOut(BaseModel):
     status:              str
     diagnostico_summary: str | None = None
     genesis_session_id:  str | None = None
+    horizon_years:       int = 3
+    milestones:          dict | None = None
     months:              list[MonthlyPlanOut] = Field(default_factory=list)
+
+
+class GeneratePlanRequest(BaseModel):
+    horizon_years: int = Field(default=3, ge=1, le=3)
 
 
 class AnnualPlanStatusOut(BaseModel):

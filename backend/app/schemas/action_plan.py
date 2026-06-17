@@ -50,6 +50,7 @@ class ActionTaskOut(ActionTaskBase):
     created_at:   datetime
     updated_at:   datetime
     evidence_count: int = 0
+    required_doc: str | None = None
 
 
 class ActionPlanOut(BaseModel):
