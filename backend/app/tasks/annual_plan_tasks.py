@@ -186,19 +186,13 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                     for ti, tspec in enumerate(ospec.get("tasks") or []):
                         db.add(ActionTask(
                             objective_id=obj.id,
-                            user_id=plan.user_id,
-                            title=tspec["title"],
-                            description=tspec.get("description"),
-                            owner=tspec.get("owner"),
-                            priority=tspec["priority"],
-                            kpi_ref=tspec.get("kpi_ref"),
-                            required_doc=tspec.get("required_doc"),
+                            title=tspec["title"], description=tspec.get("description"),
+                            owner=tspec.get("owner"), priority=tspec["priority"],
+                            kpi_ref=tspec.get("kpi_ref"), required_doc=tspec.get("required_doc"),
                             tags=tspec.get("tags") or [],
                             due_date=due_date_within_month(
                                 year, month, int(tspec.get("due_day", 28))),
-                            order_index=ti,
-                            status="pendiente",
-                        ))
+                            order_index=ti, status="pendiente"))
 
         plan.status = "active"
         await db.commit()

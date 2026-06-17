@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 import pytest
 
 import app.tasks.annual_plan_tasks as orch
+from app.models.action_plan import ActionTask
 from app.models.annual_plan import MonthlyPlan
 
 
@@ -159,5 +160,75 @@ async def test_run_generation_3anios_3_years(monkeypatch):
     ]
     assert len(added_monthly_plans) == 36, (
         f"Esperados 36 MonthlyPlan, se añadieron {len(added_monthly_plans)}"
+    )
+    assert plan.status == "active"
+
+
+@pytest.mark.asyncio
+async def test_run_generation_con_tareas_no_lanza_user_id(monkeypatch):
+    """
+    Regresión: ActionTask no tiene columna user_id.
+    Si generate_quarter_plan devuelve un objetivo CON tareas, el constructor
+    de ActionTask debe llamarse sin user_id — este test lo forzaría a fallar
+    si la línea 'user_id=plan.user_id' volviera a aparecer.
+    """
+    from app.services.ai.annual_plan_generator import quarter_month_indices
+
+    plan = MagicMock()
+    plan.id = uuid.uuid4()
+    plan.user_id = "u1"
+    plan.start_date = date(2026, 1, 1)
+    plan.horizon_years = 1
+    plan.status = "generating"
+    plan.genesis_session_id = None
+
+    onboarding = MagicMock()
+    onboarding.id = uuid.uuid4()
+    onboarding.memory_buffer = {"company": {"name": "ACME"}, "kpis": {}}
+
+    db = AsyncMock()
+    db.get = AsyncMock(return_value=plan)
+    onb_result = MagicMock()
+    onb_result.scalar_one_or_none.return_value = onboarding
+    db.execute = AsyncMock(return_value=onb_result)
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+
+    fake_milestones = {"items": []}
+
+    def _fake_quarter(memory_buffer, kpi_labels, milestones, year, quarter):
+        idxs = quarter_month_indices(year, quarter)
+        return [
+            {"month_index": idxs[0], "focus": "F", "objectives": [
+                {"title": "Obj", "description": None, "kpi_refs": ["Margen"], "tasks": [
+                    {"title": "Subir margen", "description": None, "owner": "CFO",
+                     "priority": "alta", "kpi_ref": "Margen",
+                     "required_doc": "estado de resultados",
+                     "tags": [], "due_day": 15}
+                ]}
+            ]},
+            {"month_index": idxs[1], "focus": None, "objectives": []},
+            {"month_index": idxs[2], "focus": None, "objectives": []},
+        ]
+
+    monkeypatch.setattr(orch, "run_diagnostico",
+                        lambda buf: ({"CFO": {"summary": "ok"}}, {"CFO": {}}))
+    monkeypatch.setattr(orch, "synthesize_diagnostico", lambda a: "diag")
+    monkeypatch.setattr(orch, "generate_milestones",
+                        lambda *a, **k: fake_milestones)
+    monkeypatch.setattr(orch, "generate_quarter_plan", _fake_quarter)
+
+    # No debe lanzar TypeError por user_id
+    await orch._run_generation(str(plan.id), db)
+
+    # Al menos una ActionTask fue añadida a la db
+    added_action_tasks = [
+        c.args[0] for c in db.add.call_args_list
+        if isinstance(c.args[0], ActionTask)
+    ]
+    assert len(added_action_tasks) >= 1, (
+        "Se esperaba al menos una ActionTask añadida; "
+        f"calls: {[type(c.args[0]).__name__ for c in db.add.call_args_list]}"
     )
     assert plan.status == "active"
