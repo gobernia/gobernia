@@ -35,17 +35,17 @@ async def test_run_generation_happy_path(monkeypatch):
     db.flush = AsyncMock()
     db.commit = AsyncMock()
 
+    plan.horizon_years = 1
+
     monkeypatch.setattr(orch, "run_diagnostico", lambda buf: ({"CFO": {"summary": "ok"}}, {"CFO": {}}))
     monkeypatch.setattr(orch, "synthesize_diagnostico", lambda a: "Diag")
-    monkeypatch.setattr(orch, "generate_skeleton",
-                        lambda buf, diag, kpi_labels: [
-                            {"month_index": i, "focus": "f",
-                             "objectives": [{"title": "O", "description": None, "kpi_refs": []}]}
-                            for i in range(1, 13)])
-    monkeypatch.setattr(orch, "generate_month_tasks",
-                        lambda **k: [{"objective_index": 0, "title": "T", "description": None,
-                                      "owner": "CFO", "priority": "alta", "due_date": "2026-05-10",
-                                      "kpi_ref": None, "tags": [], "order_index": 0}])
+    monkeypatch.setattr(orch, "generate_milestones",
+                        lambda *a, **k: {"items": []})
+    monkeypatch.setattr(orch, "generate_quarter_plan",
+                        lambda memory_buffer, kpi_labels, milestones, y, q: [
+                            {"month_index": (y - 1) * 12 + (q - 1) * 3 + i,
+                             "focus": "f", "objectives": []}
+                            for i in range(1, 4)])
 
     await orch._run_generation(str(plan.id), db)
 

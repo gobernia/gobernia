@@ -1,5 +1,6 @@
 """
-Tarea Celery: genera el plan estratégico de 12 meses tras cerrar el onboarding.
+Tarea Celery: genera el plan estratégico de N×12 meses tras cerrar el onboarding.
+Orquestación trimestre-primero: hitos → quarters en paralelo → persistencia.
 Corre en el worker (proceso síncrono) y envuelve la lógica async con asyncio.run,
 igual que document_tasks. Crea su propia sesión de DB.
 """
@@ -8,8 +9,8 @@ import uuid
 
 from app.tasks.worker import celery_app
 from app.services.ai.annual_plan_generator import (
-    generate_month_tasks, generate_skeleton, month_calendar,
-    compute_active_month_index, synthesize_diagnostico,
+    generate_milestones, generate_quarter_plan, month_calendar,
+    compute_active_month_index, due_date_within_month, synthesize_diagnostico,
 )
 
 
@@ -76,21 +77,17 @@ async def _entrypoint(annual_plan_id: str) -> dict:
 _MONTH_CONCURRENCY = 5
 
 
-async def _generate_all_month_tasks(skeleton, memory_buffer, start_year, start_month):
-    """Genera las tareas de los 12 meses EN PARALELO (cada llamada a Claude es I/O-bound y
-    corre en un thread). Devuelve los task_specs alineados al orden de `skeleton`."""
+async def _generate_all_quarters(memory_buffer, kpi_labels, milestones, horizon):
+    """Genera los quarters del horizonte EN PARALELO. Devuelve lista de quarter_results."""
     sem = asyncio.Semaphore(_MONTH_CONCURRENCY)
+    quarters = [(y, q) for y in range(1, horizon + 1) for q in range(1, 5)]
 
-    async def _one(m):
-        year, month = month_calendar(start_year, start_month, m["month_index"])
+    async def _one_quarter(y, q):
         async with sem:
             return await asyncio.to_thread(
-                generate_month_tasks,
-                focus=m.get("focus"), objectives=m["objectives"],
-                memory_buffer=memory_buffer, year=year, month=month,
-            )
+                generate_quarter_plan, memory_buffer, kpi_labels, milestones, y, q)
 
-    return await asyncio.gather(*[_one(m) for m in skeleton])
+    return await asyncio.gather(*[_one_quarter(y, q) for (y, q) in quarters])
 
 
 async def _run_generation(annual_plan_id: str, db) -> None:
@@ -101,7 +98,6 @@ async def _run_generation(annual_plan_id: str, db) -> None:
     from app.models.action_plan import ActionTask
     from app.models.board_session import BoardSession
     from app.models.onboarding_session import OnboardingSession
-    from app.api.v1.action_plans.router import _parse_iso_date
 
     plan = await db.get(AnnualPlan, uuid.UUID(annual_plan_id))
     if plan is None:
@@ -143,54 +139,66 @@ async def _run_generation(annual_plan_id: str, db) -> None:
             await db.flush()
             plan.genesis_session_id = genesis.id
 
-        # Paso 2: esqueleto
-        skeleton = generate_skeleton(
-            memory_buffer, plan.diagnostico_summary, kpi_labels_from_buffer(memory_buffer),
-        )
+        # Paso 2: hitos del horizonte
+        horizon = plan.horizon_years or 3
+        total_months = horizon * 12
+        kpi_labels = kpi_labels_from_buffer(memory_buffer)
 
-        active_idx = compute_active_month_index(plan.start_date, date.today())
+        milestones = await asyncio.to_thread(
+            generate_milestones, memory_buffer, plan.diagnostico_summary, kpi_labels, horizon)
+        plan.milestones = milestones
 
-        # Paso 3: generar las tareas de los 12 meses EN PARALELO (antes 1x1 ≈ 7 min)
-        month_task_specs = await _generate_all_month_tasks(
-            skeleton, memory_buffer, plan.start_date.year, plan.start_date.month,
-        )
+        active_idx = compute_active_month_index(plan.start_date, date.today(), total_months)
 
-        # Paso 4: escribir meses → objetivos → tareas (secuencial, rápido)
-        for m, task_specs in zip(skeleton, month_task_specs):
-            year, month = month_calendar(plan.start_date.year, plan.start_date.month, m["month_index"])
-            monthly = MonthlyPlan(
-                annual_plan_id=plan.id,
-                month_index=m["month_index"],
-                period_year=year, period_month=month,
-                focus=m.get("focus"),
-                status="active" if m["month_index"] == active_idx else (
-                    "done" if m["month_index"] < active_idx else "locked"),
-            )
-            db.add(monthly)
-            await db.flush()
+        # Paso 3: generar los N×4 quarters EN PARALELO
+        quarter_results = await _generate_all_quarters(
+            memory_buffer, kpi_labels, milestones, horizon)
 
-            objectives_models = []
-            for oi, o in enumerate(m["objectives"]):
-                obj = Objective(
-                    monthly_plan_id=monthly.id,
-                    title=o["title"], description=o.get("description"),
-                    kpi_refs=o.get("kpi_refs", []), order_index=oi,
+        # Paso 4: persistir N×12 meses → objetivos → tareas (secuencial, rápido)
+        for months in quarter_results:
+            for mspec in months:
+                mi = mspec["month_index"]
+                year, month = month_calendar(
+                    plan.start_date.year, plan.start_date.month, mi)
+                status = ("active" if mi == active_idx
+                          else ("done" if mi < active_idx else "locked"))
+                monthly = MonthlyPlan(
+                    annual_plan_id=plan.id,
+                    month_index=mi,
+                    period_year=year, period_month=month,
+                    focus=mspec.get("focus"),
+                    status=status,
                 )
-                db.add(obj)
-                objectives_models.append(obj)
-            await db.flush()
+                db.add(monthly)
+                await db.flush()
 
-            for ts in task_specs:
-                obj = objectives_models[ts["objective_index"]]
-                db.add(ActionTask(
-                    objective_id=obj.id,
-                    title=ts["title"], description=ts.get("description"),
-                    source_agent=None, status="pendiente",
-                    priority=ts["priority"], owner=ts.get("owner"),
-                    due_date=_parse_iso_date(ts.get("due_date")),
-                    kpi_ref=ts.get("kpi_ref"),
-                    tags=ts.get("tags", []), order_index=ts["order_index"],
-                ))
+                for oi, ospec in enumerate(mspec.get("objectives") or []):
+                    obj = Objective(
+                        monthly_plan_id=monthly.id,
+                        title=ospec["title"],
+                        description=ospec.get("description"),
+                        kpi_refs=ospec.get("kpi_refs") or [],
+                        order_index=oi,
+                    )
+                    db.add(obj)
+                    await db.flush()
+
+                    for ti, tspec in enumerate(ospec.get("tasks") or []):
+                        db.add(ActionTask(
+                            objective_id=obj.id,
+                            user_id=plan.user_id,
+                            title=tspec["title"],
+                            description=tspec.get("description"),
+                            owner=tspec.get("owner"),
+                            priority=tspec["priority"],
+                            kpi_ref=tspec.get("kpi_ref"),
+                            required_doc=tspec.get("required_doc"),
+                            tags=tspec.get("tags") or [],
+                            due_date=due_date_within_month(
+                                year, month, int(tspec.get("due_day", 28))),
+                            order_index=ti,
+                            status="pendiente",
+                        ))
 
         plan.status = "active"
         await db.commit()
