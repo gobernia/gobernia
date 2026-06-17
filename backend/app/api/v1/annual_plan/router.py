@@ -44,7 +44,7 @@ from sqlalchemy.orm.attributes import flag_modified as _flag_modified
 from app.models.onboarding_session import OnboardingSession
 from app.services.pdf.orden_del_dia_pdf import build_orden_pdf
 from app.schemas.alerts import AlertItem
-from app.services.governance.alerts import compute_alerts
+from app.services.governance.alerts import compute_alerts, review_alert
 from app.schemas.agenda import AgendaItem, AgendaOut
 from app.services.governance.agenda_engine import build_agenda
 from app.services.ai.agenda_chair import chair_curate_agenda
@@ -811,6 +811,8 @@ async def get_alertas(
         kpi_signals = ((latest.review or {}).get("signals") or {}).get("kpis") or []
 
     alerts = compute_alerts(tasks, rows, kpi_signals, date.today())
+    ra = review_alert(months)
+    alerts = ([ra] if ra else []) + alerts
     return [AlertItem(**a) for a in alerts]
 
 
