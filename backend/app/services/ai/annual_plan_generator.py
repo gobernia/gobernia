@@ -296,6 +296,105 @@ def generate_milestones(memory_buffer: dict, diagnostico: str, kpi_labels: list[
     raise RuntimeError("Los hitos del plan llegaron vacíos tras 2 intentos.")
 
 
+def quarter_month_indices(year: int, quarter: int) -> list[int]:
+    """Índices de mes GLOBALES (1-based) de los 3 meses de un (año, trimestre)."""
+    base = (year - 1) * 12 + (quarter - 1) * 3
+    return [base + 1, base + 2, base + 3]
+
+
+QUARTER_SYSTEM_PROMPT = """Eres el director del consejo. Para UN trimestre del plan estratégico,
+diseñas los 3 MESES con objetivos y TAREAS PROFESIONALES Y MEDIBLES (no genéricas).
+
+Reglas de las tareas:
+1. "title": acción concreta y MEDIBLE atada a la meta del trimestre/KPI
+   (ej. "Subir el margen después de impuestos hacia 11%"), no vaguedades.
+2. "owner": rol responsable (CFO, Director Comercial, etc.).
+3. "priority": "alta"|"media"|"baja".
+4. "kpi_ref": un KPI de la lista que la tarea mueve, o null.
+5. "required_doc": el DOCUMENTO/DATO actualizado que SUSTENTA la meta cuando aplica
+   (ej. "estado de resultados del mes"), o null si no requiere sustento.
+6. "due_day": día del mes (1-28).
+Reparte el trabajo en los 3 meses (month_in_quarter 1,2,3). 2-4 tareas por mes. Calidad sobre cantidad."""
+
+QUARTER_SCHEMA = """{
+  "months": [
+    {"month_in_quarter": 1, "focus": "string", "objectives": [
+      {"title": "string", "description": "string", "kpi_refs": ["KPI label"], "tasks": [
+        {"title": "string", "owner": "string", "priority": "alta|media|baja",
+         "kpi_ref": "KPI label|null", "required_doc": "string|null", "due_day": 15}
+      ]}
+    ]}
+  ]
+}"""
+
+
+def parse_quarter_plan(raw: str, year: int, quarter: int) -> list[dict]:
+    """Parsea a EXACTAMENTE 3 meses (con month_index global), cada uno con objectives+tasks."""
+    parsed = _extract_json_object(raw) or {}
+    by_pos: dict[int, dict] = {}
+    for m in (parsed.get("months") or []):
+        if not isinstance(m, dict):
+            continue
+        try:
+            pos = int(m.get("month_in_quarter"))
+        except (TypeError, ValueError):
+            continue
+        if not 1 <= pos <= 3:
+            continue
+        objectives = []
+        for o in (m.get("objectives") or []):
+            if not isinstance(o, dict) or not o.get("title"):
+                continue
+            tasks = []
+            for t in (o.get("tasks") or []):
+                if not isinstance(t, dict) or not t.get("title"):
+                    continue
+                tasks.append({
+                    "title": str(t["title"])[:200],
+                    "description": str(t["description"]) if t.get("description") else None,
+                    "owner": str(t["owner"]) if t.get("owner") else None,
+                    "priority": _norm_priority(t.get("priority")),
+                    "kpi_ref": str(t["kpi_ref"])[:120] if t.get("kpi_ref") else None,
+                    "required_doc": str(t["required_doc"])[:200] if t.get("required_doc") else None,
+                    "tags": _norm_tags(t.get("tags")),
+                    "due_day": t.get("due_day", 28),
+                })
+            objectives.append({
+                "title": str(o["title"])[:300],
+                "description": str(o["description"]) if o.get("description") else None,
+                "kpi_refs": [str(k)[:120] for k in (o.get("kpi_refs") or []) if k][:5],
+                "tasks": tasks,
+            })
+        by_pos[pos] = {"focus": str(m["focus"])[:300] if m.get("focus") else None,
+                       "objectives": objectives}
+    idxs = quarter_month_indices(year, quarter)
+    return [{"month_index": idxs[p - 1], **by_pos.get(p, {"focus": None, "objectives": []})}
+            for p in (1, 2, 3)]
+
+
+def generate_quarter_plan(memory_buffer: dict, kpi_labels: list[str], milestones: dict,
+                          year: int, quarter: int) -> list[dict]:
+    """Paso 2: los 3 meses de un trimestre. Sin API key → 3 meses vacíos (no lanza)."""
+    if not settings.ANTHROPIC_API_KEY:
+        return parse_quarter_plan("", year, quarter)
+    hitos_ctx = [m for m in (milestones or {}).get("items", [])
+                 if m.get("year") == year and (m.get("type") != "trimestral" or m.get("period") == quarter)]
+    user_prompt = (
+        f"{_company_line(memory_buffer)}\n"
+        f"AÑO {year}, TRIMESTRE {quarter}.\n"
+        f"HITOS RELEVANTES: {hitos_ctx or 'ninguno'}\n"
+        f"KPIs DISPONIBLES (usa solo estos labels): {kpi_labels or 'ninguno'}\n\n"
+        f"Diseña los 3 meses del trimestre. Responde ÚNICAMENTE con JSON válido:\n{QUARTER_SCHEMA}"
+    )
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    response = _create_with_retry(
+        client, model=settings.AI_MODEL, max_tokens=4096,
+        system=QUARTER_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return parse_quarter_plan(response.content[0].text, year, quarter)
+
+
 def generate_month_tasks(focus, objectives: list[dict], memory_buffer: dict,
                          year: int, month: int) -> list[dict]:
     """Paso 3: tareas de un mes. Sin API key u objetivos vacíos → []."""
