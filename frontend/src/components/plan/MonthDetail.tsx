@@ -7,7 +7,6 @@ import type { MonthlyPlan, Task, MonthReview } from "@/lib/annualPlan"
 import { MONTH_NAMES } from "@/lib/annualPlan"
 import MonthReviewPanel from "./MonthReviewPanel"
 import MonthKanban from "./MonthKanban"
-import OrdenDelDiaPanel from "@/components/plan/OrdenDelDiaPanel"
 
 export default function MonthDetail({
   month, onTaskClick, onUpdateTask, onCloseMonth, onApplyProposal,
@@ -19,6 +18,8 @@ export default function MonthDetail({
   onApplyProposal: (monthIndex: number, proposalId: string) => void
 }) {
   const [ordenOpen, setOrdenOpen] = useState(true)
+
+  const taskTitles = month.objectives.flatMap(o => o.tasks.map(t => t.title))
 
   const kpis = useMemo(
     () => Array.from(new Set(month.objectives.flatMap(o => o.kpi_refs))).slice(0, 6),
@@ -76,7 +77,17 @@ export default function MonthDetail({
         </button>
         {ordenOpen && (
           <div className="px-4 pb-4 border-t border-gray-100 pt-3">
-            <OrdenDelDiaPanel monthIndex={month.month_index} />
+            {taskTitles.length > 0 ? (
+              <ul className="space-y-1.5">
+                {taskTitles.map((t, i) => (
+                  <li key={i} className="text-sm text-gray-700 flex gap-2">
+                    <span className="text-gray-300">{i + 1}.</span>{t}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-300 italic">Sin tareas este mes.</p>
+            )}
           </div>
         )}
       </section>

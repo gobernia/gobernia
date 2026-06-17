@@ -36,6 +36,11 @@ function Card({ task, onClick }: { task: Task; onClick: () => void }) {
           </span>
         )}
       </div>
+      {task.required_doc && (
+        <p className="text-[10px] text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 inline-block">
+          Necesita: {task.required_doc}
+        </p>
+      )}
     </div>
   )
 }
