@@ -8,6 +8,22 @@ def _plural(n: int) -> str:
     return "s" if n != 1 else ""
 
 
+def review_alert(months) -> dict | None:
+    """Alerta info cuando el mes 'done' más reciente tiene propuestas del Secretario sin aplicar."""
+    done = [m for m in months if getattr(m, "status", None) == "done" and getattr(m, "review", None)]
+    if not done:
+        return None
+    latest = max(done, key=lambda m: getattr(m, "month_index", 0))
+    pending = [p for p in ((latest.review or {}).get("proposals") or []) if not p.get("applied")]
+    if not pending:
+        return None
+    n = len(pending)
+    return {
+        "level": "info", "category": "revision",
+        "message": f"El Secretario revisó tu mes: {n} propuesta{'s' if n != 1 else ''} para tu plan.",
+    }
+
+
 def compute_alerts(tasks, coverage_rows, kpi_signals, today: date, horizon_days: int = 7) -> list[dict]:
     alerts: list[dict] = []
 

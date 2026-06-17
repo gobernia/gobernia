@@ -19,7 +19,8 @@ VALID_GRADES = {"bien", "mal", "muy_mal"}
 VALID_PROPOSAL_TYPES = {"carry_over_task", "new_objective", "new_task"}
 
 
-def compute_signals(tasks, kpi_values: dict, memory_buffer: dict, today: date) -> dict:
+def compute_signals(tasks, kpi_values: dict, memory_buffer: dict, today: date,
+                    evidence_counts: dict | None = None) -> dict:
     """
     Señales del mes. `tasks` = iterable de objetos con .status y .due_date (date|None).
     `kpi_values` = {label: valor}. Usa kpi_engine para target/on_track por label.
@@ -51,9 +52,19 @@ def compute_signals(tasks, kpi_values: dict, memory_buffer: dict, today: date) -
             "target": target, "unit": unit, "on_track": on_track,
         })
 
+    tasks_missing_doc = []
+    if evidence_counts is not None:
+        ev = evidence_counts
+        tasks_missing_doc = [
+            {"title": getattr(t, "title", ""), "required_doc": t.required_doc}
+            for t in tasks
+            if getattr(t, "required_doc", None) and ev.get(str(t.id), 0) == 0
+        ]
+
     return {
         "tasks_total": total, "tasks_completed": completed,
         "tasks_overdue": overdue, "completion_pct": pct, "kpis": kpis,
+        "tasks_missing_doc": tasks_missing_doc,
     }
 
 
@@ -61,6 +72,11 @@ def deterministic_review(signals: dict, incomplete_task_ids: list[str]) -> dict:
     """Review sin IA: grade por % de cumplimiento + arrastre de tareas incompletas."""
     pct = signals.get("completion_pct", 0)
     grade = "bien" if pct >= 80 else ("mal" if pct >= 50 else "muy_mal")
+    missing = signals.get("tasks_missing_doc") or []
+    summary = "Revisión automática basada en el cumplimiento de tareas del mes."
+    if missing:
+        n = len(missing)
+        summary += f" {n} tarea{'s' if n != 1 else ''} sin su documento de sustento — súbelos para validarlas."
     proposals = [
         {"type": "carry_over_task", "task_id": tid,
          "reason": "Tarea no completada el mes anterior."}
@@ -68,7 +84,7 @@ def deterministic_review(signals: dict, incomplete_task_ids: list[str]) -> dict:
     ]
     return {
         "grade": grade,
-        "summary": "Revisión automática basada en el cumplimiento de tareas del mes.",
+        "summary": summary,
         "by_agent": {},
         "proposals": proposals,
     }
@@ -153,7 +169,10 @@ Reglas:
    - {"type":"new_objective","title":"...","description":"...","kpi_refs":["..."],"reason":"..."}.
    - {"type":"new_task","objective_id":"<id de un objetivo del mes siguiente>","title":"...",
       "owner":"...","priority":"alta|media|baja","kpi_ref":"...","reason":"..."}.
-   Propón entre 1 y 5 cambios, los más importantes. No inventes ids de tareas que no estén en la lista."""
+   Propón entre 1 y 5 cambios, los más importantes. No inventes ids de tareas que no estén en la lista.
+5. Si 'tasks_missing_doc' del JSON de señales trae tareas, esas NO pueden considerarse logradas
+   sin su documento de sustento: dilo en el summary, pésalo en el grade, y propón subir el
+   documento (o arrastra la tarea con carry_over_task)."""
 
 REVIEW_SCHEMA = """{
   "grade": "bien|mal|muy_mal",
