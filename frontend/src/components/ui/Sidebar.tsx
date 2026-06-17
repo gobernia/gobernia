@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  Home, ClipboardList, CheckSquare, Users,
+  Home, ClipboardList, Users,
   FileSearch,
   Settings, LogOut, Menu, X,
 } from "lucide-react"
@@ -15,7 +15,8 @@ const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
   { href: "/dashboard/plan", label: "Plan", exact: false, icon: ClipboardList },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
-  { href: "/dashboard/compromisos", label: "Compromisos", exact: false, icon: CheckSquare },
+  // Oculto por ahora (no se borra; la página /dashboard/compromisos sigue existiendo):
+  // { href: "/dashboard/compromisos", label: "Compromisos", exact: false, icon: CheckSquare },
   { href: "/dashboard/consejo", label: "Tu consejo", exact: false, icon: Users },
 ]
 

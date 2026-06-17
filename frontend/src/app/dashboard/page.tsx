@@ -36,6 +36,9 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
 
+// Sesiones de consejo ocultas por ahora (no se borra el código). Cambiar a true para reactivar.
+const SHOW_SESSIONS = false
+
 // ── Types ─────────────────────────────────────────────────
 interface CompanySummary {
   company_name: string
@@ -82,6 +85,7 @@ export default function DashboardPage() {
   const { completedStages, hydrate, reset } = useOnboardingStore()
 
   const [userEmail,   setUserEmail]   = useState<string | null>(null)
+  const [userName,    setUserName]    = useState<string>("")
   const [summary,     setSummary]     = useState<CompanySummary | null>(null)
   const [sessions,    setSessions]    = useState<BoardSession[]>([])
   const [sessLoading, setSessLoading] = useState(true)
@@ -98,6 +102,10 @@ export default function DashboardPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null)
+      const meta = data.user?.user_metadata ?? {}
+      const name = (meta.full_name ?? meta.name ?? "") as string
+      // solo el primer nombre, para un saludo más cálido
+      setUserName(name.trim().split(/\s+/)[0] ?? "")
     })
 
     // Siempre resolvemos la sesión del usuario ACTUAL vía /my-session (va con su token).
@@ -180,6 +188,7 @@ export default function DashboardPage() {
         onboardingComplete={onboardingComplete}
         nextStageHref={nextEtapa ? `/onboarding/etapa-${nextEtapa.n}` : "/onboarding/etapa-1"}
         userKey={userEmail ?? ""}
+        userName={userName}
       />
 
       {/* ── Navbar ───────────────────────────────────────── */}
@@ -479,7 +488,8 @@ export default function DashboardPage() {
             </Link>
           </motion.div>
 
-          {/* ── Board sessions ───────────────────────────── */}
+          {/* ── Board sessions ── OCULTO por ahora (no se borra; las "Sesiones de consejo" se deshabilitan temporalmente). El modal "Nueva sesión" queda en el código pero ya no es alcanzable. ── */}
+          {SHOW_SESSIONS && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -564,6 +574,7 @@ export default function DashboardPage() {
               </div>
             )}
           </motion.div>
+          )}
 
         </div>
       </main>
