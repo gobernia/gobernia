@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  Home, CalendarDays, ClipboardList, CheckSquare, Users,
+  Home, ClipboardList, CheckSquare, Users,
   FileSearch,
   Settings, LogOut, Menu, X,
 } from "lucide-react"
@@ -13,7 +13,6 @@ import { useOnboardingStore } from "@/lib/store"
 
 const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
-  { href: "/dashboard/sesion-del-mes", label: "Sesión del mes", exact: false, icon: CalendarDays },
   { href: "/dashboard/plan", label: "Plan", exact: false, icon: ClipboardList },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
   { href: "/dashboard/compromisos", label: "Compromisos", exact: false, icon: CheckSquare },
