@@ -30,7 +30,7 @@ async def _user_override():
 @pytest.mark.asyncio
 async def test_get_alertas():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)  # mes activo = 12 (cap) → hay meses ya pasados
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1  # mes activo = 12 (cap) → hay meses ya pasados
     month = MagicMock()
     month.id = uuid.uuid4(); month.month_index = 1
     month.objectives = []; month.covered_themes = []

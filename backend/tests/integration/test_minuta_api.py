@@ -54,7 +54,7 @@ async def test_post_minuta_genera_y_guarda(monkeypatch):
     monkeypatch.setattr("app.api.v1.annual_plan.router.generate_minuta",
                         lambda items, mb, period: {"carta": "MINUTA", "temas": [_tema()]})
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)  # activo = 12
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1  # activo = 12 (cap a 12 meses)
     month = _month(12)
     themes = [_theme("fin", "permanente", 1, 0)]
     onb = MagicMock(); onb.memory_buffer = {}
@@ -82,7 +82,7 @@ async def test_post_minuta_genera_y_guarda(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_minuta_vacia():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1
     month = _month(12, minuta=None)
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month]
@@ -102,7 +102,7 @@ async def test_get_minuta_vacia():
 async def test_decision_A_genera_compromiso():
     from app.models.compromiso import Compromiso
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1
     month = _month(12, minuta={"carta": "C", "temas": [_tema(0)]})
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month]
@@ -131,7 +131,7 @@ async def test_decision_A_genera_compromiso():
 @pytest.mark.asyncio
 async def test_decision_aplazar_sin_compromiso():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1
     month = _month(12, minuta={"carta": "C", "temas": [_tema(0)]})
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month]
@@ -155,7 +155,7 @@ async def test_decision_aplazar_sin_compromiso():
 @pytest.mark.asyncio
 async def test_decision_invalida_422():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1
     month = _month(12, minuta={"carta": "C", "temas": [_tema(0)]})
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month]

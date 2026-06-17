@@ -40,7 +40,7 @@ def _month(index, chair_agenda=None):
 @pytest.mark.asyncio
 async def test_get_agenda_determinista():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)  # mes activo = 12
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1  # mes activo = 12 (cap a 12 meses)
     month = _month(1)  # no es el activo -> active_month None -> determinista
     themes = [_theme("fin", "permanente", 1, 0)]
 
@@ -68,7 +68,7 @@ async def test_get_agenda_determinista():
 @pytest.mark.asyncio
 async def test_get_agenda_curada():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)  # mes activo = 12
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1  # mes activo = 12 (cap a 12 meses)
     stored = {"carta": "Hola del Chair", "items": [
         {"orden": 1, "titulo": "X", "area": "kpi", "detector": "DesviaciónKPI",
          "impacto": "alto", "urgencia": "media", "racional": "r", "evidencia": ["e"], "score": 30.0}]}
@@ -104,7 +104,7 @@ async def test_post_chair_guarda_y_devuelve_curada(monkeypatch):
     monkeypatch.setattr("app.api.v1.annual_plan.router.chair_curate_agenda", fake_chair)
 
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)  # activo = 12
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1  # activo = 12 (cap a 12 meses)
     month = _month(12)  # es el activo
     themes = [_theme("fin", "permanente", 1, 0)]
     onb = MagicMock(); onb.memory_buffer = {}

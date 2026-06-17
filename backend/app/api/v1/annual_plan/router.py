@@ -155,7 +155,7 @@ async def generate_plan(
     if existing and existing.status != "failed":
         return AnnualPlanStatusOut(
             status=existing.status,
-            active_month_index=compute_active_month_index(existing.start_date, date.today()),
+            active_month_index=compute_active_month_index(existing.start_date, date.today(), total_months=(existing.horizon_years or 1) * 12),
         )
 
     plan = AnnualPlan(
@@ -195,7 +195,7 @@ async def get_status(
         raise HTTPException(status_code=404, detail="No hay plan generado.")
     return AnnualPlanStatusOut(
         status=plan.status,
-        active_month_index=compute_active_month_index(plan.start_date, date.today()),
+        active_month_index=compute_active_month_index(plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12),
     )
 
 
@@ -733,7 +733,7 @@ async def get_cobertura(
     themes = list(tres.scalars().all())
     mres = await db.execute(select(MonthlyPlan).where(MonthlyPlan.annual_plan_id == plan.id))
     months = list(mres.scalars().all())
-    active = compute_active_month_index(plan.start_date, date.today())
+    active = compute_active_month_index(plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12)
     return [CoverageRow(**row) for row in coverage_rows(themes, months, active)]
 
 
@@ -747,7 +747,7 @@ async def mark_coverage(
     plan = await _current_plan(user_id, db)
     if not plan:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
-    active = compute_active_month_index(plan.start_date, date.today())
+    active = compute_active_month_index(plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12)
     if month_index > active:
         raise HTTPException(status_code=400, detail="No puedes marcar cobertura de una sesión futura.")
     mres = await db.execute(
@@ -792,7 +792,7 @@ async def get_alertas(
 
     tres = await db.execute(select(BoardTheme).where(BoardTheme.annual_plan_id == plan.id))
     themes = list(tres.scalars().all())
-    active = compute_active_month_index(plan.start_date, date.today())
+    active = compute_active_month_index(plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12)
     rows = coverage_rows(themes, months, active)
 
     kpi_signals: list = []
@@ -821,7 +821,7 @@ async def _agenda_estado(plan, db: AsyncSession):
 
     tres = await db.execute(select(BoardTheme).where(BoardTheme.annual_plan_id == plan.id))
     themes = list(tres.scalars().all())
-    active = compute_active_month_index(plan.start_date, date.today())
+    active = compute_active_month_index(plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12)
     sched = scheduled_for_session(themes, active)
     scheduled_themes = list(sched["permanente"]) + list(sched["cobertura"])
     rows = coverage_rows(themes, months, active)
@@ -893,7 +893,7 @@ async def _active_month(plan, db: AsyncSession):
     """Devuelve el MonthlyPlan del mes activo (sin construir la agenda)."""
     res = await db.execute(select(MonthlyPlan).where(MonthlyPlan.annual_plan_id == plan.id))
     months = list(res.scalars().all())
-    active = compute_active_month_index(plan.start_date, date.today())
+    active = compute_active_month_index(plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12)
     return next((m for m in months if m.month_index == active), None)
 
 

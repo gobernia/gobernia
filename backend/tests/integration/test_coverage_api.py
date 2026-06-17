@@ -30,7 +30,7 @@ async def _user_override():
 @pytest.mark.asyncio
 async def test_get_cobertura():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date(2020, 1, 1)  # mes activo = 12 (cap) → hay meses ya pasados
+    plan.start_date = date(2020, 1, 1); plan.horizon_years = 1  # mes activo = 12 (cap) → hay meses ya pasados
     themes = [_theme("fin", "permanente", 1, 0), _theme("aud", "cobertura", 3, 1)]
     m1 = MagicMock(); m1.covered_themes = ["fin"]
 
@@ -59,7 +59,7 @@ async def test_get_cobertura():
 @pytest.mark.asyncio
 async def test_mark_coverage_adds_key():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date.today()
+    plan.start_date = date.today(); plan.horizon_years = 3
     month = MagicMock(); month.month_index = 1; month.covered_themes = []
 
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
@@ -82,7 +82,7 @@ async def test_mark_coverage_adds_key():
 @pytest.mark.asyncio
 async def test_mark_coverage_future_month_400():
     plan = MagicMock(); plan.id = uuid.uuid4(); plan.user_id = MOCK_USER_ID
-    plan.start_date = date.today()
+    plan.start_date = date.today(); plan.horizon_years = 3
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1])
     app.dependency_overrides[get_db] = _db_override(db)
