@@ -25,8 +25,8 @@ SECTION_TITLES = {
     "conclusiones": "Conclusiones y recomendaciones",
 }
 
-_MAX_CONTINUATIONS = 6  # tope de reanudaciones por pause_turn
-_MAX_SEARCHES = 6       # guardrail de costo del web search
+_MAX_CONTINUATIONS = 8  # tope de reanudaciones por pause_turn
+_MAX_SEARCHES = 12      # presupuesto de búsquedas (suficiente para empresa + competidores + sector + economía)
 
 SYSTEM_PROMPT = """Eres un analista estratégico senior del consejo de Gobernia.
 Investigas en la web la realidad de una empresa y produces un diagnóstico estratégico
@@ -35,6 +35,14 @@ profesional, específico y accionable, en español.
 Usa la herramienta de búsqueda web para investigar de verdad: el sitio de la empresa,
 su presencia digital, sus competidores reales en su región y segmento, tendencias de su
 industria y contexto económico/regulatorio de su país/región.
+
+PRESUPUESTO DE BÚSQUEDA Y RESILIENCIA: tienes un número limitado de búsquedas. No gastes más
+de 1-2 en el nombre exacto de la empresa. Si la empresa tiene poca o nula huella digital, NO
+abortes ni dejes el diagnóstico vacío: regístralo como un hallazgo (presencia digital baja) y
+dedica el resto de las búsquedas a lo que SÍ es investigable y valioso: los competidores que
+nombró el usuario (búscalos por su nombre), las tendencias y benchmarks de la industria, y el
+contexto económico/regulatorio del país. Entrega SIEMPRE un diagnóstico útil con la evidencia
+que reúnas; razona desde la industria y los competidores aunque la empresa misma aparezca poco.
 
 CRÍTICO — Competencia percibida vs. real: el usuario te dará la lista de competidores que
 ÉL CREE tener. Contrástala con lo que encuentres: coincidencias, competidores reales que el
