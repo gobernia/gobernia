@@ -48,6 +48,29 @@ def _create_with_retry(client: anthropic.Anthropic, **kwargs):
     assert last_exc is not None
     raise last_exc
 
+
+def _stream_with_retry(client: anthropic.Anthropic, **kwargs):
+    """Igual que _create_with_retry pero usando streaming (client.messages.stream).
+    El streaming mantiene viva la conexión con eventos ping durante operaciones largas
+    (p.ej. web_search), evitando APITimeoutError en requests largos. Devuelve el Message final.
+    """
+    last_exc: Exception | None = None
+    for attempt, delay in enumerate(_RETRY_DELAYS):
+        if delay > 0:
+            _log.warning(
+                "anthropic transient error (%s); stream-retry %d/%d en %ds",
+                type(last_exc).__name__ if last_exc else "?",
+                attempt, len(_RETRY_DELAYS) - 1, delay,
+            )
+            time.sleep(delay)
+        try:
+            with client.messages.stream(**kwargs) as stream:
+                return stream.get_final_message()
+        except _RETRYABLE as e:
+            last_exc = e
+    assert last_exc is not None
+    raise last_exc
+
 VALID_AGENTS = {"CFO", "CSO", "CRO", "Auditor"}
 
 _MONTH_NAMES = [

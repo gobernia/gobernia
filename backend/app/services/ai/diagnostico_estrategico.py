@@ -6,7 +6,7 @@ red ni DB. La generación corre en una task de Celery (app.tasks.diagnostico_tas
 import anthropic
 
 from app.core.config import settings
-from app.services.ai.agents.base import _create_with_retry, _extract_json_object
+from app.services.ai.agents.base import _stream_with_retry, _extract_json_object
 
 SECTION_KEYS = (
     "resumen_ejecutivo",
@@ -98,7 +98,8 @@ def generate_diagnostico(memory_buffer: dict) -> dict:
     if not settings.ANTHROPIC_API_KEY:
         raise RuntimeError("Falta ANTHROPIC_API_KEY para generar el diagnóstico.")
 
-    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    # timeout generoso: Opus + varias búsquedas web puede tardar varios minutos por llamada.
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=900.0)
     tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": _MAX_SEARCHES}]
     user_prompt = build_prompt(memory_buffer)
 
@@ -106,7 +107,8 @@ def generate_diagnostico(memory_buffer: dict) -> dict:
         messages = [{"role": "user", "content": user_prompt}]
         response = None
         for _ in range(_MAX_CONTINUATIONS):
-            response = _create_with_retry(
+            # streaming: mantiene viva la conexión (pings) durante las búsquedas → sin APITimeoutError.
+            response = _stream_with_retry(
                 client,
                 model=settings.DIAGNOSTICO_AI_MODEL,
                 max_tokens=8192,

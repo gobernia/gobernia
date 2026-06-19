@@ -34,4 +34,4 @@ async def test_run_generation_marca_failed_en_error():
             await _run_generation("d1", db)
 
     assert diag.status == "failed"
-    assert diag.fail_reason == "error"
+    assert diag.fail_reason == "RuntimeError: boom"

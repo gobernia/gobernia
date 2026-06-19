@@ -43,13 +43,13 @@ async def _run_generation(diagnostico_id: str, db) -> None:
         diag.content = content
         diag.status = "active"
         await db.commit()
-    except Exception:
+    except Exception as exc:
         await db.rollback()
         diag = (await db.execute(
             select(DiagnosticoEstrategico).where(DiagnosticoEstrategico.id == diagnostico_id)
         )).scalar_one_or_none()
         if diag is not None:
             diag.status = "failed"
-            diag.fail_reason = "error"
+            diag.fail_reason = f"{type(exc).__name__}: {exc}"[:500]
             await db.commit()
         raise
