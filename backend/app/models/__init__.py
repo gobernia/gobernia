@@ -9,9 +9,11 @@ from app.models.board_theme import BoardTheme
 from app.models.evidence import Evidence
 from app.models.compromiso import Compromiso
 from app.models.diagnostico_estrategico import DiagnosticoEstrategico  # noqa: F401
+from app.models.todd_session import ToddSession  # noqa: F401
 
 __all__ = [
     "Base", "OnboardingSession", "Document", "BoardSession", "ChatMessage",
     "ActionPlan", "ActionTask", "AnnualPlan", "MonthlyPlan", "Objective",
     "BoardTheme", "Evidence", "Compromiso", "DiagnosticoEstrategico",
+    "ToddSession",
 ]
