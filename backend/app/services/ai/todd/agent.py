@@ -1,8 +1,6 @@
 """Agente conversacional de Todd: prompt, parseo y mapeo a memory_buffer.
 Lógica pura (sin red) salvo run_todd_turn (la llamada a Sonnet).
 """
-import json
-
 import anthropic
 
 from app.core.config import settings
