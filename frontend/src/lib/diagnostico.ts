@@ -13,11 +13,17 @@ export interface DiagnosticoSource {
   url: string
 }
 
+export interface Hallazgo {
+  tipo: string
+  texto: string
+}
+
 export interface Diagnostico {
   status: DiagnosticoStatus
   fail_reason: string | null
   sections: DiagnosticoSection[]
   sources: DiagnosticoSource[]
+  fortalezas_debilidades: Record<string, Hallazgo[]>
 }
 
 export interface DiagnosticoStatusOut {

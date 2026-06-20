@@ -170,6 +170,32 @@ export default function DiagnosticoPage() {
             )
           })}
 
+          {Object.keys(diag?.fortalezas_debilidades ?? {}).length > 0 && (
+            <section className="space-y-3 pt-4 border-t border-gray-100">
+              <h2 className="text-xl font-bold text-black tracking-tight">Fortalezas y debilidades</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {Object.entries(diag!.fortalezas_debilidades).map(([area, items]) => (
+                  <div key={area} className="border border-gray-100 rounded-2xl p-4">
+                    <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-2">{area}</p>
+                    <ul className="space-y-1.5">
+                      {items.map((h, j) => (
+                        <li key={j} className="flex items-start gap-2 text-sm">
+                          <span className={
+                            h.tipo === "fortaleza" ? "text-green-600"
+                            : h.tipo === "debilidad" ? "text-red-500" : "text-amber-500"
+                          }>
+                            {h.tipo === "fortaleza" ? "▲" : h.tipo === "debilidad" ? "▼" : "■"}
+                          </span>
+                          <span className="text-gray-700">{h.texto}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {(diag?.sources ?? []).length > 0 && (
             <section className="space-y-2 pt-4 border-t border-gray-100">
               <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Fuentes</p>
