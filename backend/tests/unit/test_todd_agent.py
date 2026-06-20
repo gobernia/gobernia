@@ -14,8 +14,13 @@ def test_areas_son_siete():
 def test_system_prompt_incluye_banco_y_esenciales():
     p = build_system_prompt()
     assert "estrategia" in p.lower() and "financiero" in p.lower()
-    assert "JSON" in p
+    assert "todd" in p.lower()
     assert "competidor" in p.lower() or "industria" in p.lower()
+
+
+def test_system_prompt_incluye_estado_cuando_se_pasa():
+    p = build_system_prompt({"company": {"name": "Keting Media"}, "areas_cubiertas": ["estrategia"]})
+    assert "Keting Media" in p and "ESTADO ACUMULADO" in p
 
 
 def test_build_anthropic_messages_antepone_kickoff_y_alterna():

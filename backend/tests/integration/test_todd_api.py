@@ -29,9 +29,9 @@ async def test_turn_inicia_sesion_y_responde(monkeypatch):
 
     monkeypatch.setattr(
         "app.api.v1.todd.router.run_todd_turn",
-        lambda messages: {"message": "Hola, soy Todd. ¿Cómo se llama tu empresa?",
-                          "options": None, "input": "text",
-                          "state": {"areas_cubiertas": []}, "done": False},
+        lambda messages, state=None: {"message": "Hola, soy Todd. ¿Cómo se llama tu empresa?",
+                                      "options": None, "input": "text",
+                                      "state": {"areas_cubiertas": []}, "done": False},
     )
 
     app.dependency_overrides[get_db] = _db_override(db)

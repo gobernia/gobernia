@@ -51,7 +51,7 @@ async def todd_turn(
     if body.answer:
         messages.append({"role": "user", "text": body.answer, "options": None})
 
-    turn = await anyio.to_thread.run_sync(lambda: run_todd_turn(messages))
+    turn = await anyio.to_thread.run_sync(lambda: run_todd_turn(messages, sess.state or {}))
 
     messages.append({"role": "todd", "text": turn["message"], "options": turn["options"]})
     sess.messages = messages
