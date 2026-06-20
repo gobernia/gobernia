@@ -97,6 +97,7 @@ async def get_diagnostico(
     return DiagnosticoOut(
         status=diag.status, fail_reason=diag.fail_reason,
         sections=content.get("sections", []), sources=content.get("sources", []),
+        fortalezas_debilidades=content.get("fortalezas_debilidades", {}),
     )
 
 

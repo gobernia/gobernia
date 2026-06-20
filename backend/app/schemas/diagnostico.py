@@ -22,3 +22,4 @@ class DiagnosticoOut(BaseModel):
     fail_reason: str | None = None
     sections: list[DiagnosticoSection] = []
     sources: list[DiagnosticoSource] = []
+    fortalezas_debilidades: dict = {}
