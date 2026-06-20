@@ -13,6 +13,7 @@ from app.api.v1.annual_plan.router import router as annual_plan_router
 from app.api.v1.evidence.router import router as evidence_router
 from app.api.v1.pm.router import router as pm_router
 from app.api.v1.diagnostico.router import router as diagnostico_router
+from app.api.v1.todd.router import router as todd_router
 
 
 @asynccontextmanager
@@ -51,6 +52,7 @@ app.include_router(annual_plan_router, prefix="/api/v1", tags=["annual-plan"])
 app.include_router(evidence_router, prefix="/api/v1", tags=["evidence"])
 app.include_router(pm_router, prefix="/api/v1", tags=["pm"])
 app.include_router(diagnostico_router, prefix="/api/v1", tags=["diagnostico"])
+app.include_router(todd_router, prefix="/api/v1", tags=["todd"])
 
 
 @app.get("/health", tags=["system"])
