@@ -49,6 +49,10 @@ CRÍTICO — Competencia percibida vs. real: el usuario te dará la lista de com
 usuario omitió, y supuestos competidores que ya no lo son. Ese contraste es la sección más
 valiosa.
 
+Si recibes una AUTOEVALUACIÓN INTERNA (fortalezas/debilidades que el dueño declaró), intégrala en
+tu análisis: en 'conclusiones' y en las secciones relevantes, confirma, matiza o contrasta esas
+afirmaciones con lo que encuentres en la web. No te limites a repetirlas; agrégales contexto del sector.
+
 Responde ÚNICAMENTE con un objeto JSON válido con esta forma exacta (sin texto fuera del JSON):
 {
   "sections": {
@@ -70,12 +74,32 @@ def build_prompt(memory_buffer: dict) -> str:
     loc = c.get("location", {}) or {}
     region = ", ".join(x for x in [loc.get("city"), loc.get("state"), loc.get("country")] if x)
     competidores = c.get("competitors") or []
+
+    hallazgos = (memory_buffer or {}).get("hallazgos") or {}
+    bloque_interno = ""
+    if hallazgos:
+        lineas = []
+        for area, items in hallazgos.items():
+            for h in (items or []):
+                tipo = str(h.get("tipo", "")).strip()
+                texto = str(h.get("texto", "")).strip()
+                if texto:
+                    lineas.append(f"  - [{area} · {tipo}] {texto}")
+        if lineas:
+            bloque_interno = (
+                "\nAUTOEVALUACIÓN INTERNA (lo que el dueño le contó a Todd en la entrevista — "
+                "fortalezas/debilidades por área). INTÉGRALA con lo que encuentres en la web "
+                "(confírmala, contextualízala o matízala con datos del sector):\n"
+                + "\n".join(lineas) + "\n"
+            )
+
     return (
         f"Empresa: {c.get('name', 'N/D')}\n"
         f"Industria: {c.get('industry', 'N/D')}\n"
         f"Región donde opera: {region or 'N/D'}\n"
         f"Sitio web: {c.get('website', 'N/D')}\n"
-        f"Competidores que el usuario CREE tener: {', '.join(competidores) if competidores else 'ninguno indicado'}\n\n"
+        f"Competidores que el usuario CREE tener: {', '.join(competidores) if competidores else 'ninguno indicado'}\n"
+        f"{bloque_interno}\n"
         "Investiga y entrega el diagnóstico en el JSON indicado."
     )
 
@@ -98,6 +122,12 @@ def parse_diagnostico(raw: str) -> dict:
 
 def _diagnostico_vacio(content: dict) -> bool:
     return all(not s.get("body") for s in content.get("sections", []))
+
+
+def attach_internal_findings(content: dict, memory_buffer: dict) -> dict:
+    """Adjunta al content las fortalezas/debilidades que Todd recogió (memory_buffer['hallazgos'])."""
+    content["fortalezas_debilidades"] = (memory_buffer or {}).get("hallazgos") or {}
+    return content
 
 
 def generate_diagnostico(memory_buffer: dict) -> dict:
@@ -133,6 +163,6 @@ def generate_diagnostico(memory_buffer: dict) -> dict:
         )
         content = parse_diagnostico(raw)
         if not _diagnostico_vacio(content):
-            return content
+            return attach_internal_findings(content, memory_buffer)
 
     raise RuntimeError("El diagnóstico llegó vacío o ilegible tras 2 intentos.")
