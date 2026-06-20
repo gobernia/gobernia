@@ -9,6 +9,7 @@ import anyio
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.todd_session import ToddSession
 from app.models.onboarding_session import OnboardingSession
+from app.models.diagnostico_estrategico import DiagnosticoEstrategico
 from app.schemas.todd import ToddTurnIn, ToddTurnOut, ToddSessionOut, ToddMessage
 from app.services.ai.todd.agent import run_todd_turn, state_to_memory_buffer
 
@@ -89,5 +90,24 @@ async def todd_close(
     flag_modified(onb, "memory_buffer")
     flag_modified(onb, "completed_stages")
     await db.commit()
-    # TODO (Plan 2): disparar aquí el diagnóstico combinado (Opus + web) con sess.state['hallazgos'].
+
+    # Disparar el diagnóstico combinado (interno + web). Reemplaza el diagnóstico previo si lo hubiera.
+    prev = (await db.execute(
+        select(DiagnosticoEstrategico).where(DiagnosticoEstrategico.user_id == user_id)
+        .order_by(DiagnosticoEstrategico.created_at.desc())
+    )).scalars().first()
+    if prev is not None:
+        await db.delete(prev)
+        await db.flush()
+    diag = DiagnosticoEstrategico(user_id=user_id, status="generating")
+    db.add(diag)
+    await db.flush()
+    await db.commit()
+    try:
+        from app.tasks.diagnostico_tasks import generate_diagnostico_task
+        generate_diagnostico_task.delay(str(diag.id))
+    except Exception:
+        diag.status = "failed"
+        diag.fail_reason = "no se pudo encolar"
+        await db.commit()
     return {"ok": True}

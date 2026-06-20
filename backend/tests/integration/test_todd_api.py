@@ -63,15 +63,25 @@ async def test_get_todd_sin_sesion_devuelve_204(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_close_escribe_memory_buffer_y_marca_onboarding(monkeypatch):
+async def test_close_escribe_memory_buffer_y_dispara_diagnostico(monkeypatch):
     sess = MagicMock()
     sess.user_id = MOCK_USER_ID
     sess.status = "active"
-    sess.state = {"company": {"name": "Keting Media"}, "areas_cubiertas": []}
+    sess.state = {"company": {"name": "Keting Media"}, "areas_cubiertas": [],
+                  "hallazgos": {"financiero": [{"tipo": "debilidad", "texto": "Márgenes"}]}}
     onb = MagicMock(); onb.user_id = MOCK_USER_ID
+    # 1ª query: ToddSession; 2ª: OnboardingSession; 3ª: diagnóstico previo (none)
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = sess
     r2 = MagicMock(); r2.scalars.return_value.first.return_value = onb
-    db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2]); db.commit = AsyncMock()
+    r3 = MagicMock(); r3.scalars.return_value.first.return_value = None
+    db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2, r3])
+    db.add = MagicMock(); db.flush = AsyncMock(); db.commit = AsyncMock()
+
+    dispatched = {}
+    class _FakeTask:
+        def delay(self, diag_id):
+            dispatched["id"] = diag_id
+    monkeypatch.setattr("app.tasks.diagnostico_tasks.generate_diagnostico_task", _FakeTask())
 
     app.dependency_overrides[get_db] = _db_override(db)
     app.dependency_overrides[get_current_user_id] = _user_override
@@ -84,3 +94,5 @@ async def test_close_escribe_memory_buffer_y_marca_onboarding(monkeypatch):
     assert sess.status == "done"
     assert onb.memory_buffer["company"]["name"] == "Keting Media"
     assert onb.completed_stages == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert db.add.called
+    assert "id" in dispatched
