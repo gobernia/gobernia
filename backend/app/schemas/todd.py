@@ -37,3 +37,9 @@ class ToddMetasOut(BaseModel):
 
 class ToddMetasIn(BaseModel):
     orden: list[str]
+
+
+class FodaOut(BaseModel):
+    status: str
+    foda: dict | None = None
+    metas: list[str] = []

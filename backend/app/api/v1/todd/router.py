@@ -12,7 +12,7 @@ from app.models.todd_session import ToddSession
 from app.models.onboarding_session import OnboardingSession
 from app.models.diagnostico_estrategico import DiagnosticoEstrategico
 from app.schemas.todd import ToddTurnIn, ToddTurnOut, ToddSessionOut, ToddMessage, ToddEditIn
-from app.schemas.todd import ToddMetasOut, ToddMetasIn
+from app.schemas.todd import ToddMetasOut, ToddMetasIn, FodaOut
 from app.services.ai.todd.agent import run_todd_turn, run_todd_edit, state_to_memory_buffer
 from app.services.ai.todd.externo import run_externo_turn, run_externo_edit, generar_metas
 
@@ -210,10 +210,32 @@ async def save_metas(body: ToddMetasIn, user_id: str = Depends(get_current_user_
     content = dict(diag.content or {})
     content["factores_externos"] = ((externo.state if externo else {}) or {}).get("factores_externos") or {}
     content["metas_orden"] = [str(m) for m in body.orden]
+    content["foda_status"] = "generating"
     diag.content = content
     flag_modified(diag, "content")
     await db.commit()
+    try:
+        from app.tasks.foda_tasks import generate_foda_task
+        generate_foda_task.delay(user_id)
+    except Exception:
+        content["foda_status"] = "failed"
+        diag.content = content
+        flag_modified(diag, "content")
+        await db.commit()
     return {"ok": True}
+
+
+@router.get("/onboarding/foda", response_model=FodaOut)
+async def get_foda(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    diag = (await db.execute(
+        select(DiagnosticoEstrategico).where(DiagnosticoEstrategico.user_id == user_id)
+        .order_by(DiagnosticoEstrategico.created_at.desc())
+    )).scalars().first()
+    if diag is None:
+        raise HTTPException(status_code=404, detail="No hay análisis.")
+    c = diag.content or {}
+    return FodaOut(status=c.get("foda_status") or "none", foda=c.get("foda"),
+                   metas=c.get("metas_orden") or [])
 
 
 @router.post("/onboarding/todd/close")
