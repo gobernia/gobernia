@@ -30,7 +30,7 @@ export default function MetasPage() {
 
   const confirmar = async () => {
     setSaving(true)
-    try { await saveMetas(metas); router.push("/dashboard/diagnostico") }
+    try { await saveMetas(metas); router.push("/dashboard/foda") }
     catch { setSaving(false) }
   }
 
