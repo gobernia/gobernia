@@ -212,11 +212,15 @@ export default function DiagnosticoPage() {
             </section>
           )}
 
-          <div className="pt-4">
+          <div className="pt-4 flex items-center justify-between gap-4">
             <button onClick={onGenerate}
               className="text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors">
               Regenerar diagnóstico
             </button>
+            <a href="/onboarding/todd/externo"
+              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
+              Continuar al análisis del entorno →
+            </a>
           </div>
         </div>
       </main>
