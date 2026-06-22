@@ -111,13 +111,18 @@ def parse_turn(raw: str) -> dict:
     return _normalize_turn(_extract_json_object(raw) or {})
 
 
-def enforce_coverage(turn: dict) -> dict:
-    """No permite cerrar (done) sin haber cubierto las 7 áreas."""
+def enforce_coverage_against(turn: dict, required: list[str]) -> dict:
+    """No permite cerrar (done) sin cubrir todas las áreas/categorías de `required`."""
     if turn.get("done"):
         cubiertas = set((turn.get("state") or {}).get("areas_cubiertas") or [])
-        if not set(areas.AREAS).issubset(cubiertas):
+        if not set(required).issubset(cubiertas):
             turn["done"] = False
     return turn
+
+
+def enforce_coverage(turn: dict) -> dict:
+    """No permite cerrar sin las 7 áreas internas."""
+    return enforce_coverage_against(turn, areas.AREAS)
 
 
 def state_to_memory_buffer(state: dict) -> dict:
