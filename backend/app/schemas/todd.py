@@ -29,3 +29,11 @@ class ToddSessionOut(BaseModel):
 class ToddEditIn(BaseModel):
     answer_index: int
     nueva_respuesta: str
+
+
+class ToddMetasOut(BaseModel):
+    metas: list[str]
+
+
+class ToddMetasIn(BaseModel):
+    orden: list[str]
