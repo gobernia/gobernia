@@ -2,21 +2,30 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
-import { Send, Loader2 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { ArrowRight, ArrowLeft, Loader2, Pencil, X, Check } from "lucide-react"
 import {
-  ToddMessage, ToddTurn, getToddSession, sendToddAnswer, closeTodd,
+  ToddMessage, ToddTurn, QAPair, TODD_AREAS,
+  getToddSession, sendToddAnswer, editToddAnswer, closeTodd, buildQAPairs,
 } from "@/lib/todd"
 
-export default function ToddPage() {
+const AREA_LABEL: Record<string, string> = {
+  estrategia: "Estrategia", comercial: "Comercial", operativo: "Operativo",
+  rh: "RH", financiero: "Financiero", legal: "Legal", familiar: "Familiar",
+}
+
+export default function ToddFormPage() {
   const router = useRouter()
   const [messages, setMessages] = useState<ToddMessage[]>([])
   const [turn, setTurn] = useState<ToddTurn | null>(null)
-  const [input, setInput] = useState("")
+  const [areas, setAreas] = useState<string[]>([])
+  const [text, setText] = useState("")
   const [busy, setBusy] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editPair, setEditPair] = useState<QAPair | null>(null)
+  const [editText, setEditText] = useState("")
   const started = useRef(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (started.current) return
@@ -24,33 +33,39 @@ export default function ToddPage() {
     getToddSession()
       .then(async sess => {
         if (sess && sess.messages.length > 0) {
-          setMessages(sess.messages)
+          setMessages(sess.messages); setAreas(sess.areas_cubiertas)
           const last = sess.messages[sess.messages.length - 1]
-          setTurn({ message: last.text, options: last.options, input: last.options ? "single_choice" : "text", done: sess.done })
+          setTurn({ message: last.text, options: last.options,
+            input: last.options ? "single_choice" : "text", done: sess.done,
+            areas_cubiertas: sess.areas_cubiertas })
         } else {
           const t = await sendToddAnswer(null)
-          setTurn(t)
+          setTurn(t); setAreas(t.areas_cubiertas)
           setMessages([{ role: "todd", text: t.message, options: t.options }])
         }
       })
       .catch(() => {})
   }, [])
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages, busy])
+  const applyTurn = (t: ToddTurn, userMsg?: string) => {
+    setTurn(t); setAreas(t.areas_cubiertas)
+    setMessages(prev => {
+      const next = [...prev]
+      if (userMsg) next.push({ role: "user", text: userMsg, options: null })
+      next.push({ role: "todd", text: t.message, options: t.options })
+      return next
+    })
+  }
 
   const answer = async (value: string) => {
     if (!value.trim() || busy) return
-    setBusy(true); setInput("")
-    setMessages(prev => [...prev, { role: "user", text: value, options: null }])
+    setBusy(true); setText("")
     try {
       const t = await sendToddAnswer(value)
-      setTurn(t)
-      setMessages(prev => [...prev, { role: "todd", text: t.message, options: t.options }])
+      applyTurn(t, value)
     } catch {
-      setMessages(prev => [...prev, { role: "todd", text: "Tuve un problema, ¿puedes repetirlo?", options: null }])
-    } finally {
-      setBusy(false)
-    }
+      /* deja el paso actual */
+    } finally { setBusy(false) }
   }
 
   const finish = async () => {
@@ -59,55 +74,158 @@ export default function ToddPage() {
     catch { setClosing(false) }
   }
 
+  const openEdit = (p: QAPair) => { setEditPair(p); setEditText(p.answer) }
+
+  const submitEdit = async () => {
+    if (!editPair || !editText.trim() || busy) return
+    setBusy(true)
+    try {
+      const t = await editToddAnswer(editPair.msgIndex, editText)
+      const sess = await getToddSession()
+      if (sess) {
+        setMessages(sess.messages); setAreas(sess.areas_cubiertas)
+        const last = sess.messages[sess.messages.length - 1]
+        setTurn({ message: last.text, options: last.options,
+          input: last.options ? "single_choice" : "text", done: sess.done,
+          areas_cubiertas: sess.areas_cubiertas })
+      } else {
+        setTurn(t); setAreas(t.areas_cubiertas)
+      }
+      setEditPair(null); setEditing(false)
+    } catch {
+      /* mantiene el panel */
+    } finally { setBusy(false) }
+  }
+
+  const pairs = buildQAPairs(messages)
+
   return (
     <div className="min-h-dvh bg-white text-black flex flex-col">
-      <header className="border-b border-gray-100 px-5 py-3 text-sm font-bold tracking-widest">TODD · GOBERNIA</header>
-
-      <main className="flex-1 overflow-y-auto px-4 py-6 max-w-2xl mx-auto w-full space-y-4">
-        {messages.map((m, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-              m.role === "user" ? "bg-[var(--gob-navy)] text-[var(--gob-bone)]" : "bg-gray-100 text-black"}`}>
-              {m.text}
-            </div>
-          </motion.div>
-        ))}
-        {busy && (
-          <div className="flex justify-start"><div className="bg-gray-100 rounded-2xl px-4 py-2.5">
-            <Loader2 className="h-4 w-4 animate-spin text-gray-400" /></div></div>
-        )}
-        <div ref={bottomRef} />
-      </main>
-
-      <footer className="border-t border-gray-100 px-4 py-3 max-w-2xl mx-auto w-full space-y-3">
-        {turn?.options && turn.options.length > 0 && !busy && (
-          <div className="flex flex-wrap gap-2">
-            {turn.options.map(o => (
-              <button key={o} onClick={() => answer(o)}
-                className="text-sm border border-gray-200 rounded-full px-3 py-1.5 hover:border-[var(--gob-navy)] transition-colors">
-                {o}
-              </button>
+      <header className="border-b border-gray-100 px-5 py-4">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
+          <span className="text-sm font-bold tracking-widest">TODD · GOBERNIA</span>
+          <div className="flex flex-wrap gap-1.5">
+            {TODD_AREAS.map(a => (
+              <span key={a}
+                className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                  areas.includes(a)
+                    ? "bg-[var(--gob-navy)] text-[var(--gob-bone)] border-[var(--gob-navy)]"
+                    : "text-gray-400 border-gray-200"
+                }`}>
+                {AREA_LABEL[a]}
+              </span>
             ))}
           </div>
-        )}
-        {turn?.done ? (
-          <button onClick={finish} disabled={closing}
-            className="w-full bg-[var(--gob-navy)] text-[var(--gob-bone)] rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
-            {closing ? <><Loader2 className="h-4 w-4 animate-spin" /> Preparando tu diagnóstico…</> : "Finalizar y ver mi diagnóstico"}
-          </button>
-        ) : (
-          <form onSubmit={e => { e.preventDefault(); answer(input) }} className="flex gap-2">
-            <input value={input} onChange={e => setInput(e.target.value)} disabled={busy}
-              placeholder="Escribe tu respuesta…"
-              className="flex-1 h-11 rounded-xl border-2 border-gray-100 px-4 text-sm focus:border-black focus:outline-none" />
-            <button type="submit" disabled={busy || !input.trim()}
-              className="h-11 w-11 rounded-xl bg-[var(--gob-navy)] text-[var(--gob-bone)] flex items-center justify-center disabled:opacity-40">
-              <Send className="h-4 w-4" />
-            </button>
-          </form>
-        )}
-      </footer>
+        </div>
+      </header>
+
+      <main className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-xl">
+          {editing ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">¿En qué te equivocaste?</h2>
+                <button onClick={() => { setEditing(false); setEditPair(null) }}
+                  className="text-gray-400 hover:text-black"><X className="h-4 w-4" /></button>
+              </div>
+              {!editPair ? (
+                <ul className="space-y-2">
+                  {pairs.map(p => (
+                    <li key={p.msgIndex}>
+                      <button onClick={() => openEdit(p)}
+                        className="w-full text-left border border-gray-100 rounded-xl p-3 hover:border-[var(--gob-navy)] transition-colors">
+                        <p className="text-xs text-gray-400">{p.question}</p>
+                        <p className="text-sm text-black flex items-center justify-between gap-2">
+                          {p.answer} <Pencil className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                        </p>
+                      </button>
+                    </li>
+                  ))}
+                  {pairs.length === 0 && <p className="text-sm text-gray-400">Aún no hay respuestas.</p>}
+                </ul>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-400">{editPair.question}</p>
+                  {editPair.options && editPair.options.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {editPair.options.map(o => (
+                        <button key={o} onClick={() => setEditText(o)}
+                          className={`text-sm border rounded-full px-3 py-1.5 ${
+                            editText === o ? "border-[var(--gob-navy)] bg-[var(--gob-navy)] text-[var(--gob-bone)]"
+                            : "border-gray-200"}`}>
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <input value={editText} onChange={e => setEditText(e.target.value)}
+                      className="w-full h-11 rounded-xl border-2 border-gray-100 px-4 text-sm focus:border-black focus:outline-none" />
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditPair(null)}
+                      className="flex-1 text-sm text-gray-500">Cancelar</button>
+                    <button onClick={submitEdit} disabled={busy || !editText.trim()}
+                      className="flex-[2] inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-2.5 rounded-xl disabled:opacity-50">
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Guardar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <motion.div key={turn?.message}
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25 }} className="space-y-6">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] flex items-center justify-center text-sm font-bold shrink-0">T</div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400">Todd</p>
+                    <h2 className="text-lg font-bold text-black leading-snug">{turn?.message}</h2>
+                  </div>
+                </div>
+
+                {turn && !turn.done && (
+                  turn.options && turn.options.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {turn.options.map(o => (
+                        <button key={o} disabled={busy} onClick={() => answer(o)}
+                          className="text-sm border border-gray-200 rounded-xl px-4 py-2.5 hover:border-[var(--gob-navy)] hover:bg-gray-50 transition-colors disabled:opacity-50">
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <form onSubmit={e => { e.preventDefault(); answer(text) }} className="space-y-3">
+                      <textarea value={text} onChange={e => setText(e.target.value)} disabled={busy}
+                        rows={3} placeholder="Tu respuesta…"
+                        className="w-full rounded-xl border-2 border-gray-100 px-4 py-3 text-sm focus:border-black focus:outline-none resize-none" />
+                      <button type="submit" disabled={busy || !text.trim()}
+                        className="w-full inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl disabled:opacity-40">
+                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continuar <ArrowRight className="h-4 w-4" /></>}
+                      </button>
+                    </form>
+                  )
+                )}
+
+                {turn?.done && (
+                  <button onClick={finish} disabled={closing}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl disabled:opacity-50">
+                    {closing ? <><Loader2 className="h-4 w-4 animate-spin" /> Preparando tu diagnóstico…</> : "Finalizar y ver mi diagnóstico"}
+                  </button>
+                )}
+
+                {pairs.length > 0 && (
+                  <button onClick={() => setEditing(true)}
+                    className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-[var(--gob-navy)] transition-colors">
+                    <ArrowLeft className="h-3.5 w-3.5" /> Atrás · corregir una respuesta
+                  </button>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </div>
+      </main>
     </div>
   )
 }
