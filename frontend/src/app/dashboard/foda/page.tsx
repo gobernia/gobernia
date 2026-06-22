@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Loader2, TrendingUp, Compass, AlertTriangle, ShieldAlert } from "lucide-react"
 import { Foda, FodaOut, getFoda } from "@/lib/foda"
+import { generateAnnualPlan } from "@/lib/annualPlan"
 
 type Quad = { key: keyof Foda; label: string; icon: typeof TrendingUp; accent: string; chip: string }
 const QUADS: Quad[] = [
@@ -14,8 +16,16 @@ const QUADS: Quad[] = [
 ]
 
 export default function FodaPage() {
+  const router = useRouter()
   const [data, setData] = useState<FodaOut | null>(null)
+  const [generando, setGenerando] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const generarPlan = async () => {
+    setGenerando(true)
+    try { await generateAnnualPlan(3); router.push("/dashboard/plan") }
+    catch { setGenerando(false) }
+  }
 
   useEffect(() => {
     let alive = true
@@ -106,6 +116,13 @@ export default function FodaPage() {
                 </ol>
               </section>
             )}
+
+            <div className="pt-2">
+              <button onClick={generarPlan} disabled={generando}
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50">
+                {generando ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando tu plan…</> : "Generar mi plan a 3 años →"}
+              </button>
+            </div>
           </>
         )}
       </main>
