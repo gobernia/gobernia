@@ -10,6 +10,7 @@ class ToddTurnOut(BaseModel):
     options: list[str] | None = None
     input: str = "text"
     done: bool = False
+    areas_cubiertas: list[str] = []
 
 
 class ToddMessage(BaseModel):
@@ -22,3 +23,9 @@ class ToddSessionOut(BaseModel):
     status: str
     messages: list[ToddMessage]
     done: bool
+    areas_cubiertas: list[str] = []
+
+
+class ToddEditIn(BaseModel):
+    answer_index: int
+    nueva_respuesta: str
