@@ -9,10 +9,12 @@ Action Plans — endpoints CRUD + generación con IA.
 import uuid
 from datetime import datetime
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.action_plan import ActionPlan, ActionTask
@@ -28,6 +30,7 @@ from app.schemas.action_plan import (
     GeneratePlanResponse,
 )
 from app.services.ai.plan_generator import generate_action_plan
+from app.services.ai.task_explainer import generate_explicacion
 
 router = APIRouter()
 
@@ -54,6 +57,7 @@ def _task_to_out(t: ActionTask) -> ActionTaskOut:
         order_index=t.order_index,
         created_at=t.created_at,
         updated_at=t.updated_at,
+        explicacion=t.explicacion,
     )
 
 
@@ -280,6 +284,38 @@ async def update_task(
     await db.commit()
     await db.refresh(task)
     return _task_to_out(task)
+
+
+# ── POST /tasks/{task_id}/explicacion ────────────────────────────────────────
+
+async def _objetivo_empresa(task, user_id, db):
+    objetivo = ""
+    if task.objective_id is not None:
+        obj = (await db.execute(select(Objective).where(Objective.id == task.objective_id))).scalar_one_or_none()
+        objetivo = obj.title if obj else ""
+    onb = (await db.execute(
+        select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+        .order_by(OnboardingSession.created_at.desc())
+    )).scalars().first()
+    empresa = (((onb.memory_buffer if onb else {}) or {}).get("company") or {}).get("name") or ""
+    return objetivo, empresa
+
+
+@router.post("/tasks/{task_id}/explicacion")
+async def explicar_tarea(
+    task_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    task = await _get_user_task_or_404(task_id, user_id, db)
+    if task.explicacion:
+        return task.explicacion
+    objetivo, empresa = await _objetivo_empresa(task, user_id, db)
+    data = await anyio.to_thread.run_sync(
+        lambda: generate_explicacion(task.title, objetivo, empresa, task.kpi_ref))
+    task.explicacion = data
+    flag_modified(task, "explicacion")
+    await db.commit()
+    return data
 
 
 # ── DELETE /tasks/{task_id} ──────────────────────────────────────────────────

@@ -1,11 +1,138 @@
+# Plan Camino — Plan B: UI Camino + Timeline — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Reescribir `/dashboard/plan` con dos vistas on-brand — **Camino** (recorrido de meses, enfoque en el mes en curso, tareas expandibles con su explicación) y **Timeline** (panorama año×12) — y agregar el botón **"Generar mi plan a 3 años"** en la vista FODA.
+
+**Architecture:** Reutiliza los datos y endpoints del plan a 3 años (Fase 3A) + la explicación de tareas (Plan A). El frontend lee `getAnnualPlan()` + `getAnnualPlanStatus()`, calcula el mes activo, y renderiza Camino/Timeline. La explicación de cada tarea se carga al expandir (`POST /tasks/{id}/explicacion`). Marcar hecha usa `updateTask(status)` (respeta el candado de evidencia → 409).
+
+**Tech Stack:** Next.js 16 App Router, TypeScript, framer-motion, lucide-react, axios (`@/lib/api`). Estilo de marca (`--gob-navy`/`--gob-bone`/`--gob-ink`).
+
+## Global Constraints
+
+- **Reemplaza** el contenido actual de `/dashboard/plan` (kanban) por Camino + Timeline. No mantener ambos.
+- **On-brand y sobrio** — navy/bone/ink, sin morado, sin efectos lúdicos/gamificados. El "recorrido" es claro y profesional.
+- **Explicación bajo demanda** — al expandir una tarea por 1ª vez se llama `POST /tasks/{id}/explicacion`; se cachea en memoria del componente.
+- **Marcar hecha** — `updateTask(id, {status})`; si responde **409** (candado de evidencia), mostrar aviso "Necesita el documento de sustento" y no marcar.
+- **`TaskStatus`** = `"pendiente" | "en_progreso" | "completada"`; hecha = `"completada"`.
+- **Next.js 16:** client component con `@/lib/api`; sin APIs nuevas de Next.
+
+---
+
+### Task 1: Cliente — explicación de tareas + tipo
+
+**Files:**
+- Modify: `frontend/src/lib/annualPlan.ts`
+- Test: `cd frontend && npx tsc --noEmit` (type-check)
+
+**Interfaces:**
+- Produces: `ExplicacionTarea` type; `Task.explicacion`; `getTaskExplicacion(taskId): Promise<ExplicacionTarea>`.
+
+- [ ] **Step 1: Agregar tipo + campo + función en `frontend/src/lib/annualPlan.ts`**
+
+Agregar el tipo `ExplicacionTarea` (cerca de `Task`) y el campo `explicacion` en `Task`:
+```typescript
+export interface ExplicacionTarea {
+  tiempo: string
+  dificultad: string
+  que_es: string
+  como: string[]
+}
+```
+En la interface `Task`, agregar (después de `required_doc: string | null`):
+```typescript
+  explicacion: ExplicacionTarea | null
+```
+Y al final del archivo, la función:
+```typescript
+export async function getTaskExplicacion(taskId: string): Promise<ExplicacionTarea> {
+  const r = await api.post<ExplicacionTarea>(`/tasks/${taskId}/explicacion`)
+  return r.data
+}
+```
+
+- [ ] **Step 2: Type-check**
+
+Run: `cd frontend && npx tsc --noEmit 2>&1 | grep -i "annualPlan" || echo "annualPlan.ts OK"`
+Expected: sin errores en `annualPlan.ts`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add frontend/src/lib/annualPlan.ts
+git commit -m "feat(plan-camino-fe): cliente de explicación de tareas + tipo"
+```
+
+---
+
+### Task 2: Botón "Generar mi plan a 3 años" en la vista FODA
+
+**Files:**
+- Modify: `frontend/src/app/dashboard/foda/page.tsx`
+
+- [ ] **Step 1: Agregar el botón cuando el FODA está `active`**
+
+READ `frontend/src/app/dashboard/foda/page.tsx`. Importar al inicio:
+```tsx
+import { useRouter } from "next/navigation"
+import { generateAnnualPlan } from "@/lib/annualPlan"
+```
+Dentro del componente, agregar:
+```tsx
+  const router = useRouter()
+  const [generando, setGenerando] = useState(false)
+  const generarPlan = async () => {
+    setGenerando(true)
+    try { await generateAnnualPlan(3); router.push("/dashboard/plan") }
+    catch { setGenerando(false) }
+  }
+```
+Y dentro del bloque `data?.status === "active" && f && (...)`, al FINAL (después de la sección "Tus prioridades"), agregar un CTA:
+```tsx
+            <div className="pt-2">
+              <button onClick={generarPlan} disabled={generando}
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50">
+                {generando ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando tu plan…</> : "Generar mi plan a 3 años →"}
+              </button>
+            </div>
+```
+(`Loader2` ya está importado en ese archivo. `useState` también.)
+
+- [ ] **Step 2: lint + build**
+
+Run: `cd frontend && npm run build 2>&1 | grep -iE "Compiled successfully|Failed|error|dashboard/foda" | head`
+Expected: compila.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add frontend/src/app/dashboard/foda/page.tsx
+git commit -m "feat(plan-camino-fe): botón 'Generar mi plan a 3 años' desde el FODA"
+```
+
+---
+
+### Task 3: Reescribir `/dashboard/plan` — Camino + Timeline
+
+**Files:**
+- Rewrite: `frontend/src/app/dashboard/plan/page.tsx`
+- Test: `npm run lint` + `npm run build`
+
+**Interfaces:**
+- Consumes: `getAnnualPlan`, `getAnnualPlanStatus`, `generateAnnualPlan`, `updateTask`, `getTaskExplicacion`, tipos `AnnualPlan/MonthlyPlan/Task/ExplicacionTarea`, `MONTH_NAMES`.
+
+- [ ] **Step 1: Reescribir la página**
+
+`frontend/src/app/dashboard/plan/page.tsx` (reemplaza TODO el archivo):
+```tsx
 "use client"
 
 import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, ChevronDown, Check, Clock, Gauge } from "lucide-react"
 import {
-  AnnualPlan, Task, ExplicacionTarea, MONTH_NAMES,
-  getAnnualPlan, getAnnualPlanStatus, updateTask, getTaskExplicacion,
+  AnnualPlan, MonthlyPlan, Task, ExplicacionTarea, MONTH_NAMES,
+  getAnnualPlan, getAnnualPlanStatus, generateAnnualPlan, updateTask, getTaskExplicacion,
 } from "@/lib/annualPlan"
 
 const DIF_CHIP: Record<string, string> = {
@@ -102,10 +229,6 @@ export default function PlanPage() {
   const monthsDone = months.filter(m => m.status === "done").length
   const pct = total ? Math.round((monthsDone / total) * 100) : 0
 
-  function patchTaskInPlan(p: AnnualPlan, t: Task): AnnualPlan {
-    return { ...p, months: p.months.map(m => ({ ...m, objectives: m.objectives.map(o => ({ ...o, tasks: o.tasks.map(x => x.id === t.id ? { ...x, ...t } : x) })) })) }
-  }
-
   const toggleTask = async (t: Task) => {
     setBusyTask(t.id); setGateMsg(null)
     const next = t.status === "completada" ? "pendiente" : "completada"
@@ -116,6 +239,10 @@ export default function PlanPage() {
       const code = (e as { response?: { status?: number } })?.response?.status
       if (code === 409) setGateMsg("Esa tarea necesita su documento de sustento para marcarse como hecha. Súbelo en la tarea.")
     } finally { setBusyTask(null) }
+  }
+
+  function patchTaskInPlan(p: AnnualPlan, t: Task): AnnualPlan {
+    return { ...p, months: p.months.map(m => ({ ...m, objectives: m.objectives.map(o => ({ ...o, tasks: o.tasks.map(x => x.id === t.id ? { ...x, ...t } : x) })) })) }
   }
 
   if (status === "loading") {
@@ -135,6 +262,7 @@ export default function PlanPage() {
   return (
     <div className="min-h-dvh bg-white text-black">
       <main className="max-w-3xl mx-auto px-[var(--px-fluid)] py-10 space-y-8">
+        {/* Hero */}
         <div className="bg-[var(--gob-navy)] text-[var(--gob-bone)] rounded-2xl p-6">
           <p className="text-[10px] font-medium tracking-widest uppercase opacity-70">Tu plan · {plan.horizon_years} años</p>
           <h1 className="text-2xl font-bold mt-1">{plan.title || "Plan estratégico"}</h1>
@@ -142,6 +270,7 @@ export default function PlanPage() {
           <p className="text-xs opacity-90 mt-1.5">Mes {active ?? 1} de {total} · {pct}% completado</p>
         </div>
 
+        {/* Toggle */}
         <div className="flex gap-2 justify-center">
           {(["camino", "timeline"] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
@@ -153,6 +282,7 @@ export default function PlanPage() {
 
         {view === "camino" ? (
           <>
+            {/* Recorrido */}
             <div className="flex items-center gap-1 overflow-x-auto pb-2">
               {months.map(m => {
                 const isDone = m.status === "done" || (active != null && m.month_index < active)
@@ -171,6 +301,7 @@ export default function PlanPage() {
               })}
             </div>
 
+            {/* Este mes */}
             {activeMonth && (
               <div className="border-2 border-[var(--gob-navy)]/20 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
@@ -190,6 +321,7 @@ export default function PlanPage() {
             <p className="text-center text-xs text-gray-400">Toca una tarea para ver qué es y cómo hacerla · toca el círculo para marcarla.</p>
           </>
         ) : (
+          /* Timeline */
           <div className="space-y-5">
             {Array.from({ length: plan.horizon_years }, (_, y) => y + 1).map(y => (
               <div key={y}>
@@ -220,3 +352,36 @@ export default function PlanPage() {
     </div>
   )
 }
+```
+
+- [ ] **Step 2: lint + build**
+
+Run: `cd frontend && npm run lint 2>&1 | grep -iE "plan/page|annualPlan" || echo "sin issues nuevos"; npm run build 2>&1 | grep -iE "Compiled successfully|Failed|error|dashboard/plan" | head`
+Expected: build exit 0; sin errores nuevos en `dashboard/plan/page.tsx`.
+
+- [ ] **Step 3: Smoke (referencia)**
+
+Con un plan activo: `/dashboard/plan` muestra el hero con progreso, toggle Camino/Timeline; en Camino el recorrido con el mes actual resaltado + la tarjeta "Este mes" con tareas; expandir una tarea carga su explicación; marcar una tarea la tacha; Timeline muestra el grid año×meses.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add frontend/src/app/dashboard/plan/page.tsx
+git commit -m "feat(plan-camino-fe): vista Camino + Timeline con tareas explicadas (reemplaza kanban)"
+```
+
+---
+
+## Self-Review (cobertura del spec, Plan B)
+
+- **UI Camino (recorrido + mes en curso + tareas expandibles + explicación)** → Task 3 (`TaskRow` con lazy `getTaskExplicacion` + tarjeta "Este mes"). ✅
+- **UI Timeline (año×12)** → Task 3 (grid). ✅
+- **Toggle on-brand sobrio** → Task 3 (navy/bone, sin morado). ✅
+- **Marcar hecha + candado de evidencia (409)** → Task 3 (`toggleTask` maneja 409 con aviso). ✅
+- **Botón "Generar mi plan" desde el FODA** → Task 2. ✅
+- **Cliente explicación + tipos** → Task 1. ✅
+- **Reemplaza el kanban** → Task 3 reescribe `plan/page.tsx` entero. ✅
+
+Consistencia de tipos: `getTaskExplicacion(id) -> ExplicacionTarea {tiempo,dificultad,que_es,como}` ↔ `TaskRow` lo consume y `Task.explicacion` lo cachea. `updateTask(id,{status})` con `status: "completada"` para hecha; 409 = candado de evidencia. `active_month_index` (de `getAnnualPlanStatus`) define el mes actual; `horizon_years*12` = total; `month.status` ("locked"/"active"/"done") colorea el recorrido/timeline.
+
+Puntos a verificar al implementar: que `updateTask` propague el 409 como `error.response.status` (axios lo hace); que la página vieja se reemplace por completo; que `MONTH_NAMES` se importe; que el build no rompa por imports no usados (quitar los que no se usen).

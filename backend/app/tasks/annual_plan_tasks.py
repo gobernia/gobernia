@@ -113,6 +113,17 @@ async def _run_generation(annual_plan_id: str, db) -> None:
         onboarding = onb_res.scalar_one_or_none()
         memory_buffer = (onboarding.memory_buffer if onboarding else {}) or {}
 
+        # Inyectar FODA + metas priorizadas (del diagnóstico estratégico más reciente)
+        # en el company_narrative para que el generador alinee el plan a lo prioritario.
+        from app.models.diagnostico_estrategico import DiagnosticoEstrategico
+        from app.services.ai.foda_into_plan import augment_buffer_with_foda
+        diag = (await db.execute(
+            select(DiagnosticoEstrategico).where(DiagnosticoEstrategico.user_id == plan.user_id)
+            .order_by(DiagnosticoEstrategico.created_at.desc())
+        )).scalars().first()
+        dcont = (diag.content if diag else {}) or {}
+        memory_buffer = augment_buffer_with_foda(memory_buffer, dcont.get("foda"), dcont.get("metas_orden") or [])
+
         # Idempotencia (retry): borrar resultados de un intento previo.
         # El FK ondelete CASCADE en monthly_plans→objectives→action_tasks limpia en cascada.
         await db.execute(delete(MonthlyPlan).where(MonthlyPlan.annual_plan_id == plan.id))

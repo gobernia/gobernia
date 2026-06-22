@@ -13,6 +13,13 @@ export interface Milestone {
   kpi_ref: string | null
 }
 
+export interface ExplicacionTarea {
+  tiempo: string
+  dificultad: string
+  que_es: string
+  como: string[]
+}
+
 export interface Task {
   id: string
   plan_id: string | null
@@ -31,6 +38,7 @@ export interface Task {
   updated_at: string
   evidence_count: number
   required_doc: string | null
+  explicacion: ExplicacionTarea | null
 }
 
 export interface Objective {
@@ -134,6 +142,11 @@ export async function updateTask(id: string, patch: Partial<Task>): Promise<Task
 
 export async function deleteTask(id: string): Promise<void> {
   await api.delete(`/tasks/${id}`)
+}
+
+export async function getTaskExplicacion(taskId: string): Promise<ExplicacionTarea> {
+  const r = await api.post<ExplicacionTarea>(`/tasks/${taskId}/explicacion`)
+  return r.data
 }
 
 export type Grade = "bien" | "mal" | "muy_mal"
