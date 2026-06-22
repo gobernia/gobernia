@@ -5,7 +5,8 @@ celery_app = Celery(
     "gobernia",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.tasks.document_tasks", "app.tasks.annual_plan_tasks", "app.tasks.diagnostico_tasks"],
+    include=["app.tasks.document_tasks", "app.tasks.annual_plan_tasks",
+             "app.tasks.diagnostico_tasks", "app.tasks.foda_tasks"],
 )
 
 celery_app.conf.update(
