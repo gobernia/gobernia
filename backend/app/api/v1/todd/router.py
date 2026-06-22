@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Response, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
@@ -10,8 +10,8 @@ from app.core.dependencies import get_current_user_id, get_db
 from app.models.todd_session import ToddSession
 from app.models.onboarding_session import OnboardingSession
 from app.models.diagnostico_estrategico import DiagnosticoEstrategico
-from app.schemas.todd import ToddTurnIn, ToddTurnOut, ToddSessionOut, ToddMessage
-from app.services.ai.todd.agent import run_todd_turn, state_to_memory_buffer
+from app.schemas.todd import ToddTurnIn, ToddTurnOut, ToddSessionOut, ToddMessage, ToddEditIn
+from app.services.ai.todd.agent import run_todd_turn, run_todd_edit, state_to_memory_buffer
 
 router = APIRouter()
 
@@ -34,6 +34,7 @@ async def get_todd(
         status=sess.status,
         messages=[ToddMessage(**m) for m in (sess.messages or [])],
         done=sess.status == "done",
+        areas_cubiertas=list((sess.state or {}).get("areas_cubiertas") or []),
     )
 
 
@@ -64,6 +65,46 @@ async def todd_turn(
     return ToddTurnOut(
         message=turn["message"], options=turn["options"],
         input=turn["input"], done=turn["done"],
+        areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+    )
+
+
+@router.post("/onboarding/todd/edit", response_model=ToddTurnOut)
+async def todd_edit(
+    body: ToddEditIn,
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    sess = await _current(user_id, db)
+    if sess is None:
+        raise HTTPException(status_code=404, detail="No hay entrevista activa.")
+    messages = list(sess.messages or [])
+    i = body.answer_index
+    if i < 0 or i >= len(messages) or messages[i].get("role") != "user":
+        raise HTTPException(status_code=400, detail="Índice de respuesta inválido.")
+
+    corrected = [dict(m) for m in messages]
+    corrected[i] = {"role": "user", "text": body.nueva_respuesta, "options": None}
+    edited_question = messages[i - 1].get("text", "") if i > 0 else ""
+
+    turn = await anyio.to_thread.run_sync(
+        lambda: run_todd_edit(corrected, edited_question, body.nueva_respuesta, sess.state or {})
+    )
+
+    if turn.get("reanudar_desde") == "rehacer":
+        nuevos = corrected[: i + 1] + [{"role": "todd", "text": turn["message"], "options": turn["options"]}]
+    else:
+        nuevos = corrected + [{"role": "todd", "text": turn["message"], "options": turn["options"]}]
+
+    sess.messages = nuevos
+    sess.state = turn["state"] or sess.state
+    flag_modified(sess, "messages")
+    flag_modified(sess, "state")
+    await db.commit()
+
+    return ToddTurnOut(
+        message=turn["message"], options=turn["options"],
+        input=turn["input"], done=turn["done"],
+        areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
     )
 
 
