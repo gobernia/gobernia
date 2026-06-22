@@ -136,7 +136,7 @@ export default function ConsejoPage() {
                   className="flex-1 text-sm font-medium text-gray-500 hover:text-[var(--gob-navy)] transition-colors">
                   Más tarde
                 </button>
-                <Link href={nextEtapa ? `/onboarding/etapa-${nextEtapa.n}` : "/onboarding/etapa-1"}
+                <Link href="/onboarding/todd"
                   className="flex-[2] inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
                   {completedStages.length > 0 ? "Continuar configuración" : "Empezar"}
                   <ArrowRight className="h-4 w-4" />
