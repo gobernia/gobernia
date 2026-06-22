@@ -187,14 +187,20 @@ export default function ToddFormPage() {
 
                 {turn && !turn.done && (
                   turn.options && turn.options.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {turn.options.map(o => (
-                        <button key={o} disabled={busy} onClick={() => answer(o)}
-                          className="text-sm border border-gray-200 rounded-xl px-4 py-2.5 hover:border-[var(--gob-navy)] hover:bg-gray-50 transition-colors disabled:opacity-50">
-                          {o}
-                        </button>
-                      ))}
-                    </div>
+                    busy ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-400">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Procesando tu respuesta…
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {turn.options.map(o => (
+                          <button key={o} disabled={busy} onClick={() => answer(o)}
+                            className="text-sm border border-gray-200 rounded-xl px-4 py-2.5 hover:border-[var(--gob-navy)] hover:bg-gray-50 transition-colors disabled:opacity-50">
+                            {o}
+                          </button>
+                        ))}
+                      </div>
+                    )
                   ) : (
                     <form onSubmit={e => { e.preventDefault(); answer(text) }} className="space-y-3">
                       <textarea value={text} onChange={e => setText(e.target.value)} disabled={busy}
