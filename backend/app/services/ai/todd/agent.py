@@ -25,6 +25,9 @@ RESPONSE_TOOL = {
                       "description": "Estado acumulado COMPLETO y actualizado: company, kpis, vision, "
                                      "governance, narrative, areas_cubiertas, hallazgos."},
             "done": {"type": "boolean"},
+            "reanudar_desde": {"type": "string", "enum": ["continuar", "rehacer"],
+                               "description": "Solo al editar: 'continuar' si la corrección no invalida "
+                                              "respuestas posteriores, 'rehacer' si sí."},
         },
         "required": ["message", "input", "state", "done"],
     },
@@ -99,6 +102,7 @@ def _normalize_turn(parsed: dict) -> dict:
         "input": input_type,
         "state": state,
         "done": bool(parsed.get("done")),
+        "reanudar_desde": parsed.get("reanudar_desde") if parsed.get("reanudar_desde") in ("continuar", "rehacer") else "continuar",
     }
 
 
@@ -142,6 +146,38 @@ def run_todd_turn(messages: list[dict], state: dict | None = None) -> dict:
     response = _create_with_retry(
         client, model=settings.AI_MODEL, max_tokens=4096,
         system=build_system_prompt(state),
+        messages=build_anthropic_messages(messages),
+        tools=[RESPONSE_TOOL],
+        tool_choice={"type": "tool", "name": "responder_turno"},
+    )
+    block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
+    parsed = dict(block.input) if block is not None and isinstance(block.input, dict) else {}
+    return enforce_coverage(_normalize_turn(parsed))
+
+
+def _edit_note(edited_question: str, new_answer: str) -> str:
+    return (
+        "\n\nEDICIÓN: el usuario acaba de CORREGIR una respuesta anterior. "
+        f"A la pregunta «{edited_question}» ahora responde: «{new_answer}». "
+        "Revisa las respuestas que dio DESPUÉS de esa pregunta y decide 'reanudar_desde':\n"
+        "- 'continuar' si la corrección NO invalida ninguna respuesta posterior → incorpóralas al "
+        "state y haz la SIGUIENTE pregunta que falte (no repitas lo ya respondido).\n"
+        "- 'rehacer' si la corrección invalida alguna respuesta posterior → en 'message' avisa breve "
+        "(p. ej. «Con ese cambio, repasemos un par de cosas desde aquí») y vuelve a preguntar lo que sigue."
+    )
+
+
+def run_todd_edit(messages: list[dict], edited_question: str, new_answer: str,
+                  state: dict | None = None) -> dict:
+    """Tras una corrección: Todd ve el transcript ya corregido + una nota de edición, y decide
+    'reanudar_desde' (continuar/rehacer) además del siguiente turno. Sin API key → rehacer mínimo."""
+    if not settings.ANTHROPIC_API_KEY:
+        return {"message": "Listo, lo dejé corregido. Continuemos.", "options": None,
+                "input": "text", "state": state or {}, "done": False, "reanudar_desde": "rehacer"}
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    response = _create_with_retry(
+        client, model=settings.AI_MODEL, max_tokens=4096,
+        system=build_system_prompt(state) + _edit_note(edited_question, new_answer),
         messages=build_anthropic_messages(messages),
         tools=[RESPONSE_TOOL],
         tool_choice={"type": "tool", "name": "responder_turno"},
