@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import {
-  ArrowLeft, Pencil, Building2, Users, Target,
+  ArrowLeft, Building2, Users, Target,
   ClipboardList, BarChart3, ShieldCheck, FileText, Compass, Loader2,
 } from "lucide-react"
 import { useOnboardingStore } from "@/lib/store"
@@ -92,9 +92,17 @@ export default function DatosPage() {
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Configuración</p>
             <h1 className="text-3xl font-bold text-black tracking-tight">Mis datos</h1>
             <p className="text-sm text-gray-500 max-w-xl">
-              Información que usan tus consejeros con IA para sus análisis. Edita cualquier sección
-              cuando tu empresa cambie — los nuevos datos se aplicarán a las próximas sesiones.
+              Información que usan tus consejeros con IA para sus análisis. ¿Cambió algo en tu empresa?
+              Actualízala platicando de nuevo con Todd.
             </p>
+            <div className="pt-2">
+              <Link
+                href="/onboarding/todd"
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
+              >
+                Actualizar con Todd
+              </Link>
+            </div>
           </motion.div>
 
           {loading && (
@@ -107,10 +115,10 @@ export default function DatosPage() {
             <div className="border border-gray-200 rounded-2xl p-8 text-center space-y-3">
               <p className="text-sm text-gray-500">{error}</p>
               <Link
-                href="/onboarding/etapa-1"
+                href="/onboarding/todd"
                 className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
               >
-                Empezar configuración
+                Empezar con Todd
               </Link>
             </div>
           )}
@@ -148,13 +156,6 @@ export default function DatosPage() {
                         <p className="text-xs text-gray-400 italic pt-1">Sin completar</p>
                       )}
                     </div>
-                    <Link
-                      href={`/onboarding/etapa-${s.etapa}?from=datos`}
-                      className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-[var(--gob-navy)] border border-gray-200 hover:border-[var(--gob-navy)] rounded-lg px-3 py-2 transition-colors flex-shrink-0"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      {isCompleted ? "Editar" : "Completar"}
-                    </Link>
                   </motion.div>
                 )
               })}
