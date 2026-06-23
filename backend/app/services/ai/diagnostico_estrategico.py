@@ -69,41 +69,49 @@ Cada sección: 2-4 párrafos, concreta y basada en lo que encontraste. 'sources'
 reales que consultaste."""
 
 
-def _hallazgo_lineas(area: str, value) -> list[str]:
-    """Aplana un hallazgo de un área a líneas legibles, tolerando TODAS las formas que
-    el modelo de Todd puede producir:
+def _hallazgo_pairs(value) -> list[tuple[str, str]]:
+    """Extrae pares (tipo, texto) de un hallazgo, tolerando TODAS las formas que el modelo
+    de Todd puede producir:
       - dict {'nota'/'texto'/'detalle': str, 'tipo'/'clasificacion': str}
       - lista de dicts [{'tipo','texto'}, ...]
       - lista de strings ['...', '...']
       - string suelto '...'
     """
-    def _una(tipo: str, texto: str) -> str | None:
-        texto = str(texto or "").strip()
-        tipo = str(tipo or "").strip()
-        if not texto:
-            return None
-        return f"  - [{area} · {tipo}] {texto}" if tipo else f"  - [{area}] {texto}"
+    def _one(v) -> tuple[str, str]:
+        if isinstance(v, dict):
+            tipo = str(v.get("tipo") or v.get("clasificacion") or "").strip()
+            texto = str(v.get("texto") or v.get("nota") or v.get("detalle") or "").strip()
+            return (tipo, texto)
+        return ("", str(v or "").strip())
 
-    out: list[str] = []
     if isinstance(value, dict):
-        tipo = value.get("tipo") or value.get("clasificacion") or ""
-        texto = value.get("texto") or value.get("nota") or value.get("detalle") or ""
-        ln = _una(tipo, texto)
-        if ln:
-            out.append(ln)
-    elif isinstance(value, list):
-        for h in value:
-            if isinstance(h, dict):
-                ln = _una(h.get("tipo") or h.get("clasificacion") or "",
-                          h.get("texto") or h.get("nota") or h.get("detalle") or "")
-            else:
-                ln = _una("", h)
-            if ln:
-                out.append(ln)
-    elif value:
-        ln = _una("", value)
-        if ln:
-            out.append(ln)
+        return [_one(value)]
+    if isinstance(value, list):
+        return [_one(v) for v in value]
+    if value:
+        return [_one(value)]
+    return []
+
+
+def _hallazgo_lineas(area: str, value) -> list[str]:
+    out: list[str] = []
+    for tipo, texto in _hallazgo_pairs(value):
+        if not texto:
+            continue
+        out.append(f"  - [{area} · {tipo}] {texto}" if tipo else f"  - [{area}] {texto}")
+    return out
+
+
+def _normalize_hallazgos(hallazgos) -> dict:
+    """Normaliza hallazgos (cualquier forma del modelo) a {area: [{'tipo','texto'}]},
+    que es lo que el frontend y el FODA esperan."""
+    if not isinstance(hallazgos, dict):
+        return {}
+    out: dict[str, list[dict]] = {}
+    for area, value in hallazgos.items():
+        items = [{"tipo": tipo, "texto": texto} for tipo, texto in _hallazgo_pairs(value) if texto]
+        if items:
+            out[str(area)] = items
     return out
 
 
@@ -164,7 +172,7 @@ def _diagnostico_vacio(content: dict) -> bool:
 
 def attach_internal_findings(content: dict, memory_buffer: dict) -> dict:
     """Adjunta al content las fortalezas/debilidades que Todd recogió (memory_buffer['hallazgos'])."""
-    content["fortalezas_debilidades"] = (memory_buffer or {}).get("hallazgos") or {}
+    content["fortalezas_debilidades"] = _normalize_hallazgos((memory_buffer or {}).get("hallazgos"))
     return content
 
 

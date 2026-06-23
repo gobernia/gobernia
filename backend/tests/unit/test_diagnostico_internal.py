@@ -54,3 +54,11 @@ def test_attach_internal_findings_pega_hallazgos():
 def test_attach_internal_findings_sin_hallazgos_es_dict_vacio():
     out = attach_internal_findings({"sections": [], "sources": []}, {})
     assert out["fortalezas_debilidades"] == {}
+
+
+def test_attach_internal_findings_normaliza_forma_nota_clasificacion():
+    """La forma {area: {'nota','clasificacion'}} de Todd se normaliza a [{'tipo','texto'}]
+    para que el frontend (items.map) no truene."""
+    mb = {"hallazgos": {"rh": {"nota": "Sin proceso de reclutamiento", "clasificacion": "debilidad"}}}
+    out = attach_internal_findings({"sections": [], "sources": []}, mb)
+    assert out["fortalezas_debilidades"]["rh"] == [{"tipo": "debilidad", "texto": "Sin proceso de reclutamiento"}]
