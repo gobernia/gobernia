@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Loader2, TrendingUp, Compass, AlertTriangle, ShieldAlert, ArrowRight } from "lucide-react"
-import { Foda, FodaOut, getFoda } from "@/lib/foda"
+import { Loader2, TrendingUp, Compass, AlertTriangle, ShieldAlert, ArrowRight, Download } from "lucide-react"
+import { Foda, FodaOut, getFoda, downloadFodaPdf } from "@/lib/foda"
 import { generateAnnualPlan } from "@/lib/annualPlan"
 
 type Quad = { key: keyof Foda; label: string; icon: typeof TrendingUp; accent: string; chip: string }
@@ -19,12 +19,18 @@ export default function FodaPage() {
   const router = useRouter()
   const [data, setData] = useState<FodaOut | null>(null)
   const [generando, setGenerando] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const generarPlan = async () => {
     setGenerando(true)
     try { await generateAnnualPlan(3); router.push("/dashboard/plan") }
     catch { setGenerando(false) }
+  }
+
+  const onDownload = async () => {
+    setDownloading(true)
+    try { await downloadFodaPdf() } catch { /* noop */ } finally { setDownloading(false) }
   }
 
   useEffect(() => {
@@ -43,13 +49,38 @@ export default function FodaPage() {
 
   const f = data?.foda
 
+  const isActive = data?.status === "active" && !!f
+
   return (
     <div className="min-h-dvh bg-white text-black">
-      <main className="max-w-5xl mx-auto px-[var(--px-fluid)] py-12 space-y-10">
-        <div>
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Análisis estratégico</p>
-          <h1 className="text-3xl font-bold tracking-tight">Matriz FODA</h1>
+      {/* Header sticky con acciones (cuando la matriz está lista) */}
+      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100">
+        <div className="max-w-5xl mx-auto px-[var(--px-fluid)] py-3.5 flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Análisis estratégico</p>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">Matriz FODA</h1>
+          </div>
+          {isActive && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={onDownload} disabled={downloading}
+                className="inline-flex items-center gap-2 border border-gray-200 text-sm font-medium text-gray-700 px-3.5 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50">
+                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                PDF
+              </button>
+              <button onClick={generarPlan} disabled={generando}
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50">
+                {generando ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</> : <>
+                  <span className="hidden sm:inline">Generar mi plan a 3 años</span>
+                  <span className="sm:hidden">Generar plan</span>
+                  <ArrowRight className="h-4 w-4" />
+                </>}
+              </button>
+            </div>
+          )}
         </div>
+      </div>
+
+      <main className="max-w-5xl mx-auto px-[var(--px-fluid)] py-10 space-y-10">
 
         {!data && (
           <div className="border border-gray-100 rounded-2xl p-16 flex items-center justify-center">

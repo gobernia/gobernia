@@ -240,6 +240,28 @@ async def get_foda(user_id: str = Depends(get_current_user_id), db: AsyncSession
                    metas=c.get("metas_orden") or [])
 
 
+@router.get("/onboarding/foda/pdf")
+async def get_foda_pdf(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    diag = (await db.execute(
+        select(DiagnosticoEstrategico).where(DiagnosticoEstrategico.user_id == user_id)
+        .order_by(DiagnosticoEstrategico.created_at.desc())
+    )).scalars().first()
+    c = (diag.content if diag else {}) or {}
+    foda = c.get("foda")
+    if not foda or c.get("foda_status") != "active":
+        raise HTTPException(status_code=404, detail="No hay matriz FODA disponible.")
+    onb = (await db.execute(
+        select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+        .order_by(OnboardingSession.created_at.desc())
+    )).scalars().first()
+    company_name = ((onb.memory_buffer if onb else {}) or {}).get("company", {}).get("name")
+    from app.services.pdf.foda_pdf import build_foda_pdf
+    pdf = await anyio.to_thread.run_sync(
+        lambda: build_foda_pdf(foda, c.get("metas_orden") or [], company_name))
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="matriz-foda.pdf"'})
+
+
 @router.post("/onboarding/todd/close")
 async def todd_close(
     user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),

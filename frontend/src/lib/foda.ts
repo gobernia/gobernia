@@ -20,3 +20,15 @@ export async function getFoda(): Promise<FodaOut> {
   if (r.status === 404) return { status: "none", foda: null, metas: [] }
   return r.data
 }
+
+export async function downloadFodaPdf(): Promise<void> {
+  const r = await api.get("/onboarding/foda/pdf", { responseType: "blob" })
+  const url = URL.createObjectURL(r.data as Blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = "matriz-foda.pdf"
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
