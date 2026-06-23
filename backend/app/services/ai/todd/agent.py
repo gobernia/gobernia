@@ -2,12 +2,62 @@
 Lógica pura (sin red) salvo run_todd_turn (la llamada a Sonnet, con salida estructurada por tool use).
 """
 import json
+import unicodedata
 
 import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object
 from app.services.ai.todd import areas
+
+# El modelo a veces marca las áreas con etiquetas libres ("Recursos Humanos", "Financiera",
+# "Operaciones", con acentos/mayúsculas). Las mapeamos a las 7 claves canónicas para que la
+# comprobación de cobertura no atrape al usuario en un bucle de cierre.
+_AREA_ALIASES = {
+    "estrategia": "estrategia", "estrategico": "estrategia", "estrategica": "estrategia",
+    "comercial": "comercial", "ventas": "comercial", "mercado": "comercial",
+    "marketing": "comercial", "comercializacion": "comercial",
+    "operativo": "operativo", "operativa": "operativo", "operaciones": "operativo",
+    "operacion": "operativo", "operacional": "operativo",
+    "rh": "rh", "rrhh": "rh", "recursos humanos": "rh", "recurso humano": "rh",
+    "capital humano": "rh", "personal": "rh", "talento": "rh", "gente": "rh",
+    "financiero": "financiero", "financiera": "financiero", "finanzas": "financiero",
+    "financiamiento": "financiero", "financieros": "financiero",
+    "legal": "legal", "juridico": "legal", "fiscal": "legal", "cumplimiento": "legal",
+    "familiar": "familiar", "familia": "familiar", "sucesion": "familiar", "familiares": "familiar",
+}
+
+
+def _strip_accents(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+
+def _canon_token(raw: str, canon_keys: list[str], aliases: dict[str, str] | None) -> str | None:
+    """Mapea una etiqueta libre a una de `canon_keys`, sin acentos ni mayúsculas.
+    Orden: alias exacto → clave canónica (exacta o contenida) → alias contenido."""
+    key = _strip_accents(str(raw)).lower().strip()
+    if not key:
+        return None
+    if aliases and key in aliases:
+        return aliases[key]
+    for ck in canon_keys:
+        cks = _strip_accents(ck).lower()
+        if key == cks or cks in key:
+            return ck
+    if aliases:
+        for alias, canon in aliases.items():
+            if alias in key:
+                return canon
+    return None
+
+
+def _normalize_areas(value, canon_keys: list[str], aliases: dict[str, str] | None = None) -> list[str]:
+    """Normaliza una lista de etiquetas a claves canónicas únicas, en el orden de `canon_keys`."""
+    if not isinstance(value, list):
+        return []
+    found = {_canon_token(v, canon_keys, aliases) for v in value}
+    found.discard(None)
+    return [k for k in canon_keys if k in found]
 
 # Tool que FUERZA la salida estructurada (garantiza JSON válido, sin prosa suelta).
 RESPONSE_TOOL = {
@@ -65,8 +115,10 @@ def build_system_prompt(state: dict | None = None) -> str:
         "(p. ej. «¿qué quieres saber?») o algo ambiguo, NO te quedes en blanco: haz directamente la "
         "siguiente pregunta específica que falte por cubrir.\n"
         "4. Mantén y DEVUELVE el 'state' COMPLETO y actualizado en cada turno. Marca cada área en "
-        "'areas_cubiertas' cuando ya la exploraste lo suficiente, y clasifica lo que aprendas como "
-        "fortaleza, debilidad o parcial en 'hallazgos' por área.\n"
+        "'areas_cubiertas' usando EXACTAMENTE estas 7 claves en minúscula: "
+        "estrategia, comercial, operativo, rh, financiero, legal, familiar (NO uses etiquetas largas "
+        "como «Recursos Humanos»). Clasifica lo que aprendas como fortaleza, debilidad o parcial en "
+        "'hallazgos' por área.\n"
         "5. Pide algunos KPIs con número si el usuario los tiene; si no, regístralos cualitativos y NO insistas.\n"
         "6. Pon 'done': true SOLO cuando ya cubriste las 7 áreas y tienes los datos esenciales; en ese "
         "turno, 'message' es un cierre cálido (avisa que prepararás el diagnóstico)."
@@ -111,8 +163,14 @@ def parse_turn(raw: str) -> dict:
     return _normalize_turn(_extract_json_object(raw) or {})
 
 
-def enforce_coverage_against(turn: dict, required: list[str]) -> dict:
-    """No permite cerrar (done) sin cubrir todas las áreas/categorías de `required`."""
+def enforce_coverage_against(turn: dict, required: list[str],
+                             aliases: dict[str, str] | None = None) -> dict:
+    """No permite cerrar (done) sin cubrir todas las áreas/categorías de `required`.
+    Normaliza las áreas marcadas a claves canónicas (tolera etiquetas libres del modelo:
+    acentos, mayúsculas, sinónimos), evitando el bucle de cierre."""
+    state = turn.get("state")
+    if isinstance(state, dict):
+        state["areas_cubiertas"] = _normalize_areas(state.get("areas_cubiertas"), required, aliases)
     if turn.get("done"):
         cubiertas = set((turn.get("state") or {}).get("areas_cubiertas") or [])
         if not set(required).issubset(cubiertas):
@@ -121,8 +179,8 @@ def enforce_coverage_against(turn: dict, required: list[str]) -> dict:
 
 
 def enforce_coverage(turn: dict) -> dict:
-    """No permite cerrar sin las 7 áreas internas."""
-    return enforce_coverage_against(turn, areas.AREAS)
+    """No permite cerrar sin las 7 áreas internas (tolerando etiquetas libres del modelo)."""
+    return enforce_coverage_against(turn, areas.AREAS, _AREA_ALIASES)
 
 
 def state_to_memory_buffer(state: dict) -> dict:
