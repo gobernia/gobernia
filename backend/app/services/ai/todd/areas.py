@@ -79,6 +79,8 @@ AREA_BANK = {
 ESSENTIALS = [
     "Nombre de la empresa (company.name)",
     "Industria / sector (company.industry)",
+    "Cuántas personas trabajan en la empresa / tamaño del equipo (company.employees). "
+    "Pregúntalo TEMPRANO: define si es una sola persona, un equipo pequeño o más grande.",
     "Sitio web (company.website)",
     "Competidores que el usuario cree tener (company.competitors)",
     "Si es empresa familiar (company.is_family_business)",
