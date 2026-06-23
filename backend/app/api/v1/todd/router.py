@@ -77,6 +77,8 @@ async def todd_turn(
     messages.append({"role": "todd", "text": turn["message"], "options": turn["options"]})
     sess.messages = messages
     sess.state = turn["state"] or sess.state
+    if turn["done"]:
+        sess.status = "done"
     flag_modified(sess, "messages")
     flag_modified(sess, "state")
     await db.commit()

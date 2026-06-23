@@ -78,6 +78,26 @@ def test_enforce_coverage_permite_done_con_las_7():
     assert enforce_coverage(turn)["done"] is True
 
 
+def test_enforce_coverage_acepta_etiquetas_no_canonicas():
+    """El modelo escribe etiquetas libres ('Recursos Humanos', 'Financiera', con acentos y
+    mayúsculas); deben normalizarse a las 7 claves para no atrapar al usuario en bucle."""
+    turn = {"done": True, "state": {"areas_cubiertas": [
+        "Estrategia", "Comercial", "Operaciones", "Recursos Humanos",
+        "Financiera", "Legal", "Familiar",
+    ]}}
+    out = enforce_coverage(turn)
+    assert out["done"] is True
+    # y deja el state con las claves canónicas (para que los chips del header enciendan bien)
+    assert set(out["state"]["areas_cubiertas"]) == set(areas.AREAS)
+
+
+def test_enforce_coverage_normaliza_state_aunque_no_este_done():
+    """Aun a mitad de entrevista, el state debe quedar con claves canónicas (chips del header)."""
+    turn = {"done": False, "state": {"areas_cubiertas": ["Recursos Humanos", "Financiera"]}}
+    out = enforce_coverage(turn)
+    assert set(out["state"]["areas_cubiertas"]) == {"rh", "financiero"}
+
+
 def test_state_to_memory_buffer_mapea_estructura_de_la_app():
     state = {
         "company": {"name": "Keting Media", "industry": "Apps"},
