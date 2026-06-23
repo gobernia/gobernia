@@ -187,11 +187,11 @@ async def test_generate_requires_onboarding_existe():
 
 
 @pytest.mark.asyncio
-async def test_generate_requires_kpis_con_valor():
-    """generate_plan bloquea (400) si los KPIs están en 'no sé' (sin valor)."""
+async def test_generate_requires_company_profile():
+    """generate_plan bloquea (400) si falta el perfil de empresa (nombre).
+    Los KPIs ya NO son obligatorios: el plan se arma del diagnóstico + FODA."""
     onb = MagicMock(); onb.completed_stages = [1, 2, 3, 4, 5, 6, 7, 8]
-    onb.memory_buffer = {"company": {"name": "ACME"},
-                         "kpis": {"finance": [{"label": "Margen", "current_value": None, "unknown": True}]}}
+    onb.memory_buffer = {"company": {}}  # sin nombre
     onb_result = MagicMock(); onb_result.scalar_one_or_none.return_value = onb
     db = AsyncMock()
     db.execute = AsyncMock(side_effect=[onb_result])
@@ -204,4 +204,4 @@ async def test_generate_requires_kpis_con_valor():
     finally:
         app.dependency_overrides.clear()
     assert r.status_code == 400
-    assert "KPIs sin valor" in r.json()["detail"]
+    assert "perfil de tu empresa" in r.json()["detail"]

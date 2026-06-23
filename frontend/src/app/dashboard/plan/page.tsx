@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, ChevronDown, Check, Clock, Gauge } from "lucide-react"
 import {
   AnnualPlan, Task, ExplicacionTarea, MONTH_NAMES,
-  getAnnualPlan, getAnnualPlanStatus, updateTask, getTaskExplicacion,
+  getAnnualPlan, getAnnualPlanStatus, updateTask, getTaskExplicacion, generateAnnualPlan,
 } from "@/lib/annualPlan"
+import { getFoda } from "@/lib/foda"
 
 const DIF_CHIP: Record<string, string> = {
   "Fácil": "text-green-700 bg-green-50", "Media": "text-amber-700 bg-amber-50",
@@ -75,6 +76,9 @@ export default function PlanPage() {
   const [view, setView] = useState<"camino" | "timeline">("camino")
   const [busyTask, setBusyTask] = useState<string | null>(null)
   const [gateMsg, setGateMsg] = useState<string | null>(null)
+  const [fodaReady, setFodaReady] = useState<boolean | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [genErr, setGenErr] = useState<string | null>(null)
   const started = useRef(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -97,13 +101,38 @@ export default function PlanPage() {
     // status "generating": seguimos en el intervalo hasta que cambie.
   }, [stopPolling])
 
+  const startPolling = useCallback(() => {
+    stopPolling()
+    pollRef.current = setInterval(tick, 3000)
+  }, [stopPolling, tick])
+
   useEffect(() => {
     if (started.current) return
     started.current = true
     tick().catch(() => setStatus("none"))
-    pollRef.current = setInterval(tick, 3000)
+    startPolling()
     return () => stopPolling()
-  }, [tick, stopPolling])
+  }, [tick, startPolling, stopPolling])
+
+  // En el estado vacío, averigua si la matriz FODA ya está lista (para ofrecer generar aquí).
+  useEffect(() => {
+    if (status === "loading" || status === "generating") return
+    if ((status === "active" || status === "completed") && plan) return
+    getFoda().then(f => setFodaReady(f.status === "active")).catch(() => setFodaReady(false))
+  }, [status, plan])
+
+  const generar = async () => {
+    setGenerating(true); setGenErr(null)
+    try {
+      await generateAnnualPlan(3)
+      setStatus("generating")
+      startPolling()
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setGenErr(detail ?? "No se pudo iniciar la generación del plan. Intenta de nuevo.")
+      setGenerating(false)
+    }
+  }
 
   const total = (plan?.horizon_years ?? 3) * 12
   const months = (plan?.months ?? []).slice().sort((a, b) => a.month_index - b.month_index)
@@ -138,9 +167,32 @@ export default function PlanPage() {
       <p className="text-sm text-gray-500">Tu consejo está armando tu plan a 3 años…</p></div>
   }
   if (status === "none" || !plan) {
-    return <div className="min-h-dvh flex flex-col items-center justify-center gap-4 text-center px-6">
-      <p className="text-sm text-gray-500">Aún no tienes un plan. Genéralo desde tu FODA.</p>
-      <a href="/dashboard/foda" className="text-sm font-medium text-[var(--gob-navy)] hover:underline">Ir al FODA →</a></div>
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 text-center px-6">
+        {fodaReady === null ? (
+          <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+        ) : fodaReady ? (
+          <>
+            <div className="space-y-1.5 max-w-md">
+              <p className="text-base font-medium text-black">Tu matriz FODA está lista</p>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Genera tu plan estratégico a 3 años: el consejo lo arma a partir de tu diagnóstico y tu FODA.
+              </p>
+            </div>
+            <button onClick={generar} disabled={generating}
+              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50">
+              {generating ? <><Loader2 className="h-4 w-4 animate-spin" /> Iniciando…</> : "Generar mi plan a 3 años →"}
+            </button>
+            {genErr && <p className="text-xs text-red-500 max-w-md">{genErr}</p>}
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500">Aún no tienes un plan. Primero completa tu matriz FODA.</p>
+            <a href="/dashboard/foda" className="text-sm font-medium text-[var(--gob-navy)] hover:underline">Ir al FODA →</a>
+          </>
+        )}
+      </div>
+    )
   }
 
   return (

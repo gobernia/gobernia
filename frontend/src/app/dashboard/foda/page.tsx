@@ -20,12 +20,17 @@ export default function FodaPage() {
   const [data, setData] = useState<FodaOut | null>(null)
   const [generando, setGenerando] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [genErr, setGenErr] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const generarPlan = async () => {
-    setGenerando(true)
+    setGenerando(true); setGenErr(null)
     try { await generateAnnualPlan(3); router.push("/dashboard/plan") }
-    catch { setGenerando(false) }
+    catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setGenErr(detail ?? "No se pudo iniciar la generación del plan. Intenta de nuevo.")
+      setGenerando(false)
+    }
   }
 
   const onDownload = async () => {
@@ -173,11 +178,12 @@ export default function FodaPage() {
               </section>
             )}
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               <button onClick={generarPlan} disabled={generando}
                 className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50">
                 {generando ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando tu plan…</> : "Generar mi plan a 3 años →"}
               </button>
+              {genErr && <p className="text-xs text-red-500 max-w-md">{genErr}</p>}
             </div>
           </>
         )}
