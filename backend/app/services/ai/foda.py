@@ -24,12 +24,32 @@ FODA_TOOL = {
 }
 
 
+def _pairs_from(value):
+    """Devuelve (tipo, texto) tolerando todas las formas del modelo de Todd:
+    dict {'nota'/'texto': str, 'clasificacion'/'tipo': str}, lista de dicts,
+    lista de strings o string suelto."""
+    def _one(v):
+        if isinstance(v, dict):
+            tipo = str(v.get("tipo") or v.get("clasificacion") or "").strip().lower()
+            texto = str(v.get("texto") or v.get("nota") or v.get("detalle") or "").strip()
+            return (tipo, texto)
+        return ("", str(v or "").strip())
+
+    if isinstance(value, dict):
+        return [_one(value)]
+    if isinstance(value, list):
+        return [_one(v) for v in value]
+    if value:
+        return [_one(value)]
+    return []
+
+
 def _texts_by_tipo(d: dict, tipos: set) -> list[str]:
     out = []
     for items in (d or {}).values():
-        for it in (items or []):
-            if str((it or {}).get("tipo")) in tipos and str((it or {}).get("texto", "")).strip():
-                out.append(str(it["texto"]).strip())
+        for tipo, texto in _pairs_from(items):
+            if tipo in tipos and texto:
+                out.append(texto)
     return out
 
 

@@ -69,22 +69,60 @@ Cada sección: 2-4 párrafos, concreta y basada en lo que encontraste. 'sources'
 reales que consultaste."""
 
 
+def _hallazgo_lineas(area: str, value) -> list[str]:
+    """Aplana un hallazgo de un área a líneas legibles, tolerando TODAS las formas que
+    el modelo de Todd puede producir:
+      - dict {'nota'/'texto'/'detalle': str, 'tipo'/'clasificacion': str}
+      - lista de dicts [{'tipo','texto'}, ...]
+      - lista de strings ['...', '...']
+      - string suelto '...'
+    """
+    def _una(tipo: str, texto: str) -> str | None:
+        texto = str(texto or "").strip()
+        tipo = str(tipo or "").strip()
+        if not texto:
+            return None
+        return f"  - [{area} · {tipo}] {texto}" if tipo else f"  - [{area}] {texto}"
+
+    out: list[str] = []
+    if isinstance(value, dict):
+        tipo = value.get("tipo") or value.get("clasificacion") or ""
+        texto = value.get("texto") or value.get("nota") or value.get("detalle") or ""
+        ln = _una(tipo, texto)
+        if ln:
+            out.append(ln)
+    elif isinstance(value, list):
+        for h in value:
+            if isinstance(h, dict):
+                ln = _una(h.get("tipo") or h.get("clasificacion") or "",
+                          h.get("texto") or h.get("nota") or h.get("detalle") or "")
+            else:
+                ln = _una("", h)
+            if ln:
+                out.append(ln)
+    elif value:
+        ln = _una("", value)
+        if ln:
+            out.append(ln)
+    return out
+
+
 def build_prompt(memory_buffer: dict) -> str:
     c = (memory_buffer or {}).get("company", {}) or {}
     loc = c.get("location", {}) or {}
     region = ", ".join(x for x in [loc.get("city"), loc.get("state"), loc.get("country")] if x)
-    competidores = c.get("competitors") or []
+    comp_raw = c.get("competitors")
+    if isinstance(comp_raw, str):
+        competidores = [comp_raw.strip()] if comp_raw.strip() else []
+    else:
+        competidores = [str(x).strip() for x in (comp_raw or []) if str(x).strip()]
 
     hallazgos = (memory_buffer or {}).get("hallazgos") or {}
     bloque_interno = ""
-    if hallazgos:
+    if isinstance(hallazgos, dict) and hallazgos:
         lineas = []
         for area, items in hallazgos.items():
-            for h in (items or []):
-                tipo = str(h.get("tipo", "")).strip()
-                texto = str(h.get("texto", "")).strip()
-                if texto:
-                    lineas.append(f"  - [{area} · {tipo}] {texto}")
+            lineas.extend(_hallazgo_lineas(area, items))
         if lineas:
             bloque_interno = (
                 "\nAUTOEVALUACIÓN INTERNA (lo que el dueño le contó a Todd en la entrevista — "
