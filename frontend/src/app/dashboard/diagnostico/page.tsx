@@ -1,18 +1,64 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
-import { Loader2, Sparkles, AlertCircle, Download, FileSearch } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import {
+  Loader2, Sparkles, AlertCircle, Download, FileSearch, ChevronDown, ArrowRight,
+  TrendingUp, TrendingDown, Minus, Link2,
+} from "lucide-react"
 import {
   getDiagnostico, getDiagnosticoStatus, generateDiagnostico, downloadDiagnosticoPdf,
-  type Diagnostico,
+  type Diagnostico, type Hallazgo,
 } from "@/lib/diagnostico"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
 type View = "loading" | "none" | "generating" | "failed" | "active" | "error"
+
+// --- Acordeón reutilizable -------------------------------------------------
+function Accordion({ title, defaultOpen = false, highlight = false, badge, children }: {
+  title: string; defaultOpen?: boolean; highlight?: boolean; badge?: ReactNode; children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className={`rounded-2xl border transition-colors ${
+      open ? "border-gray-200" : "border-gray-100 hover:border-gray-200"
+    } ${highlight ? "border-l-2 border-l-[var(--gob-navy)]" : ""}`}>
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left">
+        <span className="flex items-center gap-2.5 min-w-0">
+          <h2 className="text-base font-bold text-black tracking-tight truncate">{title}</h2>
+          {badge}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease: EASE }}
+            className="overflow-hidden">
+            <div className="px-5 pb-5 pt-0">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// --- Clasificación visual de hallazgos -------------------------------------
+const TIPO_META: Record<string, { Icon: typeof TrendingUp; color: string; bg: string; border: string; label: string }> = {
+  fortaleza: { Icon: TrendingUp, color: "text-green-600", bg: "bg-green-50", border: "border-l-green-500", label: "Fortaleza" },
+  debilidad: { Icon: TrendingDown, color: "text-red-500", bg: "bg-red-50", border: "border-l-red-500", label: "Debilidad" },
+  parcial: { Icon: Minus, color: "text-amber-500", bg: "bg-amber-50", border: "border-l-amber-500", label: "A mejorar" },
+}
+const tipoMeta = (t: string) =>
+  TIPO_META[t] ?? { Icon: Minus, color: "text-gray-400", bg: "bg-gray-50", border: "border-l-gray-300", label: "Nota" }
+// Orden para mostrar: fortalezas, luego a-mejorar, luego debilidades
+const TIPO_ORDER: Record<string, number> = { fortaleza: 0, parcial: 1, debilidad: 2 }
+const sortHallazgos = (items: Hallazgo[]) =>
+  [...items].sort((a, b) => (TIPO_ORDER[a.tipo] ?? 3) - (TIPO_ORDER[b.tipo] ?? 3))
 
 export default function DiagnosticoPage() {
   const [view, setView] = useState<View>("loading")
@@ -136,72 +182,101 @@ export default function DiagnosticoPage() {
     )
   }
 
+  const fd = Object.entries(diag?.fortalezas_debilidades ?? {})
+  const sources = diag?.sources ?? []
+
   return (
     <div className="min-h-dvh bg-white text-black antialiased">
-      <main>
-        <div className="w-full max-w-3xl mx-auto px-[var(--px-fluid)] py-12 space-y-8">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: EASE }} className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="space-y-1">
-              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Diagnóstico estratégico</p>
-              <h1 className="text-3xl font-bold text-black tracking-tight">La realidad de tu empresa</h1>
-            </div>
+      {/* Barra superior sticky con acciones */}
+      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100">
+        <div className="w-full max-w-3xl mx-auto px-[var(--px-fluid)] py-3.5 flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Diagnóstico estratégico</p>
+            <h1 className="text-lg sm:text-xl font-bold text-black tracking-tight truncate">La realidad de tu empresa</h1>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             <button onClick={onDownload} disabled={downloading}
-              className="inline-flex items-center gap-2 border border-gray-200 text-sm font-medium text-gray-700 px-4 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50">
+              className="inline-flex items-center gap-2 border border-gray-200 text-sm font-medium text-gray-700 px-3.5 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50">
               {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               PDF
             </button>
-          </motion.div>
+            <a href="/onboarding/todd/externo"
+              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
+              <span className="hidden sm:inline">Continuar al análisis del entorno</span>
+              <span className="sm:hidden">Continuar</span>
+              <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </div>
 
-          {(diag?.sections ?? []).map((s, i) => {
-            const highlight = s.key === "competencia"
-            return (
-              <motion.section key={s.key} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: EASE, delay: 0.05 + i * 0.05 }}
-                className={`space-y-3 ${highlight ? "border-l-2 border-[var(--gob-navy)] pl-5" : ""}`}>
-                <h2 className="text-xl font-bold text-black tracking-tight">{s.title}</h2>
-                <div className="space-y-3">
-                  {(s.body || "").split("\n").filter(p => p.trim()).map((p, j) => (
-                    <p key={j} className="text-[15px] text-gray-700 leading-relaxed">{p.trim()}</p>
-                  ))}
-                  {!s.body && <p className="text-sm text-gray-300 italic">Sin contenido.</p>}
-                </div>
-              </motion.section>
-            )
-          })}
+      <main>
+        <div className="w-full max-w-3xl mx-auto px-[var(--px-fluid)] py-8 space-y-8">
 
-          {Object.keys(diag?.fortalezas_debilidades ?? {}).length > 0 && (
-            <section className="space-y-3 pt-4 border-t border-gray-100">
-              <h2 className="text-xl font-bold text-black tracking-tight">Fortalezas y debilidades</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {Object.entries(diag!.fortalezas_debilidades).map(([area, items]) => (
-                  <div key={area} className="border border-gray-100 rounded-2xl p-4">
-                    <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-2">{area}</p>
-                    <ul className="space-y-1.5">
-                      {items.map((h, j) => (
-                        <li key={j} className="flex items-start gap-2 text-sm">
-                          <span className={
-                            h.tipo === "fortaleza" ? "text-green-600"
-                            : h.tipo === "debilidad" ? "text-red-500" : "text-amber-500"
-                          }>
-                            {h.tipo === "fortaleza" ? "▲" : h.tipo === "debilidad" ? "▼" : "■"}
-                          </span>
-                          <span className="text-gray-700">{h.texto}</span>
-                        </li>
-                      ))}
-                    </ul>
+          {/* Secciones en acordeones */}
+          <div className="space-y-3">
+            {(diag?.sections ?? []).map((s, i) => (
+              <motion.div key={s.key} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: EASE, delay: i * 0.04 }}>
+                <Accordion title={s.title} defaultOpen={i === 0} highlight={s.key === "competencia"}>
+                  <div className="space-y-3">
+                    {(s.body || "").split("\n").filter(p => p.trim()).map((p, j) => (
+                      <p key={j} className="text-[15px] text-gray-700 leading-relaxed">{p.trim()}</p>
+                    ))}
+                    {!s.body && <p className="text-sm text-gray-300 italic">Sin contenido.</p>}
                   </div>
-                ))}
+                </Accordion>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Fortalezas y debilidades — tarjetas ordenadas por área */}
+          {fd.length > 0 && (
+            <section className="space-y-4 pt-2">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <h2 className="text-xl font-bold text-black tracking-tight">Fortalezas y debilidades</h2>
+                <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Fortaleza</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> A mejorar</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Debilidad</span>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {fd.map(([area, items]) => {
+                  const ordered = sortHallazgos(items)
+                  const accent = tipoMeta(ordered[0]?.tipo ?? "").border
+                  return (
+                    <div key={area} className={`rounded-2xl border border-gray-100 border-l-4 ${accent} p-4 space-y-2.5`}>
+                      <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">{area}</p>
+                      <ul className="space-y-2">
+                        {ordered.map((h, j) => {
+                          const m = tipoMeta(h.tipo)
+                          return (
+                            <li key={j} className="flex items-start gap-2.5 text-sm">
+                              <span className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${m.bg}`}>
+                                <m.Icon className={`h-3 w-3 ${m.color}`} />
+                              </span>
+                              <span className="text-gray-700 leading-snug">{h.texto}</span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )
+                })}
               </div>
             </section>
           )}
 
-          {(diag?.sources ?? []).length > 0 && (
-            <section className="space-y-2 pt-4 border-t border-gray-100">
-              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Fuentes</p>
-              <ul className="space-y-1">
-                {diag!.sources.map((src, i) => (
-                  <li key={i} className="text-xs text-gray-500">
+          {/* Fuentes — colapsable */}
+          {sources.length > 0 && (
+            <Accordion title="Fuentes" badge={
+              <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{sources.length}</span>
+            }>
+              <ul className="space-y-1.5">
+                {sources.map((src, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
+                    <Link2 className="h-3.5 w-3.5 text-gray-300 mt-0.5 shrink-0" />
                     <a href={src.url} target="_blank" rel="noopener noreferrer"
                       className="hover:text-[var(--gob-navy)] underline decoration-gray-200">
                       {src.title}
@@ -209,17 +284,18 @@ export default function DiagnosticoPage() {
                   </li>
                 ))}
               </ul>
-            </section>
+            </Accordion>
           )}
 
-          <div className="pt-4 flex items-center justify-between gap-4">
+          {/* Pie: regenerar + continuar */}
+          <div className="pt-2 flex items-center justify-between gap-4 border-t border-gray-100 mt-2">
             <button onClick={onGenerate}
-              className="text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors">
+              className="text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors pt-4">
               Regenerar diagnóstico
             </button>
             <a href="/onboarding/todd/externo"
-              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
-              Continuar al análisis del entorno →
+              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors mt-4">
+              Continuar al análisis del entorno <ArrowRight className="h-4 w-4" />
             </a>
           </div>
         </div>
