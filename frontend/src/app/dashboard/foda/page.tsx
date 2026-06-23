@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Loader2, TrendingUp, Compass, AlertTriangle, ShieldAlert } from "lucide-react"
+import { Loader2, TrendingUp, Compass, AlertTriangle, ShieldAlert, ArrowRight } from "lucide-react"
 import { Foda, FodaOut, getFoda } from "@/lib/foda"
 import { generateAnnualPlan } from "@/lib/annualPlan"
 
@@ -51,7 +51,32 @@ export default function FodaPage() {
           <h1 className="text-3xl font-bold tracking-tight">Matriz FODA</h1>
         </div>
 
-        {(!data || data.status === "generating") && (
+        {!data && (
+          <div className="border border-gray-100 rounded-2xl p-16 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+          </div>
+        )}
+
+        {data?.status === "none" && (
+          <div className="border border-gray-100 rounded-2xl p-12 sm:p-16 flex flex-col items-center justify-center text-center gap-4">
+            <div className="w-14 h-14 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
+              <Compass className="h-5 w-5 text-gray-300" />
+            </div>
+            <div className="space-y-2 max-w-md">
+              <p className="text-base font-medium text-black">Aún no has construido tu matriz FODA</p>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                La matriz FODA se arma cruzando tu diagnóstico con el <strong>análisis del entorno</strong> y
+                la priorización de tus metas. Continúa con el análisis para construirla.
+              </p>
+            </div>
+            <a href="/onboarding/todd/externo"
+              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
+              Continuar al análisis del entorno <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
+        )}
+
+        {data?.status === "generating" && (
           <div className="border border-gray-100 rounded-2xl p-16 flex flex-col items-center justify-center gap-3 text-center">
             <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
             <p className="text-sm text-gray-500">Todd está cruzando tu información interna y externa para armar la matriz…</p>
