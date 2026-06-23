@@ -11,11 +11,12 @@ import {
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 
+// Orden = flujo real: Diagnóstico → FODA → Plan (último).
 const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
-  { href: "/dashboard/plan", label: "Plan", exact: false, icon: ClipboardList },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
   { href: "/dashboard/foda", label: "FODA", exact: false, icon: LayoutGrid },
+  { href: "/dashboard/plan", label: "Plan", exact: false, icon: ClipboardList },
   // Oculto por ahora (no se borra; la página /dashboard/compromisos sigue existiendo):
   // { href: "/dashboard/compromisos", label: "Compromisos", exact: false, icon: CheckSquare },
   { href: "/dashboard/consejo", label: "Tu consejo", exact: false, icon: Users },

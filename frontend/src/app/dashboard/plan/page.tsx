@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, ChevronDown, Check, Clock, Gauge } from "lucide-react"
 import {
@@ -76,23 +76,34 @@ export default function PlanPage() {
   const [busyTask, setBusyTask] = useState<string | null>(null)
   const [gateMsg, setGateMsg] = useState<string | null>(null)
   const started = useRef(false)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const load = async () => {
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+  }, [])
+
+  const tick = useCallback(async () => {
     const st = await getAnnualPlanStatus().catch(() => null)
-    if (!st || st.status === "failed") { setStatus(st?.status ?? "none"); return }
+    if (!st) { setStatus("none"); stopPolling(); return }
     setActive(st.active_month_index ?? null)
     setStatus(st.status)
     if (st.status === "active" || st.status === "completed") {
+      stopPolling()
       const p = await getAnnualPlan().catch(() => null)
       if (p) setPlan(p)
+    } else if (st.status === "failed") {
+      stopPolling()
     }
-  }
+    // status "generating": seguimos en el intervalo hasta que cambie.
+  }, [stopPolling])
 
   useEffect(() => {
     if (started.current) return
     started.current = true
-    load().catch(() => setStatus("none"))
-  }, [])
+    tick().catch(() => setStatus("none"))
+    pollRef.current = setInterval(tick, 3000)
+    return () => stopPolling()
+  }, [tick, stopPolling])
 
   const total = (plan?.horizon_years ?? 3) * 12
   const months = (plan?.months ?? []).slice().sort((a, b) => a.month_index - b.month_index)
