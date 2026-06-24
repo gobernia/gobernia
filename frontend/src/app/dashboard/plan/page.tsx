@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, ChevronDown, Check, Clock, Gauge } from "lucide-react"
+import { Loader2, ChevronDown, Check, Clock, Gauge, Wand2, RefreshCw, Trash2, X } from "lucide-react"
 import {
-  AnnualPlan, Task, ExplicacionTarea, MONTH_NAMES,
-  getAnnualPlan, getAnnualPlanStatus, updateTask, getTaskExplicacion, generateAnnualPlan,
+  AnnualPlan, Task, ExplicacionTarea, AdaptacionTarea, MONTH_NAMES,
+  getAnnualPlan, getAnnualPlanStatus, updateTask, deleteTask, getTaskExplicacion,
+  adaptTask, generateAnnualPlan,
 } from "@/lib/annualPlan"
 import { getFoda } from "@/lib/foda"
 
@@ -14,11 +15,42 @@ const DIF_CHIP: Record<string, string> = {
   "Difícil": "text-red-700 bg-red-50",
 }
 
-function TaskRow({ task, onToggle, busy }: { task: Task; onToggle: (t: Task) => void; busy: boolean }) {
+function TaskRow({ task, onToggle, busy, onReplaced, onRemoved }: {
+  task: Task; onToggle: (t: Task) => void; busy: boolean
+  onReplaced: (t: Task) => void; onRemoved: (id: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const [exp, setExp] = useState<ExplicacionTarea | null>(task.explicacion)
   const [loading, setLoading] = useState(false)
   const done = task.status === "completada"
+
+  // Flujo "No puedo con esta tarea" → adaptar con IA
+  const [adaptOpen, setAdaptOpen] = useState(false)
+  const [feedback, setFeedback] = useState("")
+  const [proposal, setProposal] = useState<AdaptacionTarea | null>(null)
+  const [adapting, setAdapting] = useState(false)
+  const [applying, setApplying] = useState(false)
+
+  const pedirAlternativa = async () => {
+    if (!feedback.trim() || adapting) return
+    setAdapting(true)
+    try { setProposal(await adaptTask(task.id, feedback.trim())) } catch { /* noop */ } finally { setAdapting(false) }
+  }
+  const reemplazar = async () => {
+    if (!proposal || applying) return
+    setApplying(true)
+    try {
+      const updated = await updateTask(task.id, { title: proposal.nueva_tarea, description: proposal.descripcion })
+      onReplaced(updated)
+    } catch { /* noop */ } finally { setApplying(false) }
+  }
+  const descartar = async () => {
+    if (applying) return
+    setApplying(true)
+    try { await deleteTask(task.id); onRemoved(task.id) }
+    catch { setApplying(false) }
+  }
+  const cerrarAdapt = () => { setAdaptOpen(false); setProposal(null); setFeedback("") }
 
   const toggleOpen = async () => {
     const next = !open
@@ -61,6 +93,57 @@ function TaskRow({ task, onToggle, busy }: { task: Task; onToggle: (t: Task) => 
                   {exp.como.length > 0 && (<div><p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Cómo hacerlo</p><ol className="list-decimal pl-5 space-y-1">{exp.como.map((s, i) => <li key={i} className="text-sm text-gray-600 leading-snug">{s}</li>)}</ol></div>)}
                 </div>
               ) : <p className="text-xs text-gray-300 italic py-2">Sin explicación.</p>}
+
+              {!done && (
+                <div className="mt-4 pt-3 border-t border-gray-100">
+                  {!adaptOpen ? (
+                    <button onClick={() => setAdaptOpen(true)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors">
+                      <Wand2 className="h-3.5 w-3.5" /> No puedo con esta tarea
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-bold tracking-widest uppercase text-gray-400">Adaptar esta tarea</p>
+                        <button onClick={cerrarAdapt} className="text-gray-300 hover:text-gray-500"><X className="h-3.5 w-3.5" /></button>
+                      </div>
+
+                      {!proposal ? (
+                        <>
+                          <textarea value={feedback} onChange={e => setFeedback(e.target.value)} rows={2}
+                            placeholder="Cuéntale a Todd por qué (ej. no tengo presupuesto para un despacho)…"
+                            className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                          <button onClick={pedirAlternativa} disabled={adapting || !feedback.trim()}
+                            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-xs font-medium px-4 py-2 rounded-lg disabled:opacity-40 hover:bg-[var(--gob-ink)] transition-colors">
+                            {adapting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Todd está pensando…</> : <><Wand2 className="h-3.5 w-3.5" /> Pedir alternativa</>}
+                          </button>
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="rounded-xl bg-[var(--gob-navy)]/[0.04] border border-[var(--gob-navy)]/15 p-3 space-y-1.5">
+                            <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--gob-navy)]">Alternativa propuesta</p>
+                            <p className="text-sm font-medium text-black">{proposal.nueva_tarea}</p>
+                            {proposal.descripcion && <p className="text-xs text-gray-600 leading-relaxed">{proposal.descripcion}</p>}
+                            {proposal.por_que && <p className="text-xs text-gray-500 italic leading-relaxed">{proposal.por_que}</p>}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button onClick={reemplazar} disabled={applying}
+                              className="inline-flex items-center gap-1.5 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-xs font-medium px-3.5 py-2 rounded-lg disabled:opacity-50 hover:bg-[var(--gob-ink)] transition-colors">
+                              {applying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Reemplazar
+                            </button>
+                            <button onClick={descartar} disabled={applying}
+                              className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-xs font-medium px-3.5 py-2 rounded-lg hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-50">
+                              <Trash2 className="h-3.5 w-3.5" /> Descartar tarea
+                            </button>
+                            <button onClick={() => { setProposal(null); setFeedback("") }} disabled={applying}
+                              className="text-xs text-gray-400 hover:text-gray-600 px-2">Pedir otra</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -145,6 +228,11 @@ export default function PlanPage() {
   function patchTaskInPlan(p: AnnualPlan, t: Task): AnnualPlan {
     return { ...p, months: p.months.map(m => ({ ...m, objectives: m.objectives.map(o => ({ ...o, tasks: o.tasks.map(x => x.id === t.id ? { ...x, ...t } : x) })) })) }
   }
+  function removeTaskInPlan(p: AnnualPlan, taskId: string): AnnualPlan {
+    return { ...p, months: p.months.map(m => ({ ...m, objectives: m.objectives.map(o => ({ ...o, tasks: o.tasks.filter(x => x.id !== taskId) })) })) }
+  }
+  const onTaskReplaced = (t: Task) => setPlan(prev => prev ? patchTaskInPlan(prev, t) : prev)
+  const onTaskRemoved = (taskId: string) => setPlan(prev => prev ? removeTaskInPlan(prev, taskId) : prev)
 
   const toggleTask = async (t: Task) => {
     setBusyTask(t.id); setGateMsg(null)
@@ -245,7 +333,7 @@ export default function PlanPage() {
                 </div>
                 {gateMsg && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{gateMsg}</p>}
                 <div className="space-y-2">
-                  {monthTasks.map(t => <TaskRow key={t.id} task={t} busy={busyTask === t.id} onToggle={toggleTask} />)}
+                  {monthTasks.map(t => <TaskRow key={t.id} task={t} busy={busyTask === t.id} onToggle={toggleTask} onReplaced={onTaskReplaced} onRemoved={onTaskRemoved} />)}
                   {monthTasks.length === 0 && <p className="text-sm text-gray-400">Sin tareas este mes.</p>}
                 </div>
               </div>

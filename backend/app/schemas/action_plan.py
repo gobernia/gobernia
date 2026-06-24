@@ -31,6 +31,16 @@ class ActionTaskCreate(BaseModel):
     tags:         list[str] = Field(default_factory=list)
 
 
+class AdaptarTareaIn(BaseModel):
+    feedback: str = Field(min_length=1, max_length=1000)
+
+
+class AdaptarTareaOut(BaseModel):
+    nueva_tarea: str
+    descripcion: str
+    por_que: str
+
+
 class ActionTaskUpdate(BaseModel):
     title:        str | None = None
     description:  str | None = None

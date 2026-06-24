@@ -149,6 +149,17 @@ export async function getTaskExplicacion(taskId: string): Promise<ExplicacionTar
   return r.data
 }
 
+export interface AdaptacionTarea {
+  nueva_tarea: string
+  descripcion: string
+  por_que: string
+}
+
+export async function adaptTask(taskId: string, feedback: string): Promise<AdaptacionTarea> {
+  const r = await api.post<AdaptacionTarea>(`/tasks/${taskId}/adaptar`, { feedback })
+  return r.data
+}
+
 export type Grade = "bien" | "mal" | "muy_mal"
 
 export interface ReviewSignals {

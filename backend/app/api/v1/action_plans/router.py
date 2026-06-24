@@ -27,10 +27,13 @@ from app.schemas.action_plan import (
     ActionTaskCreate,
     ActionTaskOut,
     ActionTaskUpdate,
+    AdaptarTareaIn,
+    AdaptarTareaOut,
     GeneratePlanResponse,
 )
 from app.services.ai.plan_generator import generate_action_plan
 from app.services.ai.task_explainer import generate_explicacion
+from app.services.ai.task_adapter import adapt_task
 
 router = APIRouter()
 
@@ -276,6 +279,12 @@ async def update_task(
                 detail="Se requiere al menos una evidencia para validar este acuerdo.",
             )
 
+    # Si cambia el título (p. ej. al reemplazar por una alternativa), la explicación cacheada
+    # queda obsoleta: la limpiamos para que se regenere bajo demanda.
+    if "title" in payload and payload["title"] != task.title:
+        task.explicacion = None
+        flag_modified(task, "explicacion")
+
     for key, value in payload.items():
         setattr(task, key, value)
     task.updated_at = datetime.utcnow()
@@ -316,6 +325,43 @@ async def explicar_tarea(
     flag_modified(task, "explicacion")
     await db.commit()
     return data
+
+
+# ── POST /tasks/{task_id}/adaptar ─────────────────────────────────────────────
+
+async def _empresa_ctx(user_id, db) -> str:
+    """Contexto breve de la empresa (nombre, ingreso, tamaño) para dimensionar la alternativa."""
+    onb = (await db.execute(
+        select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+        .order_by(OnboardingSession.created_at.desc())
+    )).scalars().first()
+    c = (((onb.memory_buffer if onb else {}) or {}).get("company") or {})
+    partes = []
+    if c.get("name"):
+        partes.append(str(c["name"]))
+    if c.get("industry"):
+        partes.append(str(c["industry"]))
+    if c.get("annual_revenue"):
+        partes.append(f"facturación anual: {c['annual_revenue']}")
+    if c.get("employees"):
+        partes.append(f"{c['employees']} personas")
+    return " · ".join(partes)
+
+
+@router.post("/tasks/{task_id}/adaptar", response_model=AdaptarTareaOut)
+async def adaptar_tarea(
+    task_id: uuid.UUID,
+    body: AdaptarTareaIn,
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    """Analiza el comentario del usuario (texto libre) y PROPONE una alternativa realista.
+    No modifica nada: el frontend decide 'Reemplazar' (PATCH) o 'Descartar' (DELETE)."""
+    task = await _get_user_task_or_404(task_id, user_id, db)
+    objetivo, _ = await _objetivo_empresa(task, user_id, db)
+    empresa_ctx = await _empresa_ctx(user_id, db)
+    data = await anyio.to_thread.run_sync(
+        lambda: adapt_task(task.title, objetivo, empresa_ctx, body.feedback))
+    return AdaptarTareaOut(**data)
 
 
 # ── DELETE /tasks/{task_id} ──────────────────────────────────────────────────
