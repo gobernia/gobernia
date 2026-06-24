@@ -81,6 +81,8 @@ ESSENTIALS = [
     "Industria / sector (company.industry)",
     "Cuántas personas trabajan en la empresa / tamaño del equipo (company.employees). "
     "Pregúntalo TEMPRANO: define si es una sola persona, un equipo pequeño o más grande.",
+    "Ingreso o facturación anual aproximada (company.annual_revenue) — aunque sea un rango. "
+    "Sirve para que el plan proponga acciones realistas a su capacidad económica.",
     "Sitio web (company.website)",
     "Competidores que el usuario cree tener (company.competitors)",
     "Si es empresa familiar (company.is_family_business)",
