@@ -21,6 +21,24 @@ def test_build_prompt_sin_hallazgos_no_truena():
     assert "X" in p
 
 
+def test_build_prompt_incluye_kpis_con_valor():
+    """Si la empresa SÍ reportó KPIs con número, el diagnóstico los toma en cuenta."""
+    mb = {"company": {"name": "Keting Media"},
+          "kpis": {"financiero": [{"label": "Margen neto", "current_value": 6, "unit": "%"}],
+                   "comercial": [{"label": "Crecimiento de ventas", "current_value": 4, "unit": "%"}]}}
+    p = build_prompt(mb)
+    assert "Margen neto" in p
+    assert "6" in p
+    assert "Crecimiento de ventas" in p
+
+
+def test_build_prompt_kpis_sin_valor_no_truena():
+    mb = {"company": {"name": "X"},
+          "kpis": {"financiero": [{"label": "Margen", "current_value": None, "unknown": True}]}}
+    p = build_prompt(mb)
+    assert "X" in p  # no truena; un KPI sin valor simplemente no se inyecta como dato duro
+
+
 def test_build_prompt_hallazgos_forma_nota_clasificacion_no_truena():
     """Forma REAL que produce Todd: {area: {'nota': str, 'clasificacion': str}}.
     Antes reventaba con 'str object has no attribute get' al iterar el dict como lista."""

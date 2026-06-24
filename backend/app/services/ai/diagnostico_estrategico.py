@@ -115,6 +115,29 @@ def _normalize_hallazgos(hallazgos) -> dict:
     return out
 
 
+def _kpis_lineas(kpis) -> list[str]:
+    """Aplana los KPIs reportados (con valor) a líneas legibles. Tolera la estructura
+    {categoria: [{'label','current_value','unit'}]} y variantes (valor/unidad, sueltos)."""
+    if not isinstance(kpis, dict):
+        return []
+    out: list[str] = []
+    for cat, items in kpis.items():
+        lst = items if isinstance(items, list) else [items]
+        for it in lst:
+            if isinstance(it, dict):
+                label = str(it.get("label") or it.get("nombre") or cat).strip()
+                val = it.get("current_value", it.get("valor", it.get("value")))
+                if val is None or it.get("unknown"):
+                    continue  # sin valor → no lo inyectamos como dato duro
+                unit = str(it.get("unit") or it.get("unidad") or "").strip()
+                bench = it.get("benchmark")
+                extra = f" (benchmark {bench}{unit})" if bench is not None else ""
+                out.append(f"  - {label}: {val}{unit}{extra}".rstrip())
+            elif it:
+                out.append(f"  - {cat}: {str(it).strip()}")
+    return out
+
+
 def build_prompt(memory_buffer: dict) -> str:
     c = (memory_buffer or {}).get("company", {}) or {}
     loc = c.get("location", {}) or {}
@@ -139,13 +162,23 @@ def build_prompt(memory_buffer: dict) -> str:
                 + "\n".join(lineas) + "\n"
             )
 
+    kpi_lineas = _kpis_lineas((memory_buffer or {}).get("kpis"))
+    bloque_kpis = ""
+    if kpi_lineas:
+        bloque_kpis = (
+            "\nKPIs QUE LA EMPRESA REPORTÓ (con su valor actual). Tómalos en cuenta en el "
+            "análisis: compáralos con benchmarks del sector y úsalos como evidencia dura:\n"
+            + "\n".join(kpi_lineas) + "\n"
+        )
+
     return (
         f"Empresa: {c.get('name', 'N/D')}\n"
         f"Industria: {c.get('industry', 'N/D')}\n"
         f"Región donde opera: {region or 'N/D'}\n"
         f"Sitio web: {c.get('website', 'N/D')}\n"
         f"Competidores que el usuario CREE tener: {', '.join(competidores) if competidores else 'ninguno indicado'}\n"
-        f"{bloque_interno}\n"
+        f"{bloque_interno}"
+        f"{bloque_kpis}\n"
         "Investiga y entrega el diagnóstico en el JSON indicado."
     )
 

@@ -130,7 +130,11 @@ def build_system_prompt(state: dict | None = None) -> str:
         "estrategia, comercial, operativo, rh, financiero, legal, familiar (NO uses etiquetas largas "
         "como «Recursos Humanos»). Clasifica lo que aprendas como fortaleza, debilidad o parcial en "
         "'hallazgos' por área.\n"
-        "5. Pide algunos KPIs con número si el usuario los tiene; si no, regístralos cualitativos y NO insistas.\n"
+        "5. KPIs: pregunta SIEMPRE si llevan indicadores o números clave (margen, crecimiento de "
+        "ventas, rotación de personal, satisfacción del cliente, etc.). Si el usuario SÍ tiene alguno, "
+        "pídele el VALOR y guárdalo en 'kpis' agrupado por área, con su número y unidad, así: "
+        "{\"financiero\": [{\"label\": \"Margen neto\", \"current_value\": 6, \"unit\": \"%\"}]}. "
+        "Si NO lleva indicadores, deja 'kpis' vacío, anótalo como debilidad en 'hallazgos' y NO insistas.\n"
         "6. Pon 'done': true SOLO cuando ya cubriste las 7 áreas y tienes los datos esenciales; en ese "
         "turno, 'message' es un cierre cálido (avisa que prepararás el diagnóstico)."
         + estado_txt
