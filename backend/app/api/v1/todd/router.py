@@ -87,6 +87,7 @@ async def todd_turn(
         message=turn["message"], options=turn["options"],
         input=turn["input"], done=turn["done"],
         areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+        expects_detail=turn.get("expects_detail", False),
     )
 
 
@@ -126,6 +127,7 @@ async def todd_edit(
         message=turn["message"], options=turn["options"],
         input=turn["input"], done=turn["done"],
         areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+        expects_detail=turn.get("expects_detail", False),
     )
 
 
@@ -160,7 +162,8 @@ async def externo_turn(body: ToddTurnIn, user_id: str = Depends(get_current_user
     flag_modified(sess, "messages"); flag_modified(sess, "state")
     await db.commit()
     return ToddTurnOut(message=turn["message"], options=turn["options"], input=turn["input"],
-                       done=turn["done"], areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []))
+                       done=turn["done"], areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+                       expects_detail=turn.get("expects_detail", False))
 
 
 @router.post("/onboarding/todd/externo/edit", response_model=ToddTurnOut)
@@ -187,7 +190,8 @@ async def externo_edit(body: ToddEditIn, user_id: str = Depends(get_current_user
     flag_modified(sess, "messages"); flag_modified(sess, "state")
     await db.commit()
     return ToddTurnOut(message=turn["message"], options=turn["options"], input=turn["input"],
-                       done=turn["done"], areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []))
+                       done=turn["done"], areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+                       expects_detail=turn.get("expects_detail", False))
 
 
 @router.get("/onboarding/todd/metas", response_model=ToddMetasOut)
@@ -237,7 +241,8 @@ async def get_foda(user_id: str = Depends(get_current_user_id), db: AsyncSession
         raise HTTPException(status_code=404, detail="No hay análisis.")
     c = diag.content or {}
     return FodaOut(status=c.get("foda_status") or "none", foda=c.get("foda"),
-                   metas=c.get("metas_orden") or [])
+                   metas=c.get("metas_orden") or [],
+                   factores_externos=c.get("factores_externos") or {})
 
 
 @router.get("/onboarding/foda/pdf")

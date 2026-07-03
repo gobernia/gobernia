@@ -75,6 +75,10 @@ RESPONSE_TOOL = {
                       "description": "Estado acumulado COMPLETO y actualizado: company, kpis, vision, "
                                      "governance, narrative, areas_cubiertas, hallazgos."},
             "done": {"type": "boolean"},
+            "expects_detail": {"type": "boolean",
+                               "description": "true SOLO si la pregunta es abierta y espera una respuesta "
+                                              "ELABORADA (retos, visión, propuesta de valor, describir algo). "
+                                              "false para datos cortos (nombre, web, un número) y para opciones."},
             "reanudar_desde": {"type": "string", "enum": ["continuar", "rehacer"],
                                "description": "Solo al editar: 'continuar' si la corrección no invalida "
                                               "respuestas posteriores, 'rehacer' si sí."},
@@ -114,6 +118,9 @@ def build_system_prompt(state: dict | None = None) -> str:
         "más sobre tu empresa».\n"
         "2. Cuando la respuesta sea acotada, ofrécela como 'single_choice' con 'options' "
         "(p. ej. [\"Sí\", \"Más o menos\", \"No\"]); si es abierta, usa 'text' y deja 'options' vacío.\n"
+        "2b. Marca 'expects_detail': true SOLO cuando la pregunta abierta espere una respuesta ELABORADA "
+        "(retos, visión, propuesta de valor, describir un proceso); false para datos cortos (nombre, "
+        "sitio web, un número) y siempre que uses 'single_choice'.\n"
         "3. NUNCA repitas una pregunta que ya hiciste. Si el usuario responde con otra pregunta "
         "(p. ej. «¿qué quieres saber?») o algo ambiguo, NO te quedes en blanco: haz directamente la "
         "siguiente pregunta específica que falte por cubrir.\n"
@@ -169,6 +176,7 @@ def _normalize_turn(parsed: dict) -> dict:
         "input": input_type,
         "state": state,
         "done": bool(parsed.get("done")),
+        "expects_detail": bool(parsed.get("expects_detail")) and input_type == "text",
         "reanudar_desde": parsed.get("reanudar_desde") if parsed.get("reanudar_desde") in ("continuar", "rehacer") else "continuar",
     }
 

@@ -11,6 +11,7 @@ class ToddTurnOut(BaseModel):
     input: str = "text"
     done: bool = False
     areas_cubiertas: list[str] = []
+    expects_detail: bool = False
 
 
 class ToddMessage(BaseModel):
@@ -43,3 +44,4 @@ class FodaOut(BaseModel):
     status: str
     foda: dict | None = None
     metas: list[str] = []
+    factores_externos: dict = {}
