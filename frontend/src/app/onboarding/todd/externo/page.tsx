@@ -8,6 +8,7 @@ import {
   ToddMessage, ToddTurn, QAPair, PESTEL_CATS,
   getExternoSession, sendExternoAnswer, editExternoAnswer, buildQAPairs,
 } from "@/lib/todd"
+import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
 const AREA_LABEL: Record<string, string> = {
   politicos: "Políticos", economicos: "Económicos", sociales: "Sociales",
@@ -102,7 +103,11 @@ export default function ExternoPage() {
     <div className="min-h-dvh bg-white text-black flex flex-col">
       <header className="border-b border-gray-100 px-5 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
-          <span className="text-sm font-bold tracking-widest">TODD · GOBERNIA</span>
+          <span className="flex items-center gap-2">
+            <GoberniaLogo size={15} />
+            <span className="text-gray-200">·</span>
+            <span className="text-xs font-semibold tracking-widest text-gray-500 uppercase">Todd</span>
+          </span>
           <div className="flex flex-wrap gap-1.5">
             {PESTEL_CATS.map(a => (
               <span key={a}

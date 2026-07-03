@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, Plus, X, ArrowRight } from "lucide-react"
 import { getMetas, saveMetas } from "@/lib/todd"
+import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
 export default function MetasPage() {
   const router = useRouter()
@@ -34,7 +35,11 @@ export default function MetasPage() {
   return (
     <div className="min-h-dvh bg-white text-black flex flex-col">
       <header className="border-b border-gray-100 px-5 py-4">
-        <span className="text-sm font-bold tracking-widest">TODD · GOBERNIA</span>
+        <span className="flex items-center gap-2">
+          <GoberniaLogo size={15} />
+          <span className="text-gray-200">·</span>
+          <span className="text-xs font-semibold tracking-widest text-gray-500 uppercase">Todd</span>
+        </span>
       </header>
 
       <main className="flex-1 flex items-start justify-center px-4 py-10">

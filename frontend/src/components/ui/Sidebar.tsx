@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
+import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
 // Orden = flujo real: Diagnóstico → FODA → Plan (último).
 const LINKS = [
@@ -42,9 +43,9 @@ export default function Sidebar() {
       <Link
         href="/dashboard"
         onClick={() => setOpen(false)}
-        className="font-bold tracking-widest text-sm px-4 py-4 block"
+        className="px-4 py-4 block"
       >
-        GOBERNIA
+        <GoberniaLogo variant="inverse" size={18} />
       </Link>
       <nav className="flex-1 px-2 space-y-1">
         {LINKS.map(l => {
