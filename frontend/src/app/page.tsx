@@ -3,8 +3,16 @@
 import { useState, useEffect, useRef, useContext, createContext } from "react"
 import Link from "next/link"
 import { motion, useScroll, useTransform, useMotionValue, type MotionValue } from "framer-motion"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Lock, ShieldCheck, KeyRound, EyeOff } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
+
+// ── Seguridad (claims ciertos para el stack: Vercel HTTPS + Supabase) ──
+const SECURITY = [
+  { icon: Lock, title: "Cifrado en tránsito", desc: "Toda la comunicación viaja sobre HTTPS/TLS." },
+  { icon: ShieldCheck, title: "Cifrado en reposo", desc: "Tu información se almacena cifrada en la base de datos." },
+  { icon: KeyRound, title: "Acceso autenticado", desc: "Solo tú entras a tu cuenta, con inicio de sesión seguro." },
+  { icon: EyeOff, title: "Privado y confidencial", desc: "Tu información es solo para tu consejo y sus análisis." },
+]
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -613,6 +621,45 @@ export default function LandingPage() {
           >
             Comenzar gratis <ArrowRight className="h-4 w-4" />
           </Link>
+        </FadeUp>
+      </section>
+
+      {/* ── Divider ──────────────────────────────────────── */}
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+
+      {/* ── Seguridad y confidencialidad ─────────────────── */}
+      <section className="py-20 sm:py-28 3xl:py-36 px-[var(--px-fluid)]">
+        <FadeUp className="w-full max-w-[var(--container-fluid)] mx-auto space-y-12">
+          <div className="space-y-5 max-w-2xl">
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase">Seguridad y confidencialidad</p>
+            <ScrollReveal>
+              <h2
+                className="font-light text-[var(--gob-ink)]"
+                style={{ fontSize: "clamp(28px, 4.2vw, 104px)", lineHeight: 1.0, letterSpacing: "-0.03em" }}
+              >
+                <span style={{ opacity: 0.4 }}>Tus datos financieros y estratégicos, </span>
+                <Heavy range={[0.15, 0.55]}>protegidos.</Heavy>
+              </h2>
+            </ScrollReveal>
+            <p className="text-lg font-light text-[var(--gob-muted)] leading-relaxed">
+              La información que compartes con tu consejo es sensible. La ciframos y la mantenemos privada.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {SECURITY.map(s => {
+              const Icon = s.icon
+              return (
+                <div key={s.title} className="rounded-2xl border border-[var(--gob-rule)]/60 p-6 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--gob-navy)]/[0.06] text-[var(--gob-navy)] flex items-center justify-center">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-[var(--gob-ink)]">{s.title}</p>
+                  <p className="text-sm text-[var(--gob-muted)] leading-relaxed">{s.desc}</p>
+                </div>
+              )
+            })}
+          </div>
         </FadeUp>
       </section>
 
