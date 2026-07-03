@@ -36,7 +36,8 @@ async def _run(user_id: str) -> dict:
         try:
             foda = await asyncio.to_thread(
                 generate_foda, memory_buffer, content,
-                content.get("factores_externos") or {}, content.get("metas_orden") or [])
+                content.get("factores_externos") or {}, content.get("metas_orden") or [],
+                content.get("perspectivas") or {})
             content["foda"] = foda
             content["foda_status"] = "active"
         except Exception:
