@@ -40,6 +40,7 @@ export default function PerspectivasPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const aliveRef = useRef(true)
 
   const needsName = !ANONYMOUS_ROLES.includes(role)
 
@@ -52,6 +53,7 @@ export default function PerspectivasPage() {
     timer.current = setTimeout(async () => {
       try {
         const s = await getSintesis()
+        if (!aliveRef.current) return
         setSintesis(s)
         if (s.status === "generating") pollSintesis()
       } catch { /* reintenta en el próximo ciclo */ }
@@ -61,16 +63,18 @@ export default function PerspectivasPage() {
   const init = async () => {
     try {
       const [inv, s] = await Promise.all([listInvites(), getSintesis()])
+      if (!aliveRef.current) return
       setInvites(inv)
       setSintesis(s)
       if (s.status === "generating") pollSintesis()
-    } catch { setInvites([]) }
+    } catch { if (aliveRef.current) setInvites([]) }
   }
 
   useEffect(() => {
+    aliveRef.current = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     init()
-    return () => stopPolling()
+    return () => { aliveRef.current = false; stopPolling() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
