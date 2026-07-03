@@ -13,6 +13,7 @@ export interface FodaOut {
   status: "none" | "generating" | "active" | "failed"
   foda: Foda | null
   metas: string[]
+  factores_externos?: Record<string, unknown>
 }
 
 export async function getFoda(): Promise<FodaOut> {

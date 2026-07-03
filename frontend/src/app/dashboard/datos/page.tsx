@@ -1,229 +1,262 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type ReactNode, type ComponentType } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import {
-  ArrowLeft, Building2, Users, Target,
-  ClipboardList, BarChart3, ShieldCheck, FileText, Compass, Loader2,
+  ArrowLeft, Loader2, Building2, BarChart3, ClipboardList,
+  Compass, Target, Eye, ShieldCheck,
 } from "lucide-react"
-import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
+import { getFoda, type FodaOut } from "@/lib/foda"
+import { normalizeHallazgos } from "@/lib/diagnostico"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
+interface Kpi { label?: string; current_value?: number | null; unit?: string; benchmark?: number | null }
 interface MemoryBuffer {
   company?: {
-    name?: string
-    industry?: string
-    location_city?: string
-    location_state?: string
-    location_country?: string
-    employees?: string
-    years_operating?: string
-    annual_revenue?: string
-    branches?: string
-    has_board?: string
-    is_family_business?: boolean
-    family_generation?: string
+    name?: string; industry?: string; employees?: string | number; annual_revenue?: string | number
+    years_operating?: string | number; is_family_business?: boolean; website?: string
+    has_board?: boolean | string; competitors?: string | string[]
   }
-  team?: Array<{ name?: string; role?: string; is_decision_maker?: boolean }>
-  priorities?: Array<{ challenge?: string; rank?: number; description?: string }>
-  diagnostic_responses?: Array<{ question_id: string; response: string; area: string }>
-  kpis?: Record<string, Array<{ label: string; current_value: number | null; unit?: string }>>
-  governance?: { score?: number; level?: string }
-  documents?: Array<{ filename: string; document_type: string; status: string }>
+  kpis?: Record<string, Kpi[]>
   vision?: { statement?: string; main_goals?: string[] }
-  agent_configs?: Record<string, { tone?: string; alert_sensitivity?: string }>
+  governance?: { score?: number; level?: string }
+  hallazgos?: Record<string, unknown>
 }
 
-const SECTIONS = [
-  { etapa: 1, icon: Building2,    title: "Empresa",     desc: "Datos básicos, industria, tamaño" },
-  { etapa: 2, icon: Users,        title: "Equipo",      desc: "Miembros directivos y roles" },
-  { etapa: 3, icon: Target,       title: "Prioridades", desc: "Los 3-5 retos principales" },
-  { etapa: 4, icon: ClipboardList,title: "Diagnóstico", desc: "Respuestas del diagnóstico interno" },
-  { etapa: 5, icon: BarChart3,    title: "KPIs",        desc: "Indicadores clave y benchmarks" },
-  { etapa: 6, icon: ShieldCheck,  title: "Gobierno",    desc: "Checklist de gobierno corporativo" },
-  { etapa: 7, icon: FileText,     title: "Documentos",  desc: "Archivos cargados" },
-  { etapa: 8, icon: Compass,      title: "Visión",      desc: "Visión, metas y configuración de consejeros" },
-]
+const TIPO_DOT: Record<string, string> = {
+  fortaleza: "bg-green-500", debilidad: "bg-red-500", parcial: "bg-amber-500",
+}
+const AREA_LABEL: Record<string, string> = {
+  estrategia: "Estrategia", comercial: "Comercial", operativo: "Operativo",
+  rh: "RH", financiero: "Financiero", legal: "Legal", familiar: "Familiar",
+}
+
+function splitFactores(fx: Record<string, unknown> | undefined) {
+  const oportunidades: string[] = [], amenazas: string[] = []
+  for (const items of Object.values(fx ?? {})) {
+    const list = Array.isArray(items) ? items : [items]
+    for (const it of list) {
+      if (it && typeof it === "object") {
+        const o = it as Record<string, unknown>
+        const tipo = String(o.tipo ?? "").toLowerCase()
+        const texto = String(o.texto ?? o.nota ?? "").trim()
+        if (!texto) continue
+        if (tipo.includes("amenaz")) amenazas.push(texto)
+        else oportunidades.push(texto)
+      } else if (it) { oportunidades.push(String(it)) }
+    }
+  }
+  return { oportunidades, amenazas }
+}
+
+function Section({ icon: Icon, title, children }: { icon: ComponentType<{ className?: string }>; title: string; children: ReactNode }) {
+  return (
+    <section className="border border-gray-100 rounded-2xl p-6 space-y-4">
+      <div className="flex items-center gap-2.5">
+        <span className="w-8 h-8 rounded-lg bg-[var(--gob-navy)]/[0.06] text-[var(--gob-navy)] flex items-center justify-center">
+          <Icon className="h-4 w-4" />
+        </span>
+        <h2 className="text-base font-bold text-black tracking-tight">{title}</h2>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Field({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-1.5">
+      <span className="text-xs text-gray-400 shrink-0">{label}</span>
+      <span className="text-sm text-black text-right">{value}</span>
+    </div>
+  )
+}
+
+const empty = <span className="text-gray-300 italic">Sin registrar</span>
 
 export default function DatosPage() {
-  const { sessionId, completedStages } = useOnboardingStore()
   const [buffer, setBuffer] = useState<MemoryBuffer | null>(null)
+  const [foda, setFoda] = useState<FodaOut | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!sessionId) {
-      setLoading(false)
-      setError("Aún no has empezado la configuración.")
-      return
+    let alive = true
+    ;(async () => {
+      try {
+        const ms = await api.get("/onboarding/my-session", { validateStatus: s => s === 200 || s === 204 })
+        const sid = ms.status === 200 ? ms.data?.session_id : null
+        if (!sid) { if (alive) { setError("Aún no has hecho tu onboarding con Todd."); setLoading(false) } return }
+        const r = await api.get(`/onboarding/session/${sid}`)
+        if (alive) setBuffer(r.data.memory_buffer || {})
+        try { const f = await getFoda(); if (alive) setFoda(f) } catch { /* opcional */ }
+      } catch { if (alive) setError("No se pudieron cargar tus datos.") }
+      finally { if (alive) setLoading(false) }
+    })()
+    return () => { alive = false }
+  }, [])
+
+  const c = buffer?.company ?? {}
+  const competitors = Array.isArray(c.competitors) ? c.competitors.join(", ") : (c.competitors || "")
+  const kpiRows: { label: string; value: string }[] = []
+  for (const [cat, arr] of Object.entries(buffer?.kpis ?? {})) {
+    for (const k of (arr || [])) {
+      const val = k.current_value != null ? `${k.current_value}${k.unit ?? ""}` : "—"
+      kpiRows.push({ label: k.label || cat, value: val })
     }
-    api.get(`/onboarding/session/${sessionId}`)
-      .then(r => setBuffer(r.data.memory_buffer || {}))
-      .catch(() => setError("No se pudieron cargar tus datos."))
-      .finally(() => setLoading(false))
-  }, [sessionId])
+  }
+  const hallazgos = normalizeHallazgos(buffer?.hallazgos)
+  const hallazgosAreas = Object.entries(hallazgos)
+  const { oportunidades, amenazas } = splitFactores(foda?.factores_externos)
+  const metas = foda?.metas ?? []
 
   return (
     <div className="min-h-dvh bg-white text-black font-sans antialiased">
       <header className="fixed top-0 inset-x-0 md:left-60 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="w-full max-w-[1200px] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-            Volver al dashboard
+            <ArrowLeft className="h-4 w-4" /> Volver al dashboard
           </Link>
           <GoberniaLogo size={16} />
         </div>
       </header>
 
       <main className="pt-14">
-        <div className="w-full max-w-[1200px] mx-auto px-[var(--px-fluid)] py-12 space-y-10">
-
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: EASE }}
-            className="space-y-2"
-          >
+        <div className="w-full max-w-3xl mx-auto px-[var(--px-fluid)] py-12 space-y-8">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE }} className="space-y-2">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Configuración</p>
             <h1 className="text-3xl font-bold text-black tracking-tight">Mis datos</h1>
             <p className="text-sm text-gray-500 max-w-xl">
-              Información que usan tus consejeros con IA para sus análisis. ¿Cambió algo en tu empresa?
-              Actualízala platicando de nuevo con Todd.
+              Todo lo que Todd capturó de tu empresa — lo que usan tus consejeros con IA. ¿Cambió algo?
+              Actualízalo platicando de nuevo con Todd.
             </p>
             <div className="pt-2">
-              <Link
-                href="/onboarding/todd"
-                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
-              >
+              <Link href="/onboarding/todd"
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
                 Actualizar con Todd
               </Link>
             </div>
           </motion.div>
 
           {loading && (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-6 w-6 text-gray-300 animate-spin" />
-            </div>
+            <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 text-gray-300 animate-spin" /></div>
           )}
 
           {!loading && error && (
             <div className="border border-gray-200 rounded-2xl p-8 text-center space-y-3">
               <p className="text-sm text-gray-500">{error}</p>
-              <Link
-                href="/onboarding/todd"
-                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
-              >
+              <Link href="/onboarding/todd"
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
                 Empezar con Todd
               </Link>
             </div>
           )}
 
           {!loading && !error && buffer && (
-            <div className="grid grid-cols-1 gap-3">
-              {SECTIONS.map((s, i) => {
-                const Icon = s.icon
-                const isCompleted = completedStages.includes(s.etapa)
-                const preview = buildPreview(s.etapa, buffer)
-                return (
-                  <motion.div
-                    key={s.etapa}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: EASE, delay: i * 0.04 }}
-                    className="border border-gray-100 hover:border-gray-300 rounded-2xl p-5 flex items-start gap-4 transition-colors"
-                  >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                      isCompleted ? "bg-[var(--gob-navy)] text-[var(--gob-bone)]" : "bg-gray-50 text-gray-300"
-                    }`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-400">Etapa {s.etapa}</span>
-                        <span className="text-xs text-gray-300">·</span>
-                        <span className="text-xs text-gray-400">{s.desc}</span>
+            <div className="space-y-4">
+              {/* Empresa */}
+              <Section icon={Building2} title="Empresa">
+                <div className="divide-y divide-gray-50">
+                  <Field label="Nombre" value={c.name || empty} />
+                  <Field label="Industria / sector" value={c.industry || empty} />
+                  <Field label="Tamaño del equipo" value={c.employees != null && c.employees !== "" ? `${c.employees}` : empty} />
+                  <Field label="Facturación anual" value={c.annual_revenue != null && c.annual_revenue !== "" ? `${c.annual_revenue}` : empty} />
+                  <Field label="Años operando" value={c.years_operating != null && c.years_operating !== "" ? `${c.years_operating}` : empty} />
+                  <Field label="Empresa familiar" value={c.is_family_business === true ? "Sí" : c.is_family_business === false ? "No" : empty} />
+                  <Field label="Sitio web" value={c.website || empty} />
+                  <Field label="Competidores" value={competitors || empty} />
+                </div>
+              </Section>
+
+              {/* KPIs */}
+              <Section icon={BarChart3} title="KPIs reportados">
+                {kpiRows.length > 0 ? (
+                  <div className="divide-y divide-gray-50">
+                    {kpiRows.map((k, i) => <Field key={i} label={k.label} value={<span className="font-semibold">{k.value}</span>} />)}
+                  </div>
+                ) : <p className="text-sm text-gray-400">No registraste indicadores con valor. Puedes agregarlos con Todd.</p>}
+              </Section>
+
+              {/* Fortalezas y debilidades */}
+              {hallazgosAreas.length > 0 && (
+                <Section icon={ClipboardList} title="Fortalezas y debilidades">
+                  <div className="space-y-3">
+                    {hallazgosAreas.map(([area, items]) => (
+                      <div key={area}>
+                        <p className="text-xs font-medium tracking-wide text-gray-400 uppercase mb-1.5">{AREA_LABEL[area] ?? area}</p>
+                        <ul className="space-y-1.5">
+                          {items.map((h, j) => (
+                            <li key={j} className="flex items-start gap-2 text-sm">
+                              <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${TIPO_DOT[h.tipo] ?? "bg-gray-300"}`} />
+                              <span className="text-gray-700 leading-snug">{h.texto}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <p className="text-sm font-medium text-black">{s.title}</p>
-                      {isCompleted && preview && (
-                        <p className="text-xs text-gray-500 leading-relaxed pt-1">{preview}</p>
-                      )}
-                      {!isCompleted && (
-                        <p className="text-xs text-gray-400 italic pt-1">Sin completar</p>
-                      )}
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              {/* Factores externos */}
+              {(oportunidades.length > 0 || amenazas.length > 0) && (
+                <Section icon={Compass} title="Factores externos (entorno)">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium tracking-wide text-green-700 uppercase mb-1.5">Oportunidades</p>
+                      <ul className="space-y-1.5">
+                        {oportunidades.map((t, i) => <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-green-500">+</span>{t}</li>)}
+                        {oportunidades.length === 0 && <li className="text-sm text-gray-300 italic">—</li>}
+                      </ul>
                     </div>
-                  </motion.div>
-                )
-              })}
+                    <div>
+                      <p className="text-xs font-medium tracking-wide text-red-600 uppercase mb-1.5">Amenazas</p>
+                      <ul className="space-y-1.5">
+                        {amenazas.map((t, i) => <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-red-500">−</span>{t}</li>)}
+                        {amenazas.length === 0 && <li className="text-sm text-gray-300 italic">—</li>}
+                      </ul>
+                    </div>
+                  </div>
+                </Section>
+              )}
+
+              {/* Metas priorizadas */}
+              {metas.length > 0 && (
+                <Section icon={Target} title="Metas priorizadas">
+                  <ol className="space-y-2">
+                    {metas.map((m, i) => (
+                      <li key={i} className="flex items-center gap-3">
+                        <span className="w-6 h-6 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                        <span className="text-sm text-gray-700">{m}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </Section>
+              )}
+
+              {/* Visión */}
+              <Section icon={Eye} title="Visión a 3 años">
+                {buffer.vision?.statement
+                  ? <p className="text-sm text-gray-700 leading-relaxed">{buffer.vision.statement}</p>
+                  : <p className="text-sm text-gray-400">Sin registrar.</p>}
+              </Section>
+
+              {/* Gobierno */}
+              {buffer.governance?.score != null && (
+                <Section icon={ShieldCheck} title="Gobierno corporativo">
+                  <Field label="Governance Score" value={<span className="font-semibold">{buffer.governance.score}/100{buffer.governance.level ? ` · ${buffer.governance.level}` : ""}</span>} />
+                </Section>
+              )}
             </div>
           )}
-
         </div>
       </main>
     </div>
   )
-}
-
-function buildPreview(etapa: number, buf: MemoryBuffer): string | null {
-  switch (etapa) {
-    case 1: {
-      const c = buf.company
-      if (!c?.name) return null
-      const parts: string[] = [c.name]
-      if (c.industry) parts.push(c.industry)
-      if (c.employees) parts.push(`${c.employees} empleados`)
-      if (c.is_family_business) parts.push("empresa familiar")
-      return parts.join(" · ")
-    }
-    case 2: {
-      const t = buf.team || []
-      if (t.length === 0) return null
-      const decisionMakers = t.filter(m => m.is_decision_maker).length
-      return `${t.length} miembro${t.length !== 1 ? "s" : ""} · ${decisionMakers} con poder de decisión`
-    }
-    case 3: {
-      const p = buf.priorities || []
-      if (p.length === 0) return null
-      return p
-        .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
-        .slice(0, 3)
-        .map((x, i) => `${i + 1}. ${x.challenge ?? "—"}`)
-        .join(" · ")
-    }
-    case 4: {
-      const d = buf.diagnostic_responses || []
-      if (d.length === 0) return null
-      const skipped = d.filter(r => r.response === "skipped").length
-      return `${d.length} preguntas respondidas${skipped > 0 ? ` · ${skipped} omitidas` : ""}`
-    }
-    case 5: {
-      const k = buf.kpis
-      if (!k) return null
-      const total = Object.values(k).reduce((acc, arr) => acc + arr.length, 0)
-      const reported = Object.values(k).reduce(
-        (acc, arr) => acc + arr.filter(x => x.current_value !== null).length, 0,
-      )
-      return `${reported} de ${total} KPIs reportados`
-    }
-    case 6: {
-      const g = buf.governance
-      if (!g?.score) return null
-      return `Governance Score: ${g.score}/100${g.level ? ` (${g.level})` : ""}`
-    }
-    case 7: {
-      const docs = buf.documents || []
-      if (docs.length === 0) return null
-      return `${docs.length} documento${docs.length !== 1 ? "s" : ""} cargado${docs.length !== 1 ? "s" : ""}`
-    }
-    case 8: {
-      const v = buf.vision
-      if (!v?.statement) return null
-      return v.statement.length > 90 ? v.statement.slice(0, 90) + "…" : v.statement
-    }
-  }
-  return null
 }
