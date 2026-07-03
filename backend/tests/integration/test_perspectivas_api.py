@@ -85,3 +85,36 @@ async def test_revocar_invite_404_para_invite_inexistente():
         app.dependency_overrides.clear()
     assert r.status_code == 404
     assert r.json()["detail"] == "Invitación no encontrada"
+
+
+@pytest.mark.asyncio
+async def test_invite_anonimo_rechaza_nombre_para_empleado():
+    db = AsyncMock()
+
+    # Mock flush to set created_at on the object
+    async def mock_flush():
+        pass
+
+    db.add = MagicMock()
+    db.flush = AsyncMock(side_effect=mock_flush)
+    db.commit = AsyncMock()
+
+    # Intercept the add call to set created_at after flush
+    original_add = db.add
+    def mock_add(obj):
+        obj.created_at = datetime.now()
+        return original_add(obj)
+
+    db.add = mock_add
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.post("/api/v1/perspectivas/invite", json={"role": "empleado", "name": "Juan"})
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 200
+    body = r.json()
+    assert body["role"] == "empleado"
+    assert body["invitee_name"] is None

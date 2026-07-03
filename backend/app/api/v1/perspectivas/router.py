@@ -11,6 +11,7 @@ from app.models.perspectiva_invite import PerspectivaInvite
 from app.models.onboarding_session import OnboardingSession
 from app.models.diagnostico_estrategico import DiagnosticoEstrategico
 from app.schemas.perspectivas import InviteIn, InviteOut, InviteListItem
+from app.services.ai.perspectivas.roles import ANONYMOUS_ROLES
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ async def crear_invite(
     token = secrets.token_urlsafe(16)
     inv = PerspectivaInvite(
         owner_user_id=user_id, role=body.role,
-        invitee_name=(body.name or None), token=token,
+        invitee_name=(body.name or None) if body.role not in ANONYMOUS_ROLES else None, token=token,
         status="pending", messages=[], state={},
     )
     db.add(inv)
