@@ -23,3 +23,4 @@ class DiagnosticoOut(BaseModel):
     sections: list[DiagnosticoSection] = []
     sources: list[DiagnosticoSource] = []
     fortalezas_debilidades: dict = {}
+    riesgos: list = []

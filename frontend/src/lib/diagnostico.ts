@@ -49,12 +49,18 @@ export function normalizeHallazgos(raw: unknown): Record<string, Hallazgo[]> {
   return out
 }
 
+export interface Riesgo {
+  riesgo: string
+  severidad: string  // "alta" | "media" | "baja"
+}
+
 export interface Diagnostico {
   status: DiagnosticoStatus
   fail_reason: string | null
   sections: DiagnosticoSection[]
   sources: DiagnosticoSource[]
   fortalezas_debilidades: Record<string, Hallazgo[]>
+  riesgos: Riesgo[]
 }
 
 export interface DiagnosticoStatusOut {
@@ -69,7 +75,11 @@ export async function getDiagnosticoStatus(): Promise<DiagnosticoStatusOut> {
 
 export async function getDiagnostico(): Promise<Diagnostico> {
   const r = await api.get<Diagnostico>("/diagnostico")
-  return { ...r.data, fortalezas_debilidades: normalizeHallazgos(r.data.fortalezas_debilidades) }
+  return {
+    ...r.data,
+    fortalezas_debilidades: normalizeHallazgos(r.data.fortalezas_debilidades),
+    riesgos: Array.isArray(r.data.riesgos) ? r.data.riesgos : [],
+  }
 }
 
 export async function generateDiagnostico(): Promise<DiagnosticoStatusOut> {

@@ -1,4 +1,34 @@
-from app.services.ai.diagnostico_estrategico import build_prompt, attach_internal_findings
+from app.services.ai.diagnostico_estrategico import (
+    build_prompt, attach_internal_findings, derive_riesgos, _riesgos_fallback,
+)
+
+
+def test_riesgos_fallback_deriva_de_debilidades_no_de_fortalezas():
+    fd = {
+        "financiero": [{"tipo": "debilidad", "texto": "Sin reserva de capital para crecer"}],
+        "rh": [{"tipo": "parcial", "texto": "Sin proceso formal de reclutamiento"}],
+        "estrategia": [{"tipo": "fortaleza", "texto": "Producto sólido"}],
+    }
+    out = _riesgos_fallback(fd)
+    riesgos_txt = " ".join(r["riesgo"] for r in out)
+    assert "reserva de capital" in riesgos_txt
+    assert "reclutamiento" in riesgos_txt
+    assert "Producto sólido" not in riesgos_txt  # una fortaleza no es un riesgo
+    assert all(r["severidad"] in ("alta", "media", "baja") for r in out)
+
+
+def test_derive_riesgos_sin_api_key_usa_fallback(monkeypatch):
+    monkeypatch.setattr("app.services.ai.diagnostico_estrategico.settings.ANTHROPIC_API_KEY", "")
+    fd = {"rh": [{"tipo": "parcial", "texto": "Sin proceso de reclutamiento"}]}
+    out = derive_riesgos({}, fd)
+    assert len(out) >= 1
+    assert set(out[0].keys()) == {"riesgo", "severidad"}
+
+
+def test_derive_riesgos_sin_debilidades_es_lista_vacia(monkeypatch):
+    monkeypatch.setattr("app.services.ai.diagnostico_estrategico.settings.ANTHROPIC_API_KEY", "")
+    out = derive_riesgos({}, {"estrategia": [{"tipo": "fortaleza", "texto": "x"}]})
+    assert out == []
 
 
 def test_build_prompt_incluye_hallazgos_internos():

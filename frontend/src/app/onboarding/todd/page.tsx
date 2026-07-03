@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowRight, ArrowLeft, Loader2, Pencil, X, Check } from "lucide-react"
+import { ArrowRight, ArrowLeft, Loader2, Pencil, X, Check, Clock } from "lucide-react"
 import {
   ToddMessage, ToddTurn, QAPair, TODD_AREAS,
   getToddSession, sendToddAnswer, editToddAnswer, closeTodd, buildQAPairs,
@@ -104,23 +104,38 @@ export default function ToddFormPage() {
   return (
     <div className="min-h-dvh bg-white text-black flex flex-col">
       <header className="border-b border-gray-100 px-5 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
-          <span className="flex items-center gap-2">
-            <GoberniaLogo size={15} />
-            <span className="text-gray-200">·</span>
-            <span className="text-xs font-semibold tracking-widest text-gray-500 uppercase">Todd</span>
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {TODD_AREAS.map(a => (
-              <span key={a}
-                className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                  areas.includes(a)
-                    ? "bg-[var(--gob-navy)] text-[var(--gob-bone)] border-[var(--gob-navy)]"
-                    : "text-gray-400 border-gray-200"
-                }`}>
-                {AREA_LABEL[a]}
-              </span>
-            ))}
+        <div className="max-w-2xl mx-auto space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-2">
+              <GoberniaLogo size={15} />
+              <span className="text-gray-200">·</span>
+              <span className="text-xs font-semibold tracking-widest text-gray-500 uppercase">Todd</span>
+            </span>
+            <div className="hidden sm:flex flex-wrap gap-1.5 justify-end">
+              {TODD_AREAS.map(a => (
+                <span key={a}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                    areas.includes(a)
+                      ? "bg-[var(--gob-navy)] text-[var(--gob-bone)] border-[var(--gob-navy)]"
+                      : "text-gray-400 border-gray-200"
+                  }`}>
+                  {AREA_LABEL[a]}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-[var(--gob-navy)] rounded-full transition-all duration-500"
+                style={{ width: `${Math.round((areas.length / TODD_AREAS.length) * 100)}%` }} />
+            </div>
+            <p className="text-[10px] text-gray-400 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="font-medium text-gray-500">{areas.length} de {TODD_AREAS.length} áreas</span>
+              <span className="text-gray-200">·</span>
+              <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> ~5-10 min</span>
+              <span className="text-gray-200">·</span>
+              <span>tu progreso se guarda solo</span>
+            </p>
           </div>
         </div>
       </header>

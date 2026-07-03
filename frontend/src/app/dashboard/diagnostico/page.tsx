@@ -5,11 +5,11 @@ import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Loader2, Sparkles, AlertCircle, Download, FileSearch, ChevronDown, ArrowRight,
-  TrendingUp, TrendingDown, Minus, Link2,
+  TrendingUp, TrendingDown, Minus, Link2, ShieldAlert, Globe,
 } from "lucide-react"
 import {
   getDiagnostico, getDiagnosticoStatus, generateDiagnostico, downloadDiagnosticoPdf,
-  type Diagnostico, type Hallazgo,
+  type Diagnostico,
 } from "@/lib/diagnostico"
 
 type CubicBezier = [number, number, number, number]
@@ -55,10 +55,48 @@ const TIPO_META: Record<string, { Icon: typeof TrendingUp; color: string; bg: st
 }
 const tipoMeta = (t: string) =>
   TIPO_META[t] ?? { Icon: Minus, color: "text-gray-400", bg: "bg-gray-50", border: "border-l-gray-300", label: "Nota" }
-// Orden para mostrar: fortalezas, luego a-mejorar, luego debilidades
-const TIPO_ORDER: Record<string, number> = { fortaleza: 0, parcial: 1, debilidad: 2 }
-const sortHallazgos = (items: Hallazgo[]) =>
-  [...items].sort((a, b) => (TIPO_ORDER[a.tipo] ?? 3) - (TIPO_ORDER[b.tipo] ?? 3))
+
+// Severidad de riesgos → color coding
+const SEV_META: Record<string, { chip: string; dot: string; label: string }> = {
+  alta: { chip: "text-red-700 bg-red-50", dot: "bg-red-500", label: "Alta" },
+  media: { chip: "text-amber-700 bg-amber-50", dot: "bg-amber-500", label: "Media" },
+  baja: { chip: "text-gray-600 bg-gray-100", dot: "bg-gray-400", label: "Baja" },
+}
+const sevMeta = (s: string) => SEV_META[s] ?? SEV_META.media
+const SEV_ORDER: Record<string, number> = { alta: 0, media: 1, baja: 2 }
+
+// Bloque interno reutilizable (Fortalezas / Debilidades): tarjeta con acento superior + lista.
+type Cubi = { area: string; tipo: string; texto: string }
+function InternalBlock({ title, Icon, iconColor, accent, items }: {
+  title: string; Icon: typeof TrendingUp; iconColor: string; accent: string; items: Cubi[]
+}) {
+  if (items.length === 0) return null
+  return (
+    <section className={`rounded-2xl border border-gray-100 border-t-4 ${accent} p-5 space-y-3`}>
+      <div className="flex items-center gap-2">
+        <Icon className={`h-4 w-4 ${iconColor}`} />
+        <h2 className="text-base font-bold text-black tracking-tight">{title}</h2>
+        <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{items.length}</span>
+      </div>
+      <ul className="space-y-2.5">
+        {items.map((h, i) => {
+          const m = tipoMeta(h.tipo)
+          return (
+            <li key={i} className="flex items-start gap-2.5 text-sm">
+              <span className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${m.bg}`}>
+                <m.Icon className={`h-3 w-3 ${m.color}`} />
+              </span>
+              <span className="text-gray-700 leading-snug">
+                {h.texto}
+                {h.area && <span className="ml-1.5 text-[11px] text-gray-400 uppercase tracking-wide">· {h.area}</span>}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
 
 export default function DiagnosticoPage() {
   const [view, setView] = useState<View>("loading")
@@ -182,8 +220,14 @@ export default function DiagnosticoPage() {
     )
   }
 
-  const fd = Object.entries(diag?.fortalezas_debilidades ?? {})
+  const flat: Cubi[] = Object.entries(diag?.fortalezas_debilidades ?? {})
+    .flatMap(([area, items]) => items.map(h => ({ area, tipo: h.tipo, texto: h.texto })))
+  const fortalezas = flat.filter(h => h.tipo === "fortaleza")
+  const debilidades = flat.filter(h => h.tipo === "debilidad" || h.tipo === "parcial")
+  const riesgos = [...(diag?.riesgos ?? [])].sort(
+    (a, b) => (SEV_ORDER[a.severidad] ?? 1) - (SEV_ORDER[b.severidad] ?? 1))
   const sources = diag?.sources ?? []
+  const sinInterno = fortalezas.length === 0 && debilidades.length === 0 && riesgos.length === 0
 
   return (
     <div className="min-h-dvh bg-white text-black antialiased">
@@ -211,64 +255,65 @@ export default function DiagnosticoPage() {
       </div>
 
       <main>
-        <div className="w-full max-w-3xl mx-auto px-[var(--px-fluid)] py-8 space-y-8">
+        <div className="w-full max-w-3xl mx-auto px-[var(--px-fluid)] py-8 space-y-4">
 
-          {/* Secciones en acordeones */}
-          <div className="space-y-3">
-            {(diag?.sections ?? []).map((s, i) => (
-              <motion.div key={s.key} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: EASE, delay: i * 0.04 }}>
-                <Accordion title={s.title} defaultOpen={i === 0} highlight={s.key === "competencia"}>
-                  <div className="space-y-3">
-                    {(s.body || "").split("\n").filter(p => p.trim()).map((p, j) => (
-                      <p key={j} className="text-[15px] text-gray-700 leading-relaxed">{p.trim()}</p>
-                    ))}
-                    {!s.body && <p className="text-sm text-gray-300 italic">Sin contenido.</p>}
-                  </div>
-                </Accordion>
-              </motion.div>
-            ))}
-          </div>
+          {/* 1) Diagnóstico interno destacado: Fortalezas → Debilidades → Riesgos */}
+          <InternalBlock title="Fortalezas internas" Icon={TrendingUp} iconColor="text-green-600"
+            accent="border-t-green-500" items={fortalezas} />
+          <InternalBlock title="Debilidades internas" Icon={TrendingDown} iconColor="text-red-500"
+            accent="border-t-red-500" items={debilidades} />
 
-          {/* Fortalezas y debilidades — tarjetas ordenadas por área */}
-          {fd.length > 0 && (
-            <section className="space-y-4 pt-2">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <h2 className="text-xl font-bold text-black tracking-tight">Fortalezas y debilidades</h2>
-                <div className="flex items-center gap-3 text-[11px] text-gray-400">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Fortaleza</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> A mejorar</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Debilidad</span>
-                </div>
+          {riesgos.length > 0 && (
+            <section className="rounded-2xl border border-gray-100 border-t-4 border-t-amber-500 p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-amber-500" />
+                <h2 className="text-base font-bold text-black tracking-tight">Riesgos</h2>
+                <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{riesgos.length}</span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {fd.map(([area, items]) => {
-                  const ordered = sortHallazgos(items)
-                  const accent = tipoMeta(ordered[0]?.tipo ?? "").border
+              <ul className="space-y-2.5">
+                {riesgos.map((r, i) => {
+                  const m = sevMeta(r.severidad)
                   return (
-                    <div key={area} className={`rounded-2xl border border-gray-100 border-l-4 ${accent} p-4 space-y-2.5`}>
-                      <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">{area}</p>
-                      <ul className="space-y-2">
-                        {ordered.map((h, j) => {
-                          const m = tipoMeta(h.tipo)
-                          return (
-                            <li key={j} className="flex items-start gap-2.5 text-sm">
-                              <span className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${m.bg}`}>
-                                <m.Icon className={`h-3 w-3 ${m.color}`} />
-                              </span>
-                              <span className="text-gray-700 leading-snug">{h.texto}</span>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </div>
+                    <li key={i} className="flex items-start gap-2.5 text-sm">
+                      <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${m.dot}`} />
+                      <span className="text-gray-700 leading-snug flex-1">{r.riesgo}</span>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${m.chip}`}>{m.label}</span>
+                    </li>
                   )
                 })}
-              </div>
+              </ul>
             </section>
           )}
 
-          {/* Fuentes — colapsable */}
+          {sinInterno && (
+            <p className="text-sm text-gray-400 py-2">
+              Aún no hay hallazgos internos. Complétalos platicando con Todd — abajo tienes el contexto de mercado.
+            </p>
+          )}
+
+          {/* 2) Contexto de mercado (investigación web) — colapsado por defecto (anexo) */}
+          {(diag?.sections ?? []).some(s => s.body) && (
+            <Accordion title="Contexto de mercado" defaultOpen={sinInterno} badge={
+              <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
+                <Globe className="h-3 w-3" /> investigación web
+              </span>
+            }>
+              <div className="space-y-5">
+                {(diag?.sections ?? []).filter(s => s.body).map(s => (
+                  <div key={s.key} className="space-y-1.5">
+                    <h3 className="text-sm font-bold text-black">{s.title}</h3>
+                    <div className="space-y-2">
+                      {s.body.split("\n").filter(p => p.trim()).map((p, j) => (
+                        <p key={j} className="text-[14px] text-gray-600 leading-relaxed">{p.trim()}</p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Accordion>
+          )}
+
+          {/* 3) Fuentes — colapsable */}
           {sources.length > 0 && (
             <Accordion title="Fuentes" badge={
               <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{sources.length}</span>
