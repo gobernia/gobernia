@@ -8,6 +8,7 @@ export interface ToddTurn {
   input: "text" | "single_choice"
   done: boolean
   areas_cubiertas: string[]
+  expects_detail?: boolean
 }
 
 export interface ToddMessage {

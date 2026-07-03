@@ -59,7 +59,8 @@ export default function ToddFormPage() {
   }
 
   const answer = async (value: string) => {
-    if (!value.trim() || busy) return
+    const min = turn?.expects_detail ? 15 : 1
+    if (value.trim().length < min || busy) return
     setBusy(true); setText("")
     try {
       const t = await sendToddAnswer(value)
@@ -209,9 +210,14 @@ export default function ToddFormPage() {
                   ) : (
                     <form onSubmit={e => { e.preventDefault(); answer(text) }} className="space-y-3">
                       <textarea value={text} onChange={e => setText(e.target.value)} disabled={busy}
-                        rows={3} placeholder="Tu respuesta…"
+                        rows={turn?.expects_detail ? 4 : 3} placeholder="Tu respuesta…"
                         className="w-full rounded-xl border-2 border-gray-100 px-4 py-3 text-sm focus:border-black focus:outline-none resize-none" />
-                      <button type="submit" disabled={busy || !text.trim()}
+                      {turn?.expects_detail && (
+                        <p className="text-xs text-gray-400 leading-relaxed">
+                          💡 Sé específico: da contexto, números o un ejemplo. Entre más detalle, mejor tu diagnóstico.
+                        </p>
+                      )}
+                      <button type="submit" disabled={busy || text.trim().length < (turn?.expects_detail ? 15 : 1)}
                         className="w-full inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl disabled:opacity-40">
                         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continuar <ArrowRight className="h-4 w-4" /></>}
                       </button>
