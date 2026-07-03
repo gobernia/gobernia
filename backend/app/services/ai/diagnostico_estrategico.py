@@ -6,7 +6,7 @@ red ni DB. La generación corre en una task de Celery (app.tasks.diagnostico_tas
 import anthropic
 
 from app.core.config import settings
-from app.services.ai.agents.base import _stream_with_retry, _extract_json_object
+from app.services.ai.agents.base import _stream_with_retry, _create_with_retry, _extract_json_object
 
 SECTION_KEYS = (
     "resumen_ejecutivo",
@@ -31,6 +31,14 @@ _MAX_SEARCHES = 12      # presupuesto de búsquedas (suficiente para empresa + c
 SYSTEM_PROMPT = """Eres un analista estratégico senior del consejo de Gobernia.
 Investigas en la web la realidad de una empresa y produces un diagnóstico estratégico
 profesional, específico y accionable, en español.
+
+ESTILO (MUY IMPORTANTE): Escribe PARA EL DUEÑO de la empresa, en lenguaje claro y directo. Ve a
+los hechos, hallazgos y recomendaciones. NO narres tu método ni tus búsquedas ("busqué", "no
+encontré información", "según los resultados", "con base en la información disponible", "no fue
+posible determinar"), NO expliques cómo llegaste a las conclusiones ni la mecánica del análisis.
+Habla de la empresa y su mercado, no de tu proceso. Si un dato no es investigable, simplemente
+omítelo o conviértelo en un hallazgo de negocio (p. ej. "la marca casi no aparece en búsquedas"),
+sin disculparte ni describir tu limitación.
 
 Usa la herramienta de búsqueda web para investigar de verdad: el sitio de la empresa,
 su presencia digital, sus competidores reales en su región y segmento, tendencias de su
@@ -209,6 +217,89 @@ def attach_internal_findings(content: dict, memory_buffer: dict) -> dict:
     return content
 
 
+_SEVERIDADES = ("alta", "media", "baja")
+
+RIESGOS_TOOL = {
+    "name": "listar_riesgos",
+    "description": "Lista los riesgos operacionales y estratégicos internos derivados de las debilidades.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "riesgos": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "riesgo": {"type": "string",
+                                   "description": "El riesgo en una frase clara y directa para el dueño."},
+                        "severidad": {"type": "string", "enum": list(_SEVERIDADES)},
+                    },
+                    "required": ["riesgo", "severidad"],
+                },
+            },
+        },
+        "required": ["riesgos"],
+    },
+}
+
+_RIESGOS_SYSTEM = (
+    "Eres un analista de riesgos del consejo de Gobernia. A partir de las DEBILIDADES y puntos "
+    "parciales internos de una empresa, identifica los RIESGOS operacionales y estratégicos "
+    "concretos que esas debilidades implican para el negocio. En español, claro y directo para el "
+    "dueño, sin tecnicismos y SIN explicar tu método. 3-6 riesgos, frases cortas y accionables. "
+    "Asigna severidad: alta (amenaza la continuidad/rentabilidad), media (frena el crecimiento), "
+    "baja (conviene atender)."
+)
+
+
+def _riesgos_fallback(fortalezas_debilidades: dict) -> list[dict]:
+    """Sin IA: cada debilidad/parcial interna se registra como riesgo de severidad media."""
+    out = []
+    for _area, items in (fortalezas_debilidades or {}).items():
+        for h in (items or []):
+            if str(h.get("tipo")) in ("debilidad", "parcial") and str(h.get("texto") or "").strip():
+                out.append({"riesgo": str(h["texto"]).strip(), "severidad": "media"})
+    return out[:6]
+
+
+def derive_riesgos(memory_buffer: dict, fortalezas_debilidades: dict) -> list[dict]:
+    """Deriva riesgos internos (operacionales/estratégicos) de las debilidades. Sonnet tool-use;
+    sin API key o sin debilidades → fallback determinista."""
+    debilidades = []
+    for area, items in (fortalezas_debilidades or {}).items():
+        for h in (items or []):
+            if str(h.get("tipo")) in ("debilidad", "parcial") and str(h.get("texto") or "").strip():
+                debilidades.append(f"[{area}] {str(h['texto']).strip()}")
+    if not debilidades:
+        return []
+    if not settings.ANTHROPIC_API_KEY:
+        return _riesgos_fallback(fortalezas_debilidades)
+    c = (memory_buffer or {}).get("company") or {}
+    user = (
+        f"Empresa: {c.get('name', 'N/D')} · {c.get('industry', '')}\n"
+        "DEBILIDADES / PUNTOS PARCIALES INTERNOS:\n" + "\n".join(f"- {d}" for d in debilidades)
+        + "\n\nIdentifica los riesgos operacionales/estratégicos que estas debilidades implican."
+    )
+    try:
+        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
+        response = _create_with_retry(
+            client, model=settings.AI_MODEL, max_tokens=1024,
+            system=_RIESGOS_SYSTEM, messages=[{"role": "user", "content": user}],
+            tools=[RIESGOS_TOOL], tool_choice={"type": "tool", "name": "listar_riesgos"},
+        )
+        block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
+        data = dict(block.input) if block and isinstance(block.input, dict) else {}
+        out = []
+        for r in (data.get("riesgos") or []):
+            texto = str(r.get("riesgo") or "").strip()
+            sev = r.get("severidad") if r.get("severidad") in _SEVERIDADES else "media"
+            if texto:
+                out.append({"riesgo": texto, "severidad": sev})
+        return out or _riesgos_fallback(fortalezas_debilidades)
+    except Exception:
+        return _riesgos_fallback(fortalezas_debilidades)
+
+
 def generate_diagnostico(memory_buffer: dict) -> dict:
     """Llamada de red: Opus 4.8 + web_search. Devuelve el content listo para persistir.
     Lanza RuntimeError si llega vacío/ilegible tras reintento (para marcar 'failed')."""
@@ -242,6 +333,8 @@ def generate_diagnostico(memory_buffer: dict) -> dict:
         )
         content = parse_diagnostico(raw)
         if not _diagnostico_vacio(content):
-            return attach_internal_findings(content, memory_buffer)
+            content = attach_internal_findings(content, memory_buffer)
+            content["riesgos"] = derive_riesgos(memory_buffer, content["fortalezas_debilidades"])
+            return content
 
     raise RuntimeError("El diagnóstico llegó vacío o ilegible tras 2 intentos.")
