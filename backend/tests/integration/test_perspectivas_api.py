@@ -63,3 +63,25 @@ async def test_invite_rechaza_rol_invalido():
     finally:
         app.dependency_overrides.clear()
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_revocar_invite_404_para_invite_inexistente():
+    import uuid
+    db = AsyncMock()
+
+    # Mock execute to return a result whose scalar_one_or_none() returns None
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none = MagicMock(return_value=None)
+    db.execute = AsyncMock(return_value=mock_result)
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        invite_id = str(uuid.uuid4())
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.delete(f"/api/v1/perspectivas/{invite_id}")
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 404
+    assert r.json()["detail"] == "Invitación no encontrada"

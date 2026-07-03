@@ -1,4 +1,5 @@
 import secrets
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -60,7 +61,7 @@ async def listar_invites(
 
 @router.delete("/perspectivas/{invite_id}")
 async def revocar_invite(
-    invite_id: str,
+    invite_id: uuid.UUID,
     user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
 ):
     inv = (await db.execute(
