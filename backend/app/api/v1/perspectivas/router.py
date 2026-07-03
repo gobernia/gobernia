@@ -4,10 +4,12 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.perspectiva_invite import PerspectivaInvite
 from app.models.onboarding_session import OnboardingSession
+from app.models.diagnostico_estrategico import DiagnosticoEstrategico
 from app.schemas.perspectivas import InviteIn, InviteOut, InviteListItem
 
 router = APIRouter()
@@ -73,3 +75,46 @@ async def revocar_invite(
     await db.delete(inv)
     await db.commit()
     return {"deleted": True}
+
+
+@router.post("/perspectivas/consolidar")
+async def consolidar(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    diag = (await db.execute(
+        select(DiagnosticoEstrategico).where(DiagnosticoEstrategico.user_id == user_id)
+        .order_by(DiagnosticoEstrategico.created_at.desc())
+    )).scalars().first()
+    if diag is None:
+        raise HTTPException(status_code=404, detail="Genera tu diagnóstico antes de consolidar.")
+    content = dict(diag.content or {})
+    content["perspectivas"] = {**(content.get("perspectivas") or {}), "status": "generating"}
+    diag.content = content
+    flag_modified(diag, "content")
+    await db.commit()
+    try:
+        from app.tasks.perspectivas_tasks import generate_perspectivas_task
+        generate_perspectivas_task.delay(user_id)
+    except Exception:
+        content["perspectivas"]["status"] = "failed"
+        diag.content = content
+        flag_modified(diag, "content")
+        await db.commit()
+    return {"ok": True}
+
+
+@router.get("/perspectivas/sintesis")
+async def get_sintesis(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    diag = (await db.execute(
+        select(DiagnosticoEstrategico).where(DiagnosticoEstrategico.user_id == user_id)
+        .order_by(DiagnosticoEstrategico.created_at.desc())
+    )).scalars().first()
+    p = ((diag.content if diag else {}) or {}).get("perspectivas") or {}
+    return {"status": p.get("status") or "none",
+            "coincidencias": p.get("coincidencias") or [],
+            "contradicciones": p.get("contradicciones") or [],
+            "puntos_ciegos": p.get("puntos_ciegos") or [],
+            "por_rol": p.get("por_rol") or {},
+            "conteo": p.get("conteo") or {}}
