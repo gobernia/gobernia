@@ -75,7 +75,8 @@ _SYSTEM = (
 
 
 def generate_foda(memory_buffer: dict, diagnostico_content: dict,
-                  factores_externos: dict, metas_orden: list) -> dict:
+                  factores_externos: dict, metas_orden: list,
+                  perspectivas: dict | None = None) -> dict:
     hallazgos = ((diagnostico_content or {}).get("fortalezas_debilidades")
                  or (memory_buffer or {}).get("hallazgos") or {})
     fallback = _foda_fallback(hallazgos, factores_externos, metas_orden)
@@ -92,6 +93,11 @@ def generate_foda(memory_buffer: dict, diagnostico_content: dict,
         "DIAGNÓSTICO (web):\n" + ("\n".join(secciones) or "(n/d)")[:2500] + "\n\n"
         "METAS PRIORITARIAS (en orden):\n" + json.dumps([str(m) for m in (metas_orden or [])], ensure_ascii=False)
     )
+    persp = perspectivas or {}
+    if any(persp.get(k) for k in ("contradicciones", "puntos_ciegos", "coincidencias")):
+        user += ("\n\nPERSPECTIVAS DE OTRAS VOCES:\n" + json.dumps(
+            {k: persp.get(k) for k in ("coincidencias", "contradicciones", "puntos_ciegos")},
+            ensure_ascii=False)[:1500])
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
         response = _create_with_retry(

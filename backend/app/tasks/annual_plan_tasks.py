@@ -122,7 +122,9 @@ async def _run_generation(annual_plan_id: str, db) -> None:
             .order_by(DiagnosticoEstrategico.created_at.desc())
         )).scalars().first()
         dcont = (diag.content if diag else {}) or {}
-        memory_buffer = augment_buffer_with_foda(memory_buffer, dcont.get("foda"), dcont.get("metas_orden") or [])
+        memory_buffer = augment_buffer_with_foda(
+            memory_buffer, dcont.get("foda"), dcont.get("metas_orden") or [],
+            perspectivas=dcont.get("perspectivas"))
 
         # Idempotencia (retry): borrar resultados de un intento previo.
         # El FK ondelete CASCADE en monthly_plans→objectives→action_tasks limpia en cascada.

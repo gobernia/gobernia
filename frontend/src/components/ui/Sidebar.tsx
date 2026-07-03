@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Home, ClipboardList, Users,
-  FileSearch, LayoutGrid,
+  FileSearch, LayoutGrid, MessagesSquare,
   Settings, LogOut, Menu, X,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
@@ -17,6 +17,7 @@ const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
   { href: "/dashboard/foda", label: "FODA", exact: false, icon: LayoutGrid },
+  { href: "/dashboard/perspectivas", label: "Perspectivas", exact: false, icon: MessagesSquare },
   { href: "/dashboard/plan", label: "Plan", exact: false, icon: ClipboardList },
   // Oculto por ahora (no se borra; la página /dashboard/compromisos sigue existiendo):
   // { href: "/dashboard/compromisos", label: "Compromisos", exact: false, icon: CheckSquare },
