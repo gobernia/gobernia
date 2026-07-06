@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, ChevronDown, Check, Clock, Gauge, Wand2, RefreshCw, Trash2, X } from "lucide-react"
+import { Loader2, ChevronDown, Check, Clock, Gauge, Wand2, RefreshCw, Trash2, X, Download, Pencil } from "lucide-react"
 import {
   AnnualPlan, Task, ExplicacionTarea, AdaptacionTarea, MONTH_NAMES,
   getAnnualPlan, getAnnualPlanStatus, updateTask, deleteTask, getTaskExplicacion,
   adaptTask, generateAnnualPlan,
 } from "@/lib/annualPlan"
 import { getFoda } from "@/lib/foda"
+import { Roadmap, Meta3a, Pilar, getRoadmap, saveRoadmap, downloadRoadmapPdf } from "@/lib/roadmap"
 
 const DIF_CHIP: Record<string, string> = {
   "Fácil": "text-green-700 bg-green-50", "Media": "text-amber-700 bg-amber-50",
@@ -152,11 +153,42 @@ function TaskRow({ task, onToggle, busy, onReplaced, onRemoved }: {
   )
 }
 
+// --- Roadmap: edición por sección -----------------------------------------
+function EditControls({ editing, onEdit, onSave, onCancel, saving }: {
+  editing: boolean; onEdit: () => void; onSave: () => void; onCancel: () => void; saving: boolean
+}) {
+  return editing ? (
+    <div className="flex items-center gap-2 shrink-0">
+      <button onClick={onSave} disabled={saving}
+        className="inline-flex items-center gap-1.5 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50">
+        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Guardar
+      </button>
+      <button onClick={onCancel} disabled={saving} className="text-xs font-medium text-gray-400 hover:text-gray-600 px-2">Cancelar</button>
+    </div>
+  ) : (
+    <button onClick={onEdit}
+      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors shrink-0">
+      <Pencil className="h-3.5 w-3.5" /> Editar
+    </button>
+  )
+}
+
+const splitLines = (s: string): string[] => s.split("\n").map(x => x.trim()).filter(Boolean)
+const joinLines = (arr: string[] | undefined | null): string => (arr ?? []).join("\n")
+
+function roadmapIsEmpty(r: Roadmap): boolean {
+  return !r.vision && !r.mision && !r.propuesta_valor && !r.resumen_foda && !r.resumen_entorno &&
+    (r.metas_3anios?.length ?? 0) === 0 && (r.pilares?.length ?? 0) === 0
+}
+
+type DraftEncabezado = { vision: string; mision: string; propuesta_valor: string }
+type DraftPilar = { nombre: string; descripcion: string; anio1: string; anio2: string; anio3: string }
+
 export default function PlanPage() {
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
   const [active, setActive] = useState<number | null>(null)
   const [status, setStatus] = useState<string>("loading")
-  const [view, setView] = useState<"camino" | "timeline">("camino")
+  const [view, setView] = useState<"roadmap" | "camino" | "timeline">("roadmap")
   const [busyTask, setBusyTask] = useState<string | null>(null)
   const [gateMsg, setGateMsg] = useState<string | null>(null)
   const [fodaReady, setFodaReady] = useState<boolean | null>(null)
@@ -164,6 +196,21 @@ export default function PlanPage() {
   const [genErr, setGenErr] = useState<string | null>(null)
   const started = useRef(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // --- Roadmap ---------------------------------------------------------
+  const [roadmap, setRoadmap] = useState<Roadmap | null>(null)
+  const [loadingRoadmap, setLoadingRoadmap] = useState(false)
+  const [roadmapErr, setRoadmapErr] = useState<string | null>(null)
+  const [downloadingRoadmap, setDownloadingRoadmap] = useState(false)
+  const [savingRoadmap, setSavingRoadmap] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draftEncabezado, setDraftEncabezado] = useState<DraftEncabezado | null>(null)
+  const [draftMetas, setDraftMetas] = useState<Meta3a[] | null>(null)
+  const [draftFoda, setDraftFoda] = useState<string | null>(null)
+  const [draftEntorno, setDraftEntorno] = useState<string | null>(null)
+  const [draftPilar, setDraftPilar] = useState<DraftPilar | null>(null)
+  const roadmapLoaded = useRef(false)
+  const aliveRef = useRef(true)
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
@@ -215,6 +262,88 @@ export default function PlanPage() {
       setGenErr(detail ?? "No se pudo iniciar la generación del plan. Intenta de nuevo.")
       setGenerating(false)
     }
+  }
+
+  useEffect(() => {
+    aliveRef.current = true
+    return () => { aliveRef.current = false }
+  }, [])
+
+  // Carga el roadmap una vez, al entrar a esa vista con el plan activo.
+  useEffect(() => {
+    if (view !== "roadmap" || roadmapLoaded.current) return
+    if (status !== "active" && status !== "completed") return
+    roadmapLoaded.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoadingRoadmap(true)
+    getRoadmap()
+      .then(r => { if (aliveRef.current) setRoadmap(r) })
+      .catch(() => { if (aliveRef.current) setRoadmapErr("No se pudo cargar tu roadmap.") })
+      .finally(() => { if (aliveRef.current) setLoadingRoadmap(false) })
+  }, [view, status])
+
+  const clearDrafts = () => {
+    setDraftEncabezado(null); setDraftMetas(null); setDraftFoda(null); setDraftEntorno(null); setDraftPilar(null)
+  }
+  const cancelEdit = () => { setEditing(null); clearDrafts() }
+
+  const persistRoadmap = async (next: Roadmap) => {
+    setSavingRoadmap(true); setRoadmapErr(null)
+    try {
+      const saved = await saveRoadmap(next)
+      if (aliveRef.current) { setRoadmap(saved); setEditing(null); clearDrafts() }
+    } catch {
+      if (aliveRef.current) setRoadmapErr("No se pudo guardar el cambio. Intenta de nuevo.")
+    } finally {
+      if (aliveRef.current) setSavingRoadmap(false)
+    }
+  }
+
+  const startEditEncabezado = () => {
+    if (!roadmap) return
+    setDraftEncabezado({ vision: roadmap.vision, mision: roadmap.mision, propuesta_valor: roadmap.propuesta_valor })
+    setEditing("encabezado")
+  }
+  const saveEncabezado = () => { if (roadmap && draftEncabezado) persistRoadmap({ ...roadmap, ...draftEncabezado }) }
+
+  const startEditMetas = () => {
+    if (!roadmap) return
+    setDraftMetas((roadmap.metas_3anios ?? []).map(m => ({ ...m })))
+    setEditing("metas")
+  }
+  const updateDraftMeta = (idx: number, patch: Partial<Meta3a>) => {
+    setDraftMetas(prev => prev ? prev.map((m, i) => i === idx ? { ...m, ...patch } : m) : prev)
+  }
+  const saveMetas = () => { if (roadmap && draftMetas) persistRoadmap({ ...roadmap, metas_3anios: draftMetas }) }
+
+  const startEditFoda = () => { if (!roadmap) return; setDraftFoda(roadmap.resumen_foda); setEditing("foda") }
+  const saveFoda = () => { if (roadmap && draftFoda !== null) persistRoadmap({ ...roadmap, resumen_foda: draftFoda }) }
+
+  const startEditEntorno = () => { if (!roadmap) return; setDraftEntorno(roadmap.resumen_entorno); setEditing("entorno") }
+  const saveEntorno = () => { if (roadmap && draftEntorno !== null) persistRoadmap({ ...roadmap, resumen_entorno: draftEntorno }) }
+
+  const startEditPilar = (idx: number) => {
+    if (!roadmap) return
+    const p = roadmap.pilares[idx]
+    if (!p) return
+    setDraftPilar({
+      nombre: p.nombre, descripcion: p.descripcion,
+      anio1: joinLines(p.milestones?.anio1), anio2: joinLines(p.milestones?.anio2), anio3: joinLines(p.milestones?.anio3),
+    })
+    setEditing(`pilar-${idx}`)
+  }
+  const savePilar = (idx: number) => {
+    if (!roadmap || !draftPilar) return
+    const pilares: Pilar[] = roadmap.pilares.map((p, i) => i === idx ? {
+      nombre: draftPilar.nombre, descripcion: draftPilar.descripcion,
+      milestones: { anio1: splitLines(draftPilar.anio1), anio2: splitLines(draftPilar.anio2), anio3: splitLines(draftPilar.anio3) },
+    } : p)
+    persistRoadmap({ ...roadmap, pilares })
+  }
+
+  const onDownloadRoadmap = async () => {
+    setDownloadingRoadmap(true)
+    try { await downloadRoadmapPdf() } catch { /* noop */ } finally { setDownloadingRoadmap(false) }
   }
 
   const total = (plan?.horizon_years ?? 3) * 12
@@ -285,24 +414,245 @@ export default function PlanPage() {
 
   return (
     <div className="min-h-dvh bg-white text-black">
-      <main className="max-w-3xl mx-auto px-[var(--px-fluid)] py-10 space-y-8">
-        <div className="bg-[var(--gob-navy)] text-[var(--gob-bone)] rounded-2xl p-6">
-          <p className="text-[10px] font-medium tracking-widest uppercase opacity-70">Tu plan · {plan.horizon_years} años</p>
-          <h1 className="text-2xl font-bold mt-1">{plan.title || "Plan estratégico"}</h1>
-          <div className="mt-4 h-2 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-white rounded-full" style={{ width: `${pct}%` }} /></div>
-          <p className="text-xs opacity-90 mt-1.5">Mes {active ?? 1} de {total} · {pct}% completado</p>
+      {view === "roadmap" && (
+        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100">
+          <div className="max-w-3xl mx-auto px-[var(--px-fluid)] py-3.5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Tu plan · {plan.horizon_years} años</p>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">Roadmap estratégico</h1>
+            </div>
+            {roadmap && !roadmapIsEmpty(roadmap) && (
+              <button onClick={onDownloadRoadmap} disabled={downloadingRoadmap}
+                className="inline-flex items-center gap-2 border border-gray-200 text-sm font-medium text-gray-700 px-3.5 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50 shrink-0">
+                {downloadingRoadmap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                PDF
+              </button>
+            )}
+          </div>
         </div>
+      )}
+
+      <main className="max-w-3xl mx-auto px-[var(--px-fluid)] py-10 space-y-8">
+        {view !== "roadmap" && (
+          <div className="bg-[var(--gob-navy)] text-[var(--gob-bone)] rounded-2xl p-6">
+            <p className="text-[10px] font-medium tracking-widest uppercase opacity-70">Tu plan · {plan.horizon_years} años</p>
+            <h1 className="text-2xl font-bold mt-1">{plan.title || "Plan estratégico"}</h1>
+            <div className="mt-4 h-2 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-white rounded-full" style={{ width: `${pct}%` }} /></div>
+            <p className="text-xs opacity-90 mt-1.5">Mes {active ?? 1} de {total} · {pct}% completado</p>
+          </div>
+        )}
 
         <div className="flex gap-2 justify-center">
-          {(["camino", "timeline"] as const).map(v => (
+          {(["roadmap", "camino", "timeline"] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${view === v ? "bg-[var(--gob-navy)] text-[var(--gob-bone)] border-[var(--gob-navy)]" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
-              {v === "camino" ? "Vista Camino" : "Vista Timeline"}
+              {v === "roadmap" ? "Roadmap" : v === "camino" ? "Vista Camino" : "Vista Timeline"}
             </button>
           ))}
         </div>
 
-        {view === "camino" ? (
+        {view === "roadmap" ? (
+          <div className="space-y-6">
+            {roadmapErr && <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{roadmapErr}</p>}
+
+            {(loadingRoadmap || (!roadmap && !roadmapErr)) && (
+              <div className="border border-gray-100 rounded-2xl p-16 flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+              </div>
+            )}
+
+            {!loadingRoadmap && roadmap && roadmapIsEmpty(roadmap) && (
+              <div className="border border-gray-100 rounded-2xl p-12 text-center space-y-2">
+                <p className="text-sm font-medium text-black">Tu roadmap se está preparando…</p>
+                <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                  Si tu plan ya está activo y este mensaje no cambia, regenera tu plan para crear el roadmap.
+                </p>
+              </div>
+            )}
+
+            {!loadingRoadmap && roadmap && !roadmapIsEmpty(roadmap) && (
+              <>
+                {/* Encabezado ejecutivo */}
+                <section className="rounded-2xl border border-gray-100 p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-base font-bold text-black tracking-tight">Encabezado ejecutivo</h2>
+                    <EditControls editing={editing === "encabezado"} onEdit={startEditEncabezado} onSave={saveEncabezado} onCancel={cancelEdit} saving={savingRoadmap} />
+                  </div>
+                  {editing === "encabezado" && draftEncabezado ? (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Visión</p>
+                        <textarea value={draftEncabezado.vision} onChange={e => setDraftEncabezado(d => d && { ...d, vision: e.target.value })} rows={2}
+                          className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Misión</p>
+                        <textarea value={draftEncabezado.mision} onChange={e => setDraftEncabezado(d => d && { ...d, mision: e.target.value })} rows={2}
+                          className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Propuesta de valor</p>
+                        <textarea value={draftEncabezado.propuesta_valor} onChange={e => setDraftEncabezado(d => d && { ...d, propuesta_valor: e.target.value })} rows={2}
+                          className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {roadmap.vision && (
+                        <div><p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Visión</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">{roadmap.vision}</p></div>
+                      )}
+                      {roadmap.mision && (
+                        <div><p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Misión</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">{roadmap.mision}</p></div>
+                      )}
+                      {roadmap.propuesta_valor && (
+                        <div><p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">Propuesta de valor</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">{roadmap.propuesta_valor}</p></div>
+                      )}
+                      {!roadmap.vision && !roadmap.mision && !roadmap.propuesta_valor && (
+                        <p className="text-xs text-gray-300 italic">Sin contenido aún.</p>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                {/* Metas a 3 años */}
+                <section className="rounded-2xl border border-gray-100 p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-base font-bold text-black tracking-tight">Metas a 3 años</h2>
+                    <EditControls editing={editing === "metas"} onEdit={startEditMetas} onSave={saveMetas} onCancel={cancelEdit} saving={savingRoadmap} />
+                  </div>
+                  {editing === "metas" && draftMetas ? (
+                    <div className="space-y-4">
+                      {draftMetas.map((m, i) => (
+                        <div key={i} className="rounded-xl border border-gray-100 p-3.5 space-y-2">
+                          <textarea value={m.meta} onChange={e => updateDraftMeta(i, { meta: e.target.value })} rows={2} placeholder="Meta"
+                            className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <input value={m.kpi ?? ""} onChange={e => updateDraftMeta(i, { kpi: e.target.value })} placeholder="KPI"
+                              className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none" />
+                            <input value={m.valor_actual ?? ""} onChange={e => updateDraftMeta(i, { valor_actual: e.target.value })} placeholder="Valor actual"
+                              className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none" />
+                            <input value={m.target} onChange={e => updateDraftMeta(i, { target: e.target.value })} placeholder="Meta objetivo (target)"
+                              className="w-full rounded-lg border-2 border-[var(--gob-navy)]/30 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none" />
+                          </div>
+                        </div>
+                      ))}
+                      {draftMetas.length === 0 && <p className="text-xs text-gray-300 italic">Sin metas aún.</p>}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(roadmap.metas_3anios ?? []).map((m, i) => (
+                        <div key={i} className="rounded-xl border border-gray-100 p-3.5 space-y-1.5">
+                          <p className="text-sm text-gray-800 font-medium leading-snug">{m.meta}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {m.kpi && <span className="text-[11px] text-gray-500 bg-gray-50 rounded-full px-2 py-0.5">KPI: {m.kpi}</span>}
+                            {m.valor_actual && <span className="text-[11px] text-gray-500 bg-gray-50 rounded-full px-2 py-0.5">hoy: {m.valor_actual}</span>}
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--gob-navy)]">
+                              Meta:
+                              <input value={m.target} readOnly
+                                className="w-24 border border-[var(--gob-navy)]/20 rounded-md px-2 py-0.5 bg-[var(--gob-navy)]/[0.04] text-[var(--gob-navy)] text-[11px] font-semibold" />
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {(roadmap.metas_3anios ?? []).length === 0 && <p className="text-xs text-gray-300 italic">Sin metas aún.</p>}
+                    </div>
+                  )}
+                </section>
+
+                {/* Resumen FODA */}
+                <section className="rounded-2xl border border-gray-100 p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-base font-bold text-black tracking-tight">Resumen FODA</h2>
+                    <EditControls editing={editing === "foda"} onEdit={startEditFoda} onSave={saveFoda} onCancel={cancelEdit} saving={savingRoadmap} />
+                  </div>
+                  {editing === "foda" ? (
+                    <textarea value={draftFoda ?? ""} onChange={e => setDraftFoda(e.target.value)} rows={5}
+                      className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                  ) : roadmap.resumen_foda ? (
+                    <div className="space-y-2">
+                      {roadmap.resumen_foda.split("\n").filter(p => p.trim()).map((p, j) => (
+                        <p key={j} className="text-sm text-gray-700 leading-relaxed">{p.trim()}</p>
+                      ))}
+                    </div>
+                  ) : <p className="text-xs text-gray-300 italic">Sin contenido aún.</p>}
+                </section>
+
+                {/* Resumen del entorno */}
+                <section className="rounded-2xl border border-gray-100 p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-base font-bold text-black tracking-tight">Resumen del entorno</h2>
+                    <EditControls editing={editing === "entorno"} onEdit={startEditEntorno} onSave={saveEntorno} onCancel={cancelEdit} saving={savingRoadmap} />
+                  </div>
+                  {editing === "entorno" ? (
+                    <textarea value={draftEntorno ?? ""} onChange={e => setDraftEntorno(e.target.value)} rows={5}
+                      className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                  ) : roadmap.resumen_entorno ? (
+                    <div className="space-y-2">
+                      {roadmap.resumen_entorno.split("\n").filter(p => p.trim()).map((p, j) => (
+                        <p key={j} className="text-sm text-gray-700 leading-relaxed">{p.trim()}</p>
+                      ))}
+                    </div>
+                  ) : <p className="text-xs text-gray-300 italic">Sin contenido aún.</p>}
+                </section>
+
+                {/* Pilares estratégicos */}
+                <div className="space-y-4">
+                  <h2 className="text-base font-bold text-black tracking-tight px-1">Pilares estratégicos</h2>
+                  {(roadmap.pilares ?? []).map((p, i) => {
+                    const key = `pilar-${i}`
+                    const isEditing = editing === key
+                    return (
+                      <section key={i} className="rounded-2xl border border-gray-100 border-t-4 border-t-[var(--gob-navy)] p-5 space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                          {isEditing && draftPilar ? (
+                            <input value={draftPilar.nombre} onChange={e => setDraftPilar(d => d && { ...d, nombre: e.target.value })}
+                              className="flex-1 rounded-lg border-2 border-gray-100 px-3 py-1.5 text-sm font-bold focus:border-[var(--gob-navy)] focus:outline-none" />
+                          ) : (
+                            <h3 className="text-base font-bold text-black tracking-tight">{p.nombre || `Pilar ${i + 1}`}</h3>
+                          )}
+                          <EditControls editing={isEditing} onEdit={() => startEditPilar(i)} onSave={() => savePilar(i)} onCancel={cancelEdit} saving={savingRoadmap} />
+                        </div>
+
+                        {isEditing && draftPilar ? (
+                          <textarea value={draftPilar.descripcion} onChange={e => setDraftPilar(d => d && { ...d, descripcion: e.target.value })} rows={2}
+                            className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                        ) : (
+                          p.descripcion && <p className="text-sm text-gray-600 leading-relaxed">{p.descripcion}</p>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {(["anio1", "anio2", "anio3"] as const).map((yk, yi) => (
+                            <div key={yk} className="space-y-1.5">
+                              <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Año {yi + 1}</p>
+                              {isEditing && draftPilar ? (
+                                <textarea value={draftPilar[yk]} onChange={e => setDraftPilar(d => d && { ...d, [yk]: e.target.value })} rows={4}
+                                  placeholder="Un milestone por línea"
+                                  className="w-full rounded-lg border-2 border-gray-100 px-2.5 py-2 text-xs focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                              ) : (
+                                <ul className="space-y-1">
+                                  {(p.milestones?.[yk] ?? []).map((ms, mi) => (
+                                    <li key={mi} className="text-xs text-gray-600 leading-snug flex gap-1.5">
+                                      <span className="text-gray-300">•</span><span>{ms}</span>
+                                    </li>
+                                  ))}
+                                  {(p.milestones?.[yk] ?? []).length === 0 && <li className="text-xs text-gray-300 italic">Sin milestones.</li>}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )
+                  })}
+                  {(roadmap.pilares ?? []).length === 0 && <p className="text-xs text-gray-300 italic px-1">Sin pilares aún.</p>}
+                </div>
+              </>
+            )}
+          </div>
+        ) : view === "camino" ? (
           <>
             <div className="flex items-center gap-1 overflow-x-auto pb-2">
               {months.map(m => {
