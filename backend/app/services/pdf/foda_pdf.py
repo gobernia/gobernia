@@ -74,13 +74,6 @@ def build_foda_pdf(foda: dict, metas: list, company_name: str | None) -> bytes:
     ]))
     story.append(table)
 
-    metas = [str(m).strip() for m in (metas or []) if str(m).strip()]
-    if metas:
-        story.append(Paragraph("Tus prioridades", h2))
-        story.append(ListFlowable(
-            [ListItem(Paragraph(escape(m), body), leftIndent=12) for m in metas],
-            bulletType="1", start="1",
-        ))
-
+    # El FODA es ANÁLISIS: no incluye prioridades ni recomendaciones (esas viven en Metas y el Plan).
     doc.build(story)
     return buf.getvalue()

@@ -164,20 +164,6 @@ export default function FodaPage() {
               })}
             </div>
 
-            {(f.metas_priorizadas?.length ?? 0) > 0 && (
-              <section className="space-y-3 pt-2">
-                <h2 className="text-xl font-bold tracking-tight">Tus prioridades</h2>
-                <ol className="space-y-2">
-                  {f.metas_priorizadas.map((m, i) => (
-                    <li key={i} className="flex items-center gap-3 border border-gray-100 rounded-xl px-4 py-2.5">
-                      <span className="w-6 h-6 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
-                      <span className="text-sm">{m}</span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            )}
-
             <div className="pt-2 space-y-2">
               <button onClick={generarPlan} disabled={generando}
                 className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50">
