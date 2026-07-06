@@ -40,10 +40,15 @@ def build_roadmap_pdf(roadmap: dict, company_name: str | None) -> bytes:
         for m in metas:
             if not isinstance(m, dict) or not str(m.get("meta") or "").strip():
                 continue
-            base_txt = f' <font size=8 color="#888888">(hoy: {escape(str(m.get("valor_actual")))}' \
-                       f'{" · meta: " + escape(str(m.get("target"))) if str(m.get("target") or "").strip() else ""})</font>' \
-                       if str(m.get("valor_actual") or "").strip() or str(m.get("target") or "").strip() else ""
-            story.append(Paragraph(f'● {escape(str(m["meta"]).strip())}{base_txt}', item))
+            va = str(m.get("valor_actual") or "").strip()
+            tg = str(m.get("target") or "").strip()
+            partes = []
+            if va:
+                partes.append(f"hoy: {escape(va)}")
+            if tg:
+                partes.append(f"meta: {escape(tg)}")
+            anexo = f' <font size=8 color="#888888">({" · ".join(partes)})</font>' if partes else ""
+            story.append(Paragraph(f'● {escape(str(m["meta"]).strip())}{anexo}', item))
 
     _txt("Resumen FODA", roadmap.get("resumen_foda"))
     _txt("Resumen del entorno", roadmap.get("resumen_entorno"))
@@ -59,10 +64,11 @@ def build_roadmap_pdf(roadmap: dict, company_name: str | None) -> bytes:
                 story.append(Paragraph(escape(str(p["descripcion"]).strip()), body))
             mi = p.get("milestones") or {}
             for anio, key in (("Año 1", "anio1"), ("Año 2", "anio2"), ("Año 3", "anio3")):
-                items = [str(x).strip() for x in (mi.get(key) or []) if str(x).strip()]
-                if items:
+                vals = mi.get(key)
+                mls = [str(x).strip() for x in vals if str(x).strip()] if isinstance(vals, list) else []
+                if mls:
                     story.append(Paragraph(anio.upper(), label))
-                    for it in items:
+                    for it in mls:
                         story.append(Paragraph(f"● {escape(it)}", item))
 
     doc.build(story)

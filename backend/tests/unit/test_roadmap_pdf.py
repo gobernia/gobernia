@@ -15,3 +15,14 @@ def test_pdf_roadmap_completo_es_valido():
 
 def test_pdf_roadmap_vacio_no_truena():
     assert build_roadmap_pdf({}, None)[:5] == b"%PDF-"
+
+
+def test_pdf_roadmap_meta_sin_valor_actual_no_renderiza_none():
+    """Verify that metas with only target (no valor_actual) don't render 'hoy: None'"""
+    roadmap = {
+        "metas_3anios": [{"meta": "Mejorar margen", "valor_actual": None, "target": "12%"}]
+    }
+    # Should build PDF successfully without rendering "None"
+    pdf = build_roadmap_pdf(roadmap, "Test Company")
+    assert pdf[:5] == b"%PDF-"
+    assert len(pdf) > 0
