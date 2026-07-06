@@ -303,6 +303,24 @@ async def patch_roadmap(
     return plan.roadmap
 
 
+@router.get("/annual-plan/roadmap/pdf")
+async def roadmap_pdf(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None or not plan.roadmap:
+        raise HTTPException(status_code=404, detail="No hay roadmap disponible.")
+    onb = (await db.execute(
+        select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+        .order_by(OnboardingSession.created_at.desc())
+    )).scalars().first()
+    company_name = (((onb.memory_buffer if onb else {}) or {}).get("company") or {}).get("name")
+    from app.services.pdf.roadmap_pdf import build_roadmap_pdf
+    pdf = await anyio.to_thread.run_sync(lambda: build_roadmap_pdf(plan.roadmap, company_name))
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="roadmap.pdf"'})
+
+
 # ── CRUD de objetivos ─────────────────────────────────────────────────────────
 
 async def _owned_objective(obj_id: uuid.UUID, user_id: str, db: AsyncSession) -> Objective:
