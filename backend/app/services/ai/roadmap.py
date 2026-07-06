@@ -120,7 +120,8 @@ def generate_roadmap(memory_buffer: dict, diagnostico_content: dict) -> dict:
             if isinstance(m, dict) and str(m.get("meta") or "").strip():
                 metas.append({"meta": str(m["meta"]).strip(), "kpi": (str(m.get("kpi")).strip() or None) if m.get("kpi") else None,
                               "valor_actual": (str(m.get("valor_actual")).strip() or None) if m.get("valor_actual") else None,
-                              "target": str(m.get("target") or "").strip()})
+                              "target": ""})
+        metas = metas[:6]
         pilares = []
         for p in (d.get("pilares") or []):
             if not isinstance(p, dict) or not str(p.get("nombre") or "").strip():
