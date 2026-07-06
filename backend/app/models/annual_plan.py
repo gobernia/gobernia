@@ -29,6 +29,7 @@ class AnnualPlan(Base, UUIDMixin, TimestampMixin):
 
     horizon_years: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     milestones: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    roadmap: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     months: Mapped[list["MonthlyPlan"]] = relationship(
         back_populates="annual_plan",

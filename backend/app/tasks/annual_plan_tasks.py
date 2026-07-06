@@ -207,6 +207,13 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                                 year, month, int(tspec.get("due_day", 28))),
                             order_index=ti, status="pendiente"))
 
+        # Paso 5: roadmap estratégico (visión de largo plazo, no bloquea el plan si falla).
+        from app.services.ai.roadmap import generate_roadmap
+        try:
+            plan.roadmap = await asyncio.to_thread(generate_roadmap, memory_buffer, dcont)
+        except Exception:
+            plan.roadmap = None
+
         plan.status = "active"
         await db.commit()
     except Exception:
