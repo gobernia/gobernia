@@ -16,7 +16,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 
 import anyio
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -275,6 +275,32 @@ async def get_month(
         focus=month.focus, status=month.status, review=month.review,
         objectives=[_objective_out(o, grouped.get(o.id, [])) for o in month.objectives],
     )
+
+
+# ── Roadmap estratégico ───────────────────────────────────────────────────────
+
+@router.get("/annual-plan/roadmap")
+async def get_roadmap(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    return plan.roadmap or {}
+
+
+@router.patch("/annual-plan/roadmap")
+async def patch_roadmap(
+    body: dict = Body(...),
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    plan.roadmap = body
+    _flag_modified(plan, "roadmap")
+    await db.commit()
+    return plan.roadmap
 
 
 # ── CRUD de objetivos ─────────────────────────────────────────────────────────
