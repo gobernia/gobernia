@@ -7,6 +7,9 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
+# Acentos por pilar (mismos que el timeline del frontend).
+_PILAR_COLORS = ["#1e3a5f", "#0f766e", "#b45309", "#6d28d9", "#b91c1c", "#334155"]
+
 
 def build_roadmap_pdf(roadmap: dict, company_name: str | None) -> bytes:
     roadmap = roadmap or {}
@@ -18,6 +21,7 @@ def build_roadmap_pdf(roadmap: dict, company_name: str | None) -> bytes:
     h2 = ParagraphStyle("h2", parent=base["Heading2"], fontSize=13, spaceBefore=14, spaceAfter=4)
     h3 = ParagraphStyle("h3", parent=base["Heading3"], fontSize=11, spaceBefore=8, spaceAfter=2,
                         textColor=colors.HexColor("#1e3a5f"))
+    pilar_name = ParagraphStyle("pilar_name", parent=base["Heading3"], fontSize=12, spaceBefore=10, spaceAfter=2)
     body = ParagraphStyle("body", parent=base["BodyText"], fontSize=10.5, leading=15)
     item = ParagraphStyle("item", parent=base["BodyText"], fontSize=10, leading=14, spaceAfter=2)
     label = ParagraphStyle("label", parent=base["BodyText"], fontSize=8, leading=11,
@@ -56,10 +60,11 @@ def build_roadmap_pdf(roadmap: dict, company_name: str | None) -> bytes:
     pilares = roadmap.get("pilares") or []
     if pilares:
         story.append(Paragraph("Pilares estratégicos", h2))
-        for p in pilares:
+        for i, p in enumerate(pilares):
             if not isinstance(p, dict) or not str(p.get("nombre") or "").strip():
                 continue
-            story.append(Paragraph(escape(str(p["nombre"]).strip()), h3))
+            c = _PILAR_COLORS[i % len(_PILAR_COLORS)]
+            story.append(Paragraph(f'<font color="{c}">●</font> {escape(str(p["nombre"]).strip())}', pilar_name))
             if str(p.get("descripcion") or "").strip():
                 story.append(Paragraph(escape(str(p["descripcion"]).strip()), body))
             mi = p.get("milestones") or {}
