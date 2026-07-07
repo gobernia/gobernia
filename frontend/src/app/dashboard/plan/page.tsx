@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, ChevronDown, Check, Clock, Gauge, Wand2, RefreshCw, Trash2, X, Download, Pencil } from "lucide-react"
+import { Loader2, ChevronDown, Check, Clock, Gauge, Wand2, RefreshCw, Trash2, X, Download, Pencil, ArrowRight } from "lucide-react"
 import {
   AnnualPlan, Task, ExplicacionTarea, AdaptacionTarea, MONTH_NAMES,
   getAnnualPlan, getAnnualPlanStatus, updateTask, deleteTask, getTaskExplicacion,
@@ -183,6 +183,10 @@ function roadmapIsEmpty(r: Roadmap): boolean {
 
 type DraftEncabezado = { vision: string; mision: string; propuesta_valor: string }
 type DraftPilar = { nombre: string; descripcion: string; anio1: string; anio2: string; anio3: string }
+
+// Acentos por pilar (muteados, on-brand) para el timeline y las tarjetas.
+const PILAR_COLORS = ["#1e3a5f", "#0f766e", "#b45309", "#6d28d9", "#b91c1c", "#334155"]
+const pilarColor = (i: number) => PILAR_COLORS[i % PILAR_COLORS.length]
 
 export default function PlanPage() {
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
@@ -542,17 +546,21 @@ export default function PlanPage() {
                       {draftMetas.length === 0 && <p className="text-xs text-gray-300 italic">Sin metas aún.</p>}
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       {(roadmap.metas_3anios ?? []).map((m, i) => (
-                        <div key={i} className="rounded-xl border border-gray-100 p-3.5 space-y-1.5">
+                        <div key={i} className="rounded-xl border border-gray-100 p-3.5 space-y-2">
                           <p className="text-sm text-gray-800 font-medium leading-snug">{m.meta}</p>
                           <div className="flex flex-wrap items-center gap-2">
-                            {m.kpi && <span className="text-[11px] text-gray-500 bg-gray-50 rounded-full px-2 py-0.5">KPI: {m.kpi}</span>}
-                            {m.valor_actual && <span className="text-[11px] text-gray-500 bg-gray-50 rounded-full px-2 py-0.5">hoy: {m.valor_actual}</span>}
-                            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--gob-navy)]">
-                              Meta:
-                              <input value={m.target} readOnly
-                                className="w-24 border border-[var(--gob-navy)]/20 rounded-md px-2 py-0.5 bg-[var(--gob-navy)]/[0.04] text-[var(--gob-navy)] text-[11px] font-semibold" />
+                            {m.kpi && <span className="text-[11px] text-gray-500 bg-gray-50 rounded-full px-2 py-0.5">{m.kpi}</span>}
+                            {m.valor_actual && (
+                              <span className="text-[11px] font-medium text-gray-600 bg-gray-100 rounded-full px-2.5 py-0.5">hoy: {m.valor_actual}</span>
+                            )}
+                            {(m.valor_actual || m.target) && <ArrowRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />}
+                            <span className={`text-[11px] font-semibold rounded-full px-2.5 py-0.5 ${
+                              m.target
+                                ? "text-[var(--gob-navy)] bg-[var(--gob-navy)]/[0.08]"
+                                : "text-gray-400 bg-gray-50 border border-dashed border-gray-200"}`}>
+                              {m.target ? `meta: ${m.target}` : "meta: por definir"}
                             </span>
                           </div>
                         </div>
@@ -598,52 +606,91 @@ export default function PlanPage() {
                   ) : <p className="text-xs text-gray-300 italic">Sin contenido aún.</p>}
                 </section>
 
-                {/* Pilares estratégicos */}
+                {/* Recorrido a 3 años — timeline visual (signature) */}
+                {(roadmap.pilares ?? []).some(p =>
+                  ((p.milestones?.anio1?.length ?? 0) + (p.milestones?.anio2?.length ?? 0) + (p.milestones?.anio3?.length ?? 0)) > 0) && (
+                  <section className="rounded-2xl border border-gray-100 p-5 space-y-3">
+                    <h2 className="text-base font-bold text-black tracking-tight">Recorrido a 3 años</h2>
+                    <div className="overflow-x-auto -mx-1 px-1">
+                      <div className="min-w-[620px] space-y-2.5">
+                        <div className="grid grid-cols-[132px_1fr_1fr_1fr] gap-3">
+                          <div />
+                          {["Año 1", "Año 2", "Año 3"].map(a => (
+                            <div key={a} className="text-[10px] font-bold tracking-widest uppercase text-gray-400 text-center pb-1">{a}</div>
+                          ))}
+                        </div>
+                        {(roadmap.pilares ?? []).map((p, i) => {
+                          const c = pilarColor(i)
+                          return (
+                            <div key={i} className="grid grid-cols-[132px_1fr_1fr_1fr] gap-3 items-stretch">
+                              <div className="flex items-center gap-2 min-w-0 py-1">
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: c }} />
+                                <span className="text-xs font-semibold text-gray-700 leading-tight">{p.nombre || `Pilar ${i + 1}`}</span>
+                              </div>
+                              {(["anio1", "anio2", "anio3"] as const).map(yk => {
+                                const items = p.milestones?.[yk] ?? []
+                                return (
+                                  <div key={yk} className="rounded-lg p-2 flex flex-col gap-1.5" style={{ background: `${c}0d` }}>
+                                    {items.length === 0 ? (
+                                      <div className="flex-1 min-h-[1.75rem] flex items-center justify-center">
+                                        <span className="h-0.5 w-6 rounded-full" style={{ background: `${c}33` }} />
+                                      </div>
+                                    ) : items.map((ms, mi) => (
+                                      <div key={mi} className="text-[11px] leading-snug rounded-md px-2 py-1" style={{ background: `${c}1a`, color: c }}>{ms}</div>
+                                    ))}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Pilares estratégicos (detalle + edición) */}
                 <div className="space-y-4">
                   <h2 className="text-base font-bold text-black tracking-tight px-1">Pilares estratégicos</h2>
                   {(roadmap.pilares ?? []).map((p, i) => {
                     const key = `pilar-${i}`
                     const isEditing = editing === key
+                    const c = pilarColor(i)
                     return (
-                      <section key={i} className="rounded-2xl border border-gray-100 border-t-4 border-t-[var(--gob-navy)] p-5 space-y-4">
+                      <section key={i} className="rounded-2xl border border-gray-100 border-t-4 p-5 space-y-4" style={{ borderTopColor: c }}>
                         <div className="flex items-center justify-between gap-3">
                           {isEditing && draftPilar ? (
                             <input value={draftPilar.nombre} onChange={e => setDraftPilar(d => d && { ...d, nombre: e.target.value })}
                               className="flex-1 rounded-lg border-2 border-gray-100 px-3 py-1.5 text-sm font-bold focus:border-[var(--gob-navy)] focus:outline-none" />
                           ) : (
-                            <h3 className="text-base font-bold text-black tracking-tight">{p.nombre || `Pilar ${i + 1}`}</h3>
+                            <h3 className="flex items-center gap-2 text-base font-bold text-black tracking-tight">
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: c }} />
+                              {p.nombre || `Pilar ${i + 1}`}
+                            </h3>
                           )}
                           <EditControls editing={isEditing} onEdit={() => startEditPilar(i)} onSave={() => savePilar(i)} onCancel={cancelEdit} saving={savingRoadmap} />
                         </div>
 
                         {isEditing && draftPilar ? (
-                          <textarea value={draftPilar.descripcion} onChange={e => setDraftPilar(d => d && { ...d, descripcion: e.target.value })} rows={2}
-                            className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
-                        ) : (
-                          p.descripcion && <p className="text-sm text-gray-600 leading-relaxed">{p.descripcion}</p>
-                        )}
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {(["anio1", "anio2", "anio3"] as const).map((yk, yi) => (
-                            <div key={yk} className="space-y-1.5">
-                              <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Año {yi + 1}</p>
-                              {isEditing && draftPilar ? (
-                                <textarea value={draftPilar[yk]} onChange={e => setDraftPilar(d => d && { ...d, [yk]: e.target.value })} rows={4}
-                                  placeholder="Un milestone por línea"
-                                  className="w-full rounded-lg border-2 border-gray-100 px-2.5 py-2 text-xs focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
-                              ) : (
-                                <ul className="space-y-1">
-                                  {(p.milestones?.[yk] ?? []).map((ms, mi) => (
-                                    <li key={mi} className="text-xs text-gray-600 leading-snug flex gap-1.5">
-                                      <span className="text-gray-300">•</span><span>{ms}</span>
-                                    </li>
-                                  ))}
-                                  {(p.milestones?.[yk] ?? []).length === 0 && <li className="text-xs text-gray-300 italic">Sin milestones.</li>}
-                                </ul>
-                              )}
+                          <>
+                            <textarea value={draftPilar.descripcion} onChange={e => setDraftPilar(d => d && { ...d, descripcion: e.target.value })} rows={2}
+                              className="w-full rounded-lg border-2 border-gray-100 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {(["anio1", "anio2", "anio3"] as const).map((yk, yi) => (
+                                <div key={yk} className="space-y-1.5">
+                                  <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400">Año {yi + 1}</p>
+                                  <textarea value={draftPilar[yk]} onChange={e => setDraftPilar(d => d && { ...d, [yk]: e.target.value })} rows={4}
+                                    placeholder="Un milestone por línea"
+                                    className="w-full rounded-lg border-2 border-gray-100 px-2.5 py-2 text-xs focus:border-[var(--gob-navy)] focus:outline-none resize-none" />
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          </>
+                        ) : (
+                          p.descripcion
+                            ? <p className="text-sm text-gray-600 leading-relaxed">{p.descripcion}</p>
+                            : <p className="text-xs text-gray-300 italic">Sus milestones están en el recorrido de arriba.</p>
+                        )}
                       </section>
                     )
                   })}
