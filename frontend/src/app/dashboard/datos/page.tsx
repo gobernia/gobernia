@@ -23,7 +23,7 @@ interface MemoryBuffer {
     has_board?: boolean | string; competitors?: string | string[]
   }
   kpis?: Record<string, Kpi[]>
-  vision?: { statement?: string; main_goals?: string[] }
+  vision?: { statement?: string; main_goals?: string[]; exito_consejo?: string }
   governance?: { score?: number; level?: string }
   hallazgos?: Record<string, unknown>
 }
@@ -242,9 +242,17 @@ export default function DatosPage() {
 
               {/* Visión */}
               <Section icon={Eye} title="Visión a 3 años">
-                {buffer.vision?.statement
-                  ? <p className="text-sm text-gray-700 leading-relaxed">{buffer.vision.statement}</p>
-                  : <p className="text-sm text-gray-400">Sin registrar.</p>}
+                <div className="space-y-4">
+                  {buffer.vision?.exito_consejo && (
+                    <div className="rounded-xl bg-[var(--gob-navy)]/[0.04] border border-[var(--gob-navy)]/15 p-4">
+                      <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--gob-navy)] mb-1">Qué haría que valga la pena</p>
+                      <p className="text-sm text-gray-700 leading-relaxed">{buffer.vision.exito_consejo}</p>
+                    </div>
+                  )}
+                  {buffer.vision?.statement
+                    ? <p className="text-sm text-gray-700 leading-relaxed">{buffer.vision.statement}</p>
+                    : !buffer.vision?.exito_consejo && <p className="text-sm text-gray-400">Sin registrar.</p>}
+                </div>
               </Section>
 
               {/* Gobierno */}

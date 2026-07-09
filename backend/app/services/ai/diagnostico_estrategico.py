@@ -179,12 +179,21 @@ def build_prompt(memory_buffer: dict) -> str:
             + "\n".join(kpi_lineas) + "\n"
         )
 
+    exito = str(((memory_buffer or {}).get("vision") or {}).get("exito_consejo") or "").strip()
+    bloque_exito = ""
+    if exito:
+        bloque_exito = (
+            "\nLO QUE EL DUEÑO ESPERA LOGRAR (su definición de éxito, con sus palabras). Orienta TODO "
+            "el diagnóstico y las recomendaciones hacia esto:\n  " + exito + "\n"
+        )
+
     return (
         f"Empresa: {c.get('name', 'N/D')}\n"
         f"Industria: {c.get('industry', 'N/D')}\n"
         f"Región donde opera: {region or 'N/D'}\n"
         f"Sitio web: {c.get('website', 'N/D')}\n"
         f"Competidores que el usuario CREE tener: {', '.join(competidores) if competidores else 'ninguno indicado'}\n"
+        f"{bloque_exito}"
         f"{bloque_interno}"
         f"{bloque_kpis}\n"
         "Investiga y entrega el diagnóstico en el JSON indicado."

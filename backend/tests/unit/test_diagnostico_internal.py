@@ -51,6 +51,13 @@ def test_build_prompt_sin_hallazgos_no_truena():
     assert "X" in p
 
 
+def test_build_prompt_incluye_definicion_de_exito_del_dueno():
+    mb = {"company": {"name": "X"},
+          "vision": {"exito_consejo": "Duplicar ventas y poder delegar sin perder el control"}}
+    p = build_prompt(mb)
+    assert "Duplicar ventas y poder delegar sin perder el control" in p
+
+
 def test_build_prompt_incluye_kpis_con_valor():
     """Si la empresa SÍ reportó KPIs con número, el diagnóstico los toma en cuenta."""
     mb = {"company": {"name": "Keting Media"},
