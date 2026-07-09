@@ -78,6 +78,11 @@ AREA_BANK = {
 # Datos que Todd SÍ debe obtener (la app los consume después).
 ESSENTIALS = [
     "Nombre de la empresa (company.name)",
+    "La DEFINICIÓN DE ÉXITO del dueño (vision.exito_consejo). Hazla al INICIO, como una de las "
+    "PRIMERAS preguntas (después del nombre de la empresa), TAL CUAL: «¿Qué tendría que lograr este "
+    "Consejo para que, dentro de unos años, dijeras que valió completamente la pena haberlo creado?» "
+    "Es una pregunta ABIERTA y profunda (expects_detail=true); guárdala en 'vision.exito_consejo'. Es "
+    "la pregunta más importante: define el norte del dueño y orienta todo el análisis.",
     "Industria / sector (company.industry)",
     "Cuántas personas trabajan en la empresa / tamaño del equipo (company.employees). "
     "Pregúntalo TEMPRANO: define si es una sola persona, un equipo pequeño o más grande.",
