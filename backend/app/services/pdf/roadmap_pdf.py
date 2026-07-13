@@ -34,6 +34,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from app.services.pdf.logo import draw_logo
+
 # Acentos por pilar (mismos que el timeline del frontend).
 _PILAR_COLORS = ["#1e3a5f", "#0f766e", "#b45309", "#6d28d9", "#b91c1c", "#334155"]
 
@@ -612,15 +614,17 @@ def _slide_ejecucion(roadmap: dict, pilares: list[dict], st: dict) -> list:
 
 # --------------------------------------------------------------------------- portada
 
-def _dibuja_portada(canv, doc, roadmap: dict, company_name: str | None) -> None:
+def _dibuja_portada(canv, doc, roadmap: dict, company_name: str | None,
+                    logo: bytes | None = None) -> None:
     canv.saveState()
     # Fondo navy a sangre.
     canv.setFillColor(_NAVY)
     canv.rect(0, 0, _PW, _PH, stroke=0, fill=1)
 
-    # Hueco reservado para el logo del cliente (arriba a la izquierda). No se dibuja nada.
+    # Logo del cliente (arriba a la izquierda), dentro del hueco reservado.
     logo_h = 1.8 * cm
     logo_top = _PH - _MARGIN_Y - logo_h
+    draw_logo(canv, logo, _MARGIN_X, logo_top, logo_h, max_w=6 * cm)
 
     # Regla de acento.
     canv.setFillColor(colors.HexColor("#38bdf8"))
@@ -654,16 +658,23 @@ def _dibuja_portada(canv, doc, roadmap: dict, company_name: str | None) -> None:
     canv.restoreState()
 
 
-def _dibuja_pie(canv, doc, company_name: str | None) -> None:
+def _dibuja_pie(canv, doc, company_name: str | None, logo: bytes | None = None) -> None:
     canv.saveState()
     canv.setStrokeColor(_BORDER)
     canv.setLineWidth(0.5)
     canv.line(_MARGIN_X, _MARGIN_Y - 0.35 * cm, _PW - _MARGIN_X, _MARGIN_Y - 0.35 * cm)
+
+    # Logo pequeño en la esquina del pie de cada lámina.
+    pie_h = 1.0 * cm
+    x_texto = _MARGIN_X
+    if draw_logo(canv, logo, _MARGIN_X, _MARGIN_Y - 1.35 * cm, pie_h, max_w=3 * cm):
+        x_texto = _MARGIN_X + 3.2 * cm
+
     canv.setFillColor(_MUTED)
     canv.setFont("Helvetica", 7.5)
     izq = _clip(company_name, 50)
     if izq:
-        canv.drawString(_MARGIN_X, _MARGIN_Y - 0.85 * cm, izq)
+        canv.drawString(x_texto, _MARGIN_Y - 0.85 * cm, izq)
     canv.drawRightString(_PW - _MARGIN_X, _MARGIN_Y - 0.85 * cm,
                          f"Roadmap Estratégico · {canv.getPageNumber()}")
     canv.restoreState()
@@ -671,7 +682,8 @@ def _dibuja_pie(canv, doc, company_name: str | None) -> None:
 
 # --------------------------------------------------------------------------- entry point
 
-def build_roadmap_pdf(roadmap: dict, company_name: str | None) -> bytes:
+def build_roadmap_pdf(roadmap: dict, company_name: str | None,
+                      logo: bytes | None = None) -> bytes:
     roadmap = roadmap if isinstance(roadmap, dict) else {}
     st = _styles()
     pilares = _pilares(roadmap)
@@ -688,9 +700,9 @@ def build_roadmap_pdf(roadmap: dict, company_name: str | None) -> bytes:
                   leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     doc.addPageTemplates([
         PageTemplate(id="portada", frames=[marco],
-                     onPage=lambda c, d: _dibuja_portada(c, d, roadmap, company_name)),
+                     onPage=lambda c, d: _dibuja_portada(c, d, roadmap, company_name, logo)),
         PageTemplate(id="lamina", frames=[marco],
-                     onPage=lambda c, d: _dibuja_pie(c, d, company_name)),
+                     onPage=lambda c, d: _dibuja_pie(c, d, company_name, logo)),
     ])
 
     # 1. Portada (todo se dibuja en el canvas; el frame solo fuerza la página).

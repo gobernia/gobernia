@@ -260,9 +260,11 @@ async def get_foda_pdf(user_id: str = Depends(get_current_user_id), db: AsyncSes
         .order_by(OnboardingSession.created_at.desc())
     )).scalars().first()
     company_name = ((onb.memory_buffer if onb else {}) or {}).get("company", {}).get("name")
+    from app.api.v1.company.service import get_logo_bytes
+    logo = await get_logo_bytes(user_id, db)
     from app.services.pdf.foda_pdf import build_foda_pdf
     pdf = await anyio.to_thread.run_sync(
-        lambda: build_foda_pdf(foda, c.get("metas_orden") or [], company_name))
+        lambda: build_foda_pdf(foda, c.get("metas_orden") or [], company_name, logo))
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": 'attachment; filename="matriz-foda.pdf"'})
 

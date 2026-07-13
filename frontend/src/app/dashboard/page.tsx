@@ -14,6 +14,7 @@ import SecretarioWelcome from "@/components/dashboard/SecretarioWelcome"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
+import { getLogo } from "@/lib/logo"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -98,8 +99,13 @@ export default function DashboardPage() {
   const [modalMonth,   setModalMonth]  = useState(new Date().getMonth() + 1)
   const [creating,     setCreating]    = useState(false)
   const [createError,  setCreateError] = useState<string | null>(null)
+  const [companyLogo,  setCompanyLogo] = useState<string | null>(null)
 
   useEffect(() => {
+    getLogo()
+      .then(r => setCompanyLogo(r.logo))
+      .catch(() => {})
+
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null)
       const meta = data.user?.user_metadata ?? {}
@@ -366,9 +372,19 @@ export default function DashboardPage() {
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
               {todayLabel()}
             </p>
-            <h1 className="text-3xl font-bold text-black tracking-tight">
-              {greeting()}{companyName ? `, ${companyName}` : ""}.
-            </h1>
+            <div className="flex items-center gap-3">
+              {companyLogo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={companyLogo}
+                  alt={companyName ?? "Logo de tu empresa"}
+                  className="h-9 w-9 rounded-lg object-contain bg-white border border-gray-100 shrink-0"
+                />
+              )}
+              <h1 className="text-3xl font-bold text-black tracking-tight">
+                {greeting()}{companyName ? `, ${companyName}` : ""}.
+              </h1>
+            </div>
             {!onboardingComplete && (
               <p className="italic font-light text-sm text-gray-500 mt-1">
                 {completedStages.length === 0

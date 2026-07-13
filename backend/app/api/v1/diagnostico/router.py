@@ -9,6 +9,7 @@ from app.models.diagnostico_estrategico import DiagnosticoEstrategico
 from app.models.onboarding_session import OnboardingSession
 from app.schemas.diagnostico import DiagnosticoOut, DiagnosticoStatusOut
 from app.services.data_completeness import missing_diagnostico_data
+from app.api.v1.company.service import get_logo_bytes
 from app.services.pdf.diagnostico_pdf import build_diagnostico_pdf
 
 router = APIRouter()
@@ -111,7 +112,8 @@ async def diagnostico_pdf(
         raise HTTPException(status_code=404, detail="No hay diagnóstico disponible.")
     mb = await _memory_buffer(user_id, db)
     company_name = ((mb.get("company") or {}).get("name"))
-    pdf = build_diagnostico_pdf(diag.content, company_name)
+    logo = await get_logo_bytes(user_id, db)
+    pdf = build_diagnostico_pdf(diag.content, company_name, logo)
     return Response(
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="diagnostico.pdf"'},
