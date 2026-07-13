@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.v1.company.service import get_logo_bytes
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.action_plan import ActionTask
 from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
@@ -395,8 +396,9 @@ async def roadmap_pdf(
         .order_by(OnboardingSession.created_at.desc())
     )).scalars().first()
     company_name = (((onb.memory_buffer if onb else {}) or {}).get("company") or {}).get("name")
+    logo = await get_logo_bytes(user_id, db)
     from app.services.pdf.roadmap_pdf import build_roadmap_pdf
-    pdf = await anyio.to_thread.run_sync(lambda: build_roadmap_pdf(plan.roadmap, company_name))
+    pdf = await anyio.to_thread.run_sync(lambda: build_roadmap_pdf(plan.roadmap, company_name, logo))
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": 'attachment; filename="roadmap.pdf"'})
 
@@ -865,7 +867,8 @@ async def get_orden_del_dia_pdf(
     except Exception:
         company_name = None
 
-    pdf = build_orden_pdf(data, company_name)
+    logo = await get_logo_bytes(user_id, db)
+    pdf = build_orden_pdf(data, company_name, logo)
     return Response(
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="orden-del-dia-mes-{month_index}.pdf"'},

@@ -16,6 +16,7 @@ export default function PerspectivaPublicaPage() {
 
   const [role, setRole] = useState<Role | null>(null)
   const [companyName, setCompanyName] = useState("")
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
   const [turn, setTurn] = useState<PerspectivaTurn | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [text, setText] = useState("")
@@ -29,6 +30,7 @@ export default function PerspectivaPublicaPage() {
       .then(async data => {
         setRole(data.role)
         setCompanyName(data.company_name)
+        setCompanyLogo(data.logo ?? null)
         if (data.messages.length > 0) {
           const last = data.messages[data.messages.length - 1]
           setTurn({ message: last.text, options: last.options,
@@ -73,6 +75,24 @@ export default function PerspectivaPublicaPage() {
 
       <main className="flex-1 flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-xl">
+          {companyLogo && !notFound && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center gap-2 mb-8"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={companyLogo}
+                alt={companyName || "Logo de la empresa"}
+                className="h-14 max-w-[180px] object-contain"
+              />
+              {companyName && (
+                <span className="text-xs font-medium tracking-widest text-gray-400 uppercase">{companyName}</span>
+              )}
+            </motion.div>
+          )}
+
           {notFound ? (
             <p className="text-center text-sm text-gray-500">
               Este link no es válido o ya expiró.

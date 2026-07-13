@@ -5,10 +5,11 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import {
   ArrowLeft, Loader2, Building2, BarChart3, ClipboardList,
-  Compass, Target, Eye, ShieldCheck,
+  Compass, Target, Eye, ShieldCheck, Palette,
 } from "lucide-react"
 import api from "@/lib/api"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
+import LogoUpload from "@/components/company/LogoUpload"
 import { getFoda, type FodaOut } from "@/lib/foda"
 import { normalizeHallazgos } from "@/lib/diagnostico"
 
@@ -143,6 +144,14 @@ export default function DatosPage() {
               </Link>
             </div>
           </motion.div>
+
+          {/* Tu marca — el logo del cliente */}
+          <Section icon={Palette} title="Tu marca">
+            <p className="text-sm text-gray-500">
+              Sube el logo de tu empresa: aparecerá en tus reportes en PDF y dentro de la plataforma.
+            </p>
+            <LogoUpload companyName={c.name ?? null} />
+          </Section>
 
           {loading && (
             <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 text-gray-300 animate-spin" /></div>

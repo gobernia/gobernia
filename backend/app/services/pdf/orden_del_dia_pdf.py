@@ -9,11 +9,14 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
+from app.services.pdf.logo import logo_flowable
+
 _GREY = colors.HexColor("#6b7280")
 _MUTED = colors.HexColor("#9ca3af")
 
 
-def build_orden_pdf(data: dict, company_name: str | None) -> bytes:
+def build_orden_pdf(data: dict, company_name: str | None,
+                    logo: bytes | None = None) -> bytes:
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=letter,
@@ -31,6 +34,10 @@ def build_orden_pdf(data: dict, company_name: str | None) -> bytes:
 
     # escape() en TODO el contenido de usuario: reportlab parsea markup XML, un '&' lo rompe.
     # Separadores ASCII ('-') para evitar caracteres fuera de la fuente base.
+    marca = logo_flowable(logo, height_cm=1.2)
+    if marca is not None:
+        story.append(marca)
+        story.append(Spacer(1, 0.4 * cm))
     story.append(Paragraph(escape(company_name or "Plan estratégico de 12 meses"), s_company))
     story.append(Paragraph(
         escape(f"Orden del día - {data['period_label']} - Sesión {data['month_index']}"), s_sub))

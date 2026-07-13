@@ -16,6 +16,8 @@ export interface Invite {
 
 export interface PublicPerspectiva {
   role: Role; company_name: string
+  /** Logo de la empresa como data URL, o null si no subieron uno. */
+  logo?: string | null
   messages: { role: "todd" | "user"; text: string; options: string[] | null }[]
   done: boolean
 }

@@ -40,5 +40,8 @@ httpx==0.28.1             # TestClient async
 # PDF generation
 reportlab==4.2.5
 
+# Images (logo del cliente: validación + redimensionado; también la usa reportlab)
+Pillow==12.2.0
+
 # Dev utilities
 python-dotenv==1.0.1

@@ -9,6 +9,8 @@ from reportlab.platypus import (
     Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, ListFlowable, ListItem,
 )
 
+from app.services.pdf.logo import logo_flowable
+
 # (clave, etiqueta, color fuerte, fondo claro) — alineado con la UI.
 _QUADS = [
     ("fortalezas", "Fortalezas", "#16a34a", "#f0fdf4"),
@@ -18,7 +20,8 @@ _QUADS = [
 ]
 
 
-def build_foda_pdf(foda: dict, metas: list, company_name: str | None) -> bytes:
+def build_foda_pdf(foda: dict, metas: list, company_name: str | None,
+                   logo: bytes | None = None) -> bytes:
     foda = foda or {}
     buf = BytesIO()
     doc = SimpleDocTemplate(
@@ -31,10 +34,13 @@ def build_foda_pdf(foda: dict, metas: list, company_name: str | None) -> bytes:
     body = ParagraphStyle("body", parent=base["BodyText"], fontSize=10, leading=14)
     item = ParagraphStyle("item", parent=base["BodyText"], fontSize=9.5, leading=13)
 
-    story = [
-        Paragraph(escape(f"Matriz FODA — {company_name or 'tu empresa'}"), h1),
-        Spacer(1, 0.2 * cm),
-    ]
+    story = []
+    marca = logo_flowable(logo, height_cm=1.2)
+    if marca is not None:
+        story.append(marca)
+        story.append(Spacer(1, 0.4 * cm))
+    story.append(Paragraph(escape(f"Matriz FODA — {company_name or 'tu empresa'}"), h1))
+    story.append(Spacer(1, 0.2 * cm))
 
     sintesis = str(foda.get("sintesis") or "").strip()
     if sintesis:

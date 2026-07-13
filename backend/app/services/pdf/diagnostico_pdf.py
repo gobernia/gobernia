@@ -7,6 +7,8 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
+from app.services.pdf.logo import logo_flowable
+
 _SEV_COLOR = {"alta": "#dc2626", "media": "#d97706", "baja": "#6b7280"}
 
 
@@ -29,7 +31,8 @@ def _split_fd(content: dict):
     return fort, debil
 
 
-def build_diagnostico_pdf(content: dict, company_name: str | None) -> bytes:
+def build_diagnostico_pdf(content: dict, company_name: str | None,
+                          logo: bytes | None = None) -> bytes:
     content = content or {}
     buf = BytesIO()
     doc = SimpleDocTemplate(
@@ -49,10 +52,13 @@ def build_diagnostico_pdf(content: dict, company_name: str | None) -> bytes:
         tag = f' <font size=7 color="#999999">· {escape(area.upper())}</font>' if area else ""
         return Paragraph(f'<font color="{hexcolor}">●</font> {escape(texto)}{tag}', item)
 
-    story = [
-        Paragraph(escape(f"Diagnóstico estratégico — {company_name or 'tu empresa'}"), h1),
-        Spacer(1, 0.3 * cm),
-    ]
+    story = []
+    marca = logo_flowable(logo, height_cm=1.2)
+    if marca is not None:
+        story.append(marca)
+        story.append(Spacer(1, 0.4 * cm))
+    story.append(Paragraph(escape(f"Diagnóstico estratégico — {company_name or 'tu empresa'}"), h1))
+    story.append(Spacer(1, 0.3 * cm))
 
     # 1) Interno destacado: Fortalezas → Debilidades → Riesgos
     fort, debil = _split_fd(content)
