@@ -2,18 +2,49 @@
 import api from "@/lib/api"
 
 export interface Meta3a { meta: string; kpi: string | null; valor_actual: string | null; target: string }
+
+/** KPI de un pilar: valor de hoy → meta. `meta` puede venir vacía ("por definir"). */
+export interface KpiPilar { label: string; actual: string; meta: string }
+/** Resultado esperado de un pilar: título corto (ej. "↑ Margen bruto") + descripción. */
+export interface ResultadoEsperado { titulo: string; descripcion: string }
+/** Título de la fase de cada año dentro de un pilar. */
+export interface Fase {
+  anio1?: { titulo?: string }
+  anio2?: { titulo?: string }
+  anio3?: { titulo?: string }
+}
+
 export interface Pilar {
   nombre: string; descripcion: string
   milestones: { anio1: string[]; anio2: string[]; anio3: string[] }
+  // Campos opcionales (plantilla de presentación estratégica). Un roadmap viejo no los trae.
+  objetivo?: string
+  estrategias?: string[]
+  kpis?: KpiPilar[]
+  resultados_esperados?: ResultadoEsperado[]
+  fases?: Fase
 }
+
+/** Lema de cada año del recorrido (ej. "Ordenar la casa"). */
+export interface TemasPorAnio { anio1?: string; anio2?: string; anio3?: string }
+
 export interface Roadmap {
   vision: string; mision: string; propuesta_valor: string
   metas_3anios: Meta3a[]; resumen_foda: string; resumen_entorno: string; pilares: Pilar[]
+  // Campos opcionales globales.
+  anio_objetivo?: number
+  objetivos_estrategicos?: string[]
+  key_enablers?: string[]
+  temas_por_anio?: TemasPorAnio
+  conclusion_diagnostico?: string
+  conclusion_entorno?: string
 }
 
 const EMPTY: Roadmap = {
   vision: "", mision: "", propuesta_valor: "", metas_3anios: [],
   resumen_foda: "", resumen_entorno: "", pilares: [],
+  objetivos_estrategicos: [], key_enablers: [], temas_por_anio: {},
+  conclusion_diagnostico: "", conclusion_entorno: "",
 }
 
 export async function getRoadmap(): Promise<Roadmap> {
