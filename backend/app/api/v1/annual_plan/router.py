@@ -297,10 +297,90 @@ async def patch_roadmap(
     plan = await _current_plan(user_id, db)
     if plan is None:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
+    if plan.roadmap_status == "validado":
+        raise HTTPException(
+            status_code=409,
+            detail="El roadmap está validado y es solo lectura. Reábrelo para editarlo.",
+        )
     plan.roadmap = body
     _flag_modified(plan, "roadmap")
     await db.commit()
     return plan.roadmap
+
+
+# ── Ciclo de validación del roadmap ──────────────────────────────────────────
+# borrador (editable) → validado (solo lectura, queda registrado para el consejo).
+
+_ROADMAP_THEME_KEY = "roadmap_validado"
+_ROADMAP_THEME_LABEL = "Revisión del Roadmap estratégico"
+
+
+def _estado_out(plan: AnnualPlan) -> dict:
+    return {
+        "status": plan.roadmap_status or "borrador",
+        "validated_at": plan.roadmap_validated_at,
+    }
+
+
+@router.get("/annual-plan/roadmap/estado")
+async def get_roadmap_estado(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    return _estado_out(plan)
+
+
+@router.post("/annual-plan/roadmap/validar")
+async def validar_roadmap(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    """Sella el roadmap: queda solo lectura y se registra como tema de la próxima sesión."""
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    if not plan.roadmap:
+        raise HTTPException(status_code=409, detail="Aún no hay roadmap que validar.")
+
+    plan.roadmap_status = "validado"
+    plan.roadmap_validated_at = datetime.now(timezone.utc)
+
+    # Lo registra en la agenda del consejo (tema permanente hasta que lo revisen).
+    existentes = (await db.execute(
+        select(BoardTheme).where(
+            BoardTheme.annual_plan_id == plan.id, BoardTheme.key == _ROADMAP_THEME_KEY)
+    )).scalars().all()
+    if existentes:
+        for t in existentes:
+            t.active = True
+    else:
+        db.add(BoardTheme(
+            annual_plan_id=plan.id, key=_ROADMAP_THEME_KEY, label=_ROADMAP_THEME_LABEL,
+            type="permanente", every_n_sessions=1, active=True, is_default=False, order_index=0,
+        ))
+    await db.commit()
+    return _estado_out(plan)
+
+
+@router.post("/annual-plan/roadmap/reabrir")
+async def reabrir_roadmap(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    """Regresa el roadmap a borrador (editable) y lo retira de la agenda del consejo."""
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    plan.roadmap_status = "borrador"
+    plan.roadmap_validated_at = None
+    temas = (await db.execute(
+        select(BoardTheme).where(
+            BoardTheme.annual_plan_id == plan.id, BoardTheme.key == _ROADMAP_THEME_KEY)
+    )).scalars().all()
+    for t in temas:
+        t.active = False
+    await db.commit()
+    return _estado_out(plan)
 
 
 @router.get("/annual-plan/roadmap/pdf")

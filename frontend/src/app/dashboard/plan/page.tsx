@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, ChevronDown, Check, Clock, Gauge, Wand2, RefreshCw, Trash2, X, Download, Pencil, ArrowRight } from "lucide-react"
+import { Loader2, ChevronDown, Check, Clock, Gauge, Wand2, RefreshCw, Trash2, X, Download, Pencil, ArrowRight, BadgeCheck, Unlock } from "lucide-react"
 import {
   AnnualPlan, Task, ExplicacionTarea, AdaptacionTarea, MONTH_NAMES,
   getAnnualPlan, getAnnualPlanStatus, updateTask, deleteTask, getTaskExplicacion,
   adaptTask, generateAnnualPlan,
 } from "@/lib/annualPlan"
 import { getFoda } from "@/lib/foda"
-import { Roadmap, Meta3a, Pilar, getRoadmap, saveRoadmap, downloadRoadmapPdf } from "@/lib/roadmap"
+import {
+  Roadmap, Meta3a, Pilar, RoadmapEstado,
+  getRoadmap, saveRoadmap, downloadRoadmapPdf, getRoadmapEstado, validarRoadmap, reabrirRoadmap,
+} from "@/lib/roadmap"
 
 const DIF_CHIP: Record<string, string> = {
   "Fácil": "text-green-700 bg-green-50", "Media": "text-amber-700 bg-amber-50",
@@ -154,9 +157,11 @@ function TaskRow({ task, onToggle, busy, onReplaced, onRemoved }: {
 }
 
 // --- Roadmap: edición por sección -----------------------------------------
-function EditControls({ editing, onEdit, onSave, onCancel, saving }: {
+function EditControls({ editing, onEdit, onSave, onCancel, saving, hide = false }: {
   editing: boolean; onEdit: () => void; onSave: () => void; onCancel: () => void; saving: boolean
+  hide?: boolean
 }) {
+  if (hide) return null  // roadmap validado → solo lectura
   return editing ? (
     <div className="flex items-center gap-2 shrink-0">
       <button onClick={onSave} disabled={saving}
@@ -207,6 +212,8 @@ export default function PlanPage() {
   const [roadmapErr, setRoadmapErr] = useState<string | null>(null)
   const [downloadingRoadmap, setDownloadingRoadmap] = useState(false)
   const [savingRoadmap, setSavingRoadmap] = useState(false)
+  const [estadoRoadmap, setEstadoRoadmap] = useState<RoadmapEstado | null>(null)
+  const [validando, setValidando] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const [draftEncabezado, setDraftEncabezado] = useState<DraftEncabezado | null>(null)
   const [draftMetas, setDraftMetas] = useState<Meta3a[] | null>(null)
@@ -284,6 +291,9 @@ export default function PlanPage() {
       .then(r => { if (aliveRef.current) setRoadmap(r) })
       .catch(() => { if (aliveRef.current) setRoadmapErr("No se pudo cargar tu roadmap.") })
       .finally(() => { if (aliveRef.current) setLoadingRoadmap(false) })
+    getRoadmapEstado()
+      .then(e => { if (aliveRef.current) setEstadoRoadmap(e) })
+      .catch(() => { /* sin estado → se trata como borrador */ })
   }, [view, status])
 
   const clearDrafts = () => {
@@ -349,6 +359,36 @@ export default function PlanPage() {
     setDownloadingRoadmap(true)
     try { await downloadRoadmapPdf() } catch { /* noop */ } finally { setDownloadingRoadmap(false) }
   }
+
+  const validado = estadoRoadmap?.status === "validado"
+
+  const onValidar = async () => {
+    setValidando(true); setRoadmapErr(null)
+    try {
+      const e = await validarRoadmap()
+      if (aliveRef.current) { setEstadoRoadmap(e); setEditing(null); clearDrafts() }
+    } catch {
+      if (aliveRef.current) setRoadmapErr("No se pudo validar el roadmap. Intenta de nuevo.")
+    } finally {
+      if (aliveRef.current) setValidando(false)
+    }
+  }
+
+  const onReabrir = async () => {
+    setValidando(true); setRoadmapErr(null)
+    try {
+      const e = await reabrirRoadmap()
+      if (aliveRef.current) setEstadoRoadmap(e)
+    } catch {
+      if (aliveRef.current) setRoadmapErr("No se pudo reabrir el roadmap. Intenta de nuevo.")
+    } finally {
+      if (aliveRef.current) setValidando(false)
+    }
+  }
+
+  const fechaValidacion = estadoRoadmap?.validated_at
+    ? new Date(estadoRoadmap.validated_at).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })
+    : null
 
   const total = (plan?.horizon_years ?? 3) * 12
   const months = (plan?.months ?? []).slice().sort((a, b) => a.month_index - b.month_index)
@@ -476,11 +516,46 @@ export default function PlanPage() {
 
             {!loadingRoadmap && roadmap && !roadmapIsEmpty(roadmap) && (
               <>
+                {/* Fase: revisión (borrador) o sellado (validado) */}
+                {!validado ? (
+                  <div className="rounded-2xl border-2 border-dashed border-[var(--gob-navy)]/25 bg-[var(--gob-navy)]/[0.03] p-5 space-y-2">
+                    <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--gob-navy)]">
+                      Fase de revisión · borrador
+                    </p>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Este es el <strong>borrador</strong> que preparó tu consejo. Revísalo y <strong>ajusta el
+                      contenido</strong> con el botón <strong>Editar</strong> de cada bloque (visión, metas, pilares…).
+                      El formato no se modifica.
+                    </p>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Cuando estés conforme, pulsa <strong>Validar roadmap</strong> (abajo): quedará sellado, en solo
+                      lectura, <strong>registrado para tu próxima sesión de consejo</strong> y guardado en tu Biblioteca.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-green-200 bg-green-50/60 p-5 flex items-start justify-between gap-4 flex-wrap">
+                    <div className="space-y-1 min-w-0">
+                      <p className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-green-700">
+                        <BadgeCheck className="h-3.5 w-3.5" /> Validado{fechaValidacion ? ` · ${fechaValidacion}` : ""}
+                      </p>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        Tu roadmap está sellado y en solo lectura. Quedó <strong>registrado para tu próxima sesión de
+                        consejo</strong> y guardado en tu <strong>Biblioteca</strong>.
+                      </p>
+                    </div>
+                    <button onClick={onReabrir} disabled={validando}
+                      className="inline-flex items-center gap-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 px-4 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50 shrink-0">
+                      {validando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlock className="h-4 w-4" />}
+                      Reabrir para editar
+                    </button>
+                  </div>
+                )}
+
                 {/* Encabezado ejecutivo */}
                 <section className="rounded-2xl border border-gray-100 p-5 space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-base font-bold text-black tracking-tight">Encabezado ejecutivo</h2>
-                    <EditControls editing={editing === "encabezado"} onEdit={startEditEncabezado} onSave={saveEncabezado} onCancel={cancelEdit} saving={savingRoadmap} />
+                    <EditControls editing={editing === "encabezado"} onEdit={startEditEncabezado} onSave={saveEncabezado} onCancel={cancelEdit} saving={savingRoadmap} hide={validado} />
                   </div>
                   {editing === "encabezado" && draftEncabezado ? (
                     <div className="space-y-3">
@@ -525,7 +600,7 @@ export default function PlanPage() {
                 <section className="rounded-2xl border border-gray-100 p-5 space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-base font-bold text-black tracking-tight">Metas a 3 años</h2>
-                    <EditControls editing={editing === "metas"} onEdit={startEditMetas} onSave={saveMetas} onCancel={cancelEdit} saving={savingRoadmap} />
+                    <EditControls editing={editing === "metas"} onEdit={startEditMetas} onSave={saveMetas} onCancel={cancelEdit} saving={savingRoadmap} hide={validado} />
                   </div>
                   {editing === "metas" && draftMetas ? (
                     <div className="space-y-4">
@@ -574,7 +649,7 @@ export default function PlanPage() {
                 <section className="rounded-2xl border border-gray-100 p-5 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-base font-bold text-black tracking-tight">Resumen FODA</h2>
-                    <EditControls editing={editing === "foda"} onEdit={startEditFoda} onSave={saveFoda} onCancel={cancelEdit} saving={savingRoadmap} />
+                    <EditControls editing={editing === "foda"} onEdit={startEditFoda} onSave={saveFoda} onCancel={cancelEdit} saving={savingRoadmap} hide={validado} />
                   </div>
                   {editing === "foda" ? (
                     <textarea value={draftFoda ?? ""} onChange={e => setDraftFoda(e.target.value)} rows={5}
@@ -592,7 +667,7 @@ export default function PlanPage() {
                 <section className="rounded-2xl border border-gray-100 p-5 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-base font-bold text-black tracking-tight">Resumen del entorno</h2>
-                    <EditControls editing={editing === "entorno"} onEdit={startEditEntorno} onSave={saveEntorno} onCancel={cancelEdit} saving={savingRoadmap} />
+                    <EditControls editing={editing === "entorno"} onEdit={startEditEntorno} onSave={saveEntorno} onCancel={cancelEdit} saving={savingRoadmap} hide={validado} />
                   </div>
                   {editing === "entorno" ? (
                     <textarea value={draftEntorno ?? ""} onChange={e => setDraftEntorno(e.target.value)} rows={5}
@@ -668,7 +743,7 @@ export default function PlanPage() {
                               {p.nombre || `Pilar ${i + 1}`}
                             </h3>
                           )}
-                          <EditControls editing={isEditing} onEdit={() => startEditPilar(i)} onSave={() => savePilar(i)} onCancel={cancelEdit} saving={savingRoadmap} />
+                          <EditControls editing={isEditing} onEdit={() => startEditPilar(i)} onSave={() => savePilar(i)} onCancel={cancelEdit} saving={savingRoadmap} hide={validado} />
                         </div>
 
                         {isEditing && draftPilar ? (
@@ -696,6 +771,22 @@ export default function PlanPage() {
                   })}
                   {(roadmap.pilares ?? []).length === 0 && <p className="text-xs text-gray-300 italic px-1">Sin pilares aún.</p>}
                 </div>
+
+                {/* Validar el roadmap (cierra la fase de revisión) */}
+                {!validado && (
+                  <div className="pt-2 flex flex-col items-center gap-2">
+                    <button onClick={onValidar} disabled={validando}
+                      className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50">
+                      {validando
+                        ? <><Loader2 className="h-4 w-4 animate-spin" /> Validando…</>
+                        : <><BadgeCheck className="h-4 w-4" /> Validar roadmap</>}
+                    </button>
+                    <p className="text-xs text-gray-400 text-center max-w-md leading-relaxed">
+                      Al validar queda en solo lectura y se registra para tu próxima sesión de consejo.
+                      Podrás reabrirlo si necesitas cambiar algo.
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>
