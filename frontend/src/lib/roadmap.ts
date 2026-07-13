@@ -26,6 +26,26 @@ export async function saveRoadmap(roadmap: Roadmap): Promise<Roadmap> {
   return { ...EMPTY, ...(r.data || {}) }
 }
 
+export type RoadmapStatus = "borrador" | "validado"
+export interface RoadmapEstado { status: RoadmapStatus; validated_at: string | null }
+
+export async function getRoadmapEstado(): Promise<RoadmapEstado> {
+  const r = await api.get<RoadmapEstado>("/annual-plan/roadmap/estado")
+  return { status: r.data?.status ?? "borrador", validated_at: r.data?.validated_at ?? null }
+}
+
+/** Sella el roadmap: queda solo lectura y se registra para la próxima sesión de consejo. */
+export async function validarRoadmap(): Promise<RoadmapEstado> {
+  const r = await api.post<RoadmapEstado>("/annual-plan/roadmap/validar")
+  return r.data
+}
+
+/** Vuelve a borrador para poder editarlo (hay que validarlo de nuevo). */
+export async function reabrirRoadmap(): Promise<RoadmapEstado> {
+  const r = await api.post<RoadmapEstado>("/annual-plan/roadmap/reabrir")
+  return r.data
+}
+
 export async function downloadRoadmapPdf(): Promise<void> {
   const r = await api.get("/annual-plan/roadmap/pdf", { responseType: "blob" })
   const url = URL.createObjectURL(r.data as Blob)
