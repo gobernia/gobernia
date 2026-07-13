@@ -9,6 +9,7 @@ POST   /board-sessions/{id}/analyse          → trigger análisis de los 4 agen
 POST   /board-sessions/{id}/chat             → enviar mensaje a un agente
 GET    /board-sessions/{id}/chat             → historial del chat
 """
+import base64
 import uuid
 from datetime import datetime, timezone
 
@@ -21,6 +22,7 @@ from app.services.data_completeness import missing_company_data
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.board_session import BoardSession
 from app.models.chat_message import ChatMessage
+from app.models.document import Document
 from app.models.onboarding_session import OnboardingSession
 from app.schemas.board_session import (
     AnalysisRequest,
@@ -30,16 +32,23 @@ from app.schemas.board_session import (
     BoardSessionSummary,
     ChatMessageInput,
     ChatMessageOut,
+    normalize_agent_analyses,
 )
+from app.schemas.etapa7 import DOCUMENT_TYPE_LABELS
 from app.services.ai.agents.base import (
+    AGENT_DOC_TYPES,
     run_agent_analysis,
     run_agent_chat,
     run_agent_chat_stream,
     run_challenger_critique,
     run_agent_revision,
 )
+from app.services.ai.doc_blocks import readable_docs
+from app.services.documents.storage import download_from_storage
+from app.api.v1.board_sessions.documents import router as documents_router
 
 router = APIRouter(prefix="/board-sessions", tags=["board-sessions"])
+router.include_router(documents_router)
 
 _MONTH_NAMES = [
     "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -203,7 +212,7 @@ async def get_board_session(
         period_label=f"{_MONTH_NAMES[bs.period_month]} {bs.period_year}",
         status=bs.status,
         kpi_snapshot=bs.kpi_snapshot,
-        agent_analyses=bs.agent_analyses,
+        agent_analyses=normalize_agent_analyses(bs.agent_analyses),
         governance_score_snapshot=bs.governance_score_snapshot,
         messages=messages,
         created_at=bs.created_at,
@@ -295,6 +304,28 @@ async def run_analyses(
         if (s.agent_analyses or {}).get(agent)
     ]
 
+    # Board pack de la sesión: se lee ANTES de cerrar la conexión (la descarga de los
+    # bytes va después, ya sin DB abierta).
+    docs_result = await db.execute(
+        select(Document)
+        .where(Document.board_session_id == bs.id)
+        .order_by(Document.created_at.desc())
+    )
+    board_docs = [
+        {
+            "s3_key": d.s3_key,
+            "filename": d.filename,
+            "document_type": d.document_type,
+            "label": (
+                f"Documento «{d.filename}» "
+                f"({DOCUMENT_TYPE_LABELS.get(d.document_type, d.document_type)}) "
+                "subido para esta sesión de consejo."
+            ),
+        }
+        for d in docs_result.scalars().all()
+    ]
+    selected_docs, docs_note = readable_docs(board_docs)
+
     # Snapshot de campos necesarios y liberar la conexión a DB ANTES de los LLM calls.
     # Las 12 llamadas a Claude (4 agentes × 3 fases) pueden tomar minutos; mantener la
     # conexión abierta dispara el statement timeout de Supabase (QueryCanceledError).
@@ -307,19 +338,37 @@ async def run_analyses(
     await db.commit()
     await db.close()
 
+    # Descargar los bytes de los documentos legibles. Si uno falla, se ignora (no rompe la sesión).
+    import anyio
+    ready_docs: list[dict] = []
+    for d in selected_docs:
+        raw = await anyio.to_thread.run_sync(lambda k=d["s3_key"]: download_from_storage(k))
+        if raw is None:
+            continue
+        ready_docs.append({
+            "document_type": d["document_type"],
+            "kind": d["kind"],
+            "media_type": d["media_type"],
+            "data": base64.b64encode(raw).decode("ascii"),
+            "label": d["label"],
+        })
+
     # Ejecutar pipeline por agente: análisis inicial → crítica del Challenger → revisión
     # Sin conexión a DB activa; las llamadas son sync pero el event loop sigue libre
     # para otras requests.
-    import anyio
     for agent in body.agents:
+        agent_types = AGENT_DOC_TYPES.get(agent, set())
+        agent_docs = [d for d in ready_docs if d["document_type"] in agent_types]
         initial = await anyio.to_thread.run_sync(
-            lambda a=agent: run_agent_analysis(
+            lambda a=agent, docs=agent_docs: run_agent_analysis(
                 agent=a,
                 memory_buffer=memory_buffer,
                 kpi_snapshot=kpi_snapshot,
                 period_year=period_year,
                 period_month=period_month,
                 previous_analyses=previous_analyses,
+                documents=docs,
+                documents_note=docs_note,
             )
         )
         critique = await anyio.to_thread.run_sync(
@@ -363,7 +412,7 @@ async def run_analyses(
     return {
         "board_session_id": str(bs_id),
         "agents_analysed": body.agents,
-        "analyses": analyses,
+        "analyses": normalize_agent_analyses(analyses),
     }
 
 

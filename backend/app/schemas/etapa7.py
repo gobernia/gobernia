@@ -11,6 +11,8 @@ DOCUMENT_TYPE_LABELS = {
     "business_plan": "Plan de negocios",
     "internal_rules": "Reglamento interno",
     "family_protocol": "Protocolo familiar",
+    "presentation": "Presentación / material de la junta",
+    "audit_plan":  "Plan de auditoría",
     "other":       "Otro",
 }
 

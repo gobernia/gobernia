@@ -10,6 +10,8 @@ from typing import AsyncIterator
 import anthropic
 
 from app.core.config import settings
+from app.schemas.board_session import normalize_analysis
+from app.services.ai.doc_blocks import build_doc_blocks
 from app.services.ai.knowledge_base import build_knowledge_for_agent
 
 _log = logging.getLogger(__name__)
@@ -172,12 +174,91 @@ Tu rol: evaluar el Governance Score, acuerdos cumplidos, sesiones de consejo y b
 Dimensiones bajo tu cargo: Gobierno, Cumplimiento.""",
 }
 
-ANALYSIS_SCHEMA = """{
-  "summary": "Resumen ejecutivo de 2-3 oraciones",
-  "findings": ["hallazgo 1", "hallazgo 2", "hallazgo 3"],
-  "alerts": ["alerta crítica si existe"],
-  "recommendations": ["recomendación concreta 1", "recomendación concreta 2"]
-}"""
+# Qué documentos del board pack lee cada consejero (por document_type).
+AGENT_DOC_TYPES = {
+    "CFO":     {"financial", "business_plan"},
+    "Auditor": {"audit_plan", "financial", "internal_rules", "bylaws"},
+    "CSO":     {"presentation", "business_plan"},
+    "CRO":     {"financial", "audit_plan", "presentation"},
+}
+
+# Regla antialucinación: se inyecta en el system prompt de análisis y de revisión.
+ANTI_HALLUCINATION_RULE = """REGLA DE CITACIÓN (INQUEBRANTABLE):
+- Si afirmas un dato tomado de un documento, DEBES citar la fuente en el campo `fuente`, con el
+  nombre del documento y la página o sección exacta (ejemplo: "Estado de resultados, p. 4").
+- Si no tienes un documento que respalde una afirmación, deja `fuente` vacía ("") y NO la presentes
+  como dato duro: enúnciala como lectura, hipótesis o pregunta a validar con el dueño.
+- NUNCA inventes cifras, citas, páginas ni contenido de documentos. Si un documento no se te adjuntó,
+  no existe para ti: no supongas qué dice ni te refieras a él como si lo hubieras leído.
+- Si no se te adjuntó ningún documento, todas las `fuente` van vacías y tu análisis se apoya solo en
+  el contexto y los KPIs entregados.
+- Si echas en falta un documento para sostener tu juicio, pídelo explícitamente en `preguntas`."""
+
+ANALYSIS_TOOL = {
+    "name": "analisis_consejero",
+    "description": "Entrega el análisis estructurado del consejero para el periodo.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "summary": {
+                "type": "string",
+                "description": "Resumen ejecutivo de 2-3 oraciones, dirigido al dueño.",
+            },
+            "findings": {
+                "type": "array",
+                "description": "Hallazgos del periodo, 2-5.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "texto": {"type": "string", "description": "El hallazgo, en una o dos oraciones."},
+                        "fuente": {
+                            "type": "string",
+                            "description": (
+                                "Documento y página de donde sale el dato "
+                                "(ej. 'Estado de resultados, p. 4'). Vacío si no viene de un documento."
+                            ),
+                        },
+                    },
+                    "required": ["texto", "fuente"],
+                },
+            },
+            "alerts": {
+                "type": "array",
+                "description": "Alertas con semáforo. Lista vacía si no hay nada que alertar.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "nivel": {
+                            "type": "string",
+                            "enum": ["rojo", "ambar", "verde"],
+                            "description": "rojo = riesgo crítico; ambar = atención; verde = bajo control.",
+                        },
+                        "texto": {"type": "string"},
+                        "fuente": {
+                            "type": "string",
+                            "description": "Documento y página que respalda la alerta; vacío si no aplica.",
+                        },
+                    },
+                    "required": ["nivel", "texto", "fuente"],
+                },
+            },
+            "recommendations": {
+                "type": "array",
+                "description": "Recomendaciones concretas: QUIÉN, CUÁNDO y CÓMO se mide el éxito.",
+                "items": {"type": "string"},
+            },
+            "preguntas": {
+                "type": "array",
+                "description": (
+                    "2-4 preguntas detonadoras para la junta, desde tu rol. "
+                    "Preguntas que obliguen a decidir, no de relleno."
+                ),
+                "items": {"type": "string"},
+            },
+        },
+        "required": ["summary", "findings", "alerts", "recommendations", "preguntas"],
+    },
+}
 
 
 # ── Challenger Agent (pre-mortem / red team) ─────────────────────────────────
@@ -204,15 +285,39 @@ NO escribas un análisis nuevo. NO repitas lo que el agente ya dijo. Escribe SOL
 críticas accionables, breves, directas. Si encuentras pocas o ninguna debilidad
 real, sé honesto y dilo — no inventes problemas para parecer riguroso."""
 
-CHALLENGER_CRITIQUE_SCHEMA = """{
-  "weak_assumptions": ["supuesto débil 1", "..."],
-  "missing_risks": ["riesgo no mencionado 1", "..."],
-  "vague_recommendations": ["recomendación 1 es vaga porque no dice X, falta Y", "..."],
-  "ignored_data": ["el dato Z contradice esto", "..."],
-  "blind_spots": ["punto ciego 1", "..."],
-  "framework_gaps": ["mejor práctica CCE no aplicada", "..."],
-  "verdict": "una oración: ¿qué tan robusto es el análisis original?"
-}"""
+_CRITIQUE_LIST_FIELDS = (
+    "weak_assumptions", "missing_risks", "vague_recommendations",
+    "ignored_data", "blind_spots", "framework_gaps",
+)
+
+CHALLENGER_TOOL = {
+    "name": "critica_challenger",
+    "description": "Entrega la crítica pre-mortem del análisis del consejero.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            **{
+                f: {"type": "array", "items": {"type": "string"}}
+                for f in _CRITIQUE_LIST_FIELDS
+            },
+            "verdict": {
+                "type": "string",
+                "description": "Una oración: ¿qué tan robusto es el análisis original?",
+            },
+        },
+        "required": [*_CRITIQUE_LIST_FIELDS, "verdict"],
+    },
+}
+
+
+def _tool_input(response, tool_name: str) -> dict | None:
+    """Lee el bloque tool_use de la respuesta de Claude. None si no lo devolvió."""
+    for block in getattr(response, "content", None) or []:
+        if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == tool_name:
+            data = getattr(block, "input", None)
+            if isinstance(data, dict):
+                return dict(data)
+    return None
 
 
 def run_challenger_critique(
@@ -244,9 +349,8 @@ def run_challenger_critique(
         f"ANÁLISIS DEL AGENTE {agent} A CUESTIONAR:\n"
         f"{json.dumps(initial_analysis, ensure_ascii=False, indent=2)}\n\n"
         "Aplica el método pre-mortem: si en 12 meses este plan fracasa, ¿por qué fue? "
-        "Responde ÚNICAMENTE con JSON válido siguiendo este esquema. "
-        "Si un campo no tiene críticas reales, devuélvelo como lista vacía []:\n"
-        f"{CHALLENGER_CRITIQUE_SCHEMA}"
+        "Entrega la crítica con la herramienta 'critica_challenger'. "
+        "Si un campo no tiene críticas reales, devuélvelo como lista vacía []."
     )
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
@@ -255,9 +359,11 @@ def run_challenger_critique(
         max_tokens=2048,
         system=CHALLENGER_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
+        tools=[CHALLENGER_TOOL],
+        tool_choice={"type": "tool", "name": CHALLENGER_TOOL["name"]},
     )
-    raw = response.content[0].text
-    return _parse_json_loose(raw)
+    critique = _tool_input(response, CHALLENGER_TOOL["name"])
+    return critique if critique is not None else {}
 
 
 def run_agent_revision(
@@ -277,12 +383,7 @@ def run_agent_revision(
     if not settings.ANTHROPIC_API_KEY:
         return initial_analysis
 
-    has_critique = any(
-        critique.get(k) for k in (
-            "weak_assumptions", "missing_risks", "vague_recommendations",
-            "ignored_data", "blind_spots", "framework_gaps",
-        )
-    )
+    has_critique = any(critique.get(k) for k in _CRITIQUE_LIST_FIELDS)
     if not has_critique:
         return initial_analysis
 
@@ -301,6 +402,7 @@ def run_agent_revision(
         f"{AGENT_SYSTEM_PROMPTS[agent]}\n\n"
         f"TONO: {tone}. SENSIBILIDAD DE ALERTAS: {sensitivity}.\n"
         + (f"INSTRUCCIONES ADICIONALES: {custom}\n" if custom else "")
+        + f"\n{ANTI_HALLUCINATION_RULE}\n"
         + f"\n{knowledge_ctx}\n"
     )
 
@@ -317,9 +419,10 @@ def run_agent_revision(
         "CUÁNDO se hace, y CÓMO se medirá el éxito.\n"
         "3. Reconoce los riesgos omitidos en findings o alerts.\n"
         "4. Si la crítica no aplica o es incorrecta, mantén tu posición — no cedas por ceder.\n"
-        "5. Mantén el tono y el estilo del análisis original; solo fortalécelo.\n\n"
-        "Responde ÚNICAMENTE con JSON válido en el mismo esquema original:\n"
-        f"{ANALYSIS_SCHEMA}"
+        "5. Mantén el tono y el estilo del análisis original; solo fortalécelo.\n"
+        "6. NO tienes los documentos a la vista en esta revisión: conserva tal cual las `fuente` "
+        "que ya habías citado y NO inventes fuentes nuevas.\n\n"
+        "Entrega el análisis revisado con la herramienta 'analisis_consejero'."
     )
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
@@ -328,11 +431,12 @@ def run_agent_revision(
         max_tokens=2048,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
+        tools=[ANALYSIS_TOOL],
+        tool_choice={"type": "tool", "name": ANALYSIS_TOOL["name"]},
     )
-    raw = response.content[0].text
-    # Si la revisión falla parseo, devolver el análisis original en lugar de placeholder
-    parsed_raw = _extract_json_object(raw)
-    return parsed_raw if parsed_raw is not None else initial_analysis
+    revised = _tool_input(response, ANALYSIS_TOOL["name"])
+    # Si el modelo no devolvió la herramienta, conservamos el análisis original.
+    return normalize_analysis(revised) if revised is not None else initial_analysis
 
 
 def _parse_json_loose(raw: str) -> dict:
@@ -407,9 +511,13 @@ def run_agent_analysis(
     period_year: int,
     period_month: int,
     previous_analyses: list[dict] | None = None,
+    documents: list[dict] | None = None,
+    documents_note: str = "",
 ) -> dict:
     """
     Llama a Claude con el contexto completo y retorna el análisis estructurado.
+    `documents`: board pack del agente — [{kind, media_type, data (base64), label}].
+    `documents_note`: aviso sobre documentos que no se pudieron adjuntar (xlsx/docx...).
     Si ANTHROPIC_API_KEY no está configurada, retorna análisis placeholder.
     """
     agent_cfg = _get_agent_config(memory_buffer, agent)
@@ -430,28 +538,51 @@ def run_agent_analysis(
         f"{AGENT_SYSTEM_PROMPTS[agent]}\n\n"
         f"TONO: {tone}. SENSIBILIDAD DE ALERTAS: {sensitivity}.\n"
         + (f"INSTRUCCIONES ADICIONALES: {custom}\n" if custom else "")
+        + f"\n{ANTI_HALLUCINATION_RULE}\n"
         + f"\n{knowledge_ctx}\n"
     )
+
+    if documents:
+        docs_intro = (
+            "\nDOCUMENTOS DE LA SESIÓN (los de tu competencia): se adjuntan antes de estas "
+            "instrucciones, cada uno precedido por su descripción. Léelos y apóyate en ellos; "
+            "cita documento y página en `fuente` cada vez que uses un dato de ellos.\n"
+        )
+    else:
+        docs_intro = (
+            "\nNo se adjuntó ningún documento de tu competencia a esta sesión: trabaja solo con el "
+            "contexto y los KPIs, deja todas las `fuente` vacías y, si necesitas un documento para "
+            "sostener tu juicio, pídelo en `preguntas`.\n"
+        )
+    nota_docs = f"NOTA SOBRE DOCUMENTOS: {documents_note}\n" if documents_note else ""
 
     user_prompt = (
         f"Estás analizando el periodo: {_period_label(period_year, period_month)}.\n\n"
         f"{company_ctx}\n\n"
         f"{kpi_ctx}\n"
-        f"{history_ctx}\n\n"
-        "Genera tu análisis como consejero. Responde ÚNICAMENTE con JSON válido:\n"
-        f"{ANALYSIS_SCHEMA}"
+        f"{history_ctx}\n"
+        f"{docs_intro}"
+        f"{nota_docs}\n"
+        "Genera tu análisis como consejero y entrégalo con la herramienta 'analisis_consejero'."
     )
+
+    content = build_doc_blocks(documents) + [{"type": "text", "text": user_prompt}] \
+        if documents else user_prompt
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = _create_with_retry(client,
         model=settings.AI_MODEL,
         max_tokens=2048,
         system=system_prompt,
-        messages=[{"role": "user", "content": user_prompt}],
+        messages=[{"role": "user", "content": content}],
+        tools=[ANALYSIS_TOOL],
+        tool_choice={"type": "tool", "name": ANALYSIS_TOOL["name"]},
     )
 
-    raw = response.content[0].text
-    return _parse_json(raw, agent, period_year, period_month)
+    parsed = _tool_input(response, ANALYSIS_TOOL["name"])
+    if parsed is None:
+        return _placeholder_analysis(agent, period_year, period_month)
+    return normalize_analysis(parsed)
 
 
 def run_agent_chat(
@@ -565,11 +696,12 @@ def _placeholder_analysis(agent: str, year: int, month: int) -> dict:
                 f"{agent} Agent listo para {_period_label(year, month)}. "
                 "Configura ANTHROPIC_API_KEY para activar el análisis con IA."
             ),
-            "findings": ["Datos recibidos correctamente."],
+            "findings": [{"texto": "Datos recibidos correctamente.", "fuente": ""}],
             "alerts": [],
             "recommendations": ["Ingresa los KPIs del periodo para recibir análisis."],
+            "preguntas": [],
         }
-    # API key sí está, pero el modelo devolvió algo no parseable
+    # API key sí está, pero el modelo no devolvió la herramienta
     return {
         "summary": (
             f"El {agent} Agent recibió tu información para {_period_label(year, month)} pero "
@@ -578,6 +710,7 @@ def _placeholder_analysis(agent: str, year: int, month: int) -> dict:
         "findings": [],
         "alerts": [],
         "recommendations": ["Da click en 'Generar análisis' nuevamente."],
+        "preguntas": [],
     }
 
 

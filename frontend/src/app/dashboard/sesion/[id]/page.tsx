@@ -9,6 +9,7 @@ import api from "@/lib/api"
 import { supabase } from "@/lib/supabase"
 import { GoberniaIcon } from "@/components/ui/GoberniaLogo"
 import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
+import BoardPack from "@/components/consejo/BoardPack"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -22,12 +23,53 @@ const AGENTS = [
   { id: "Auditor", role: "Auditoría" },
 ]
 
+// ── Semáforo de alertas ───────────────────────────────────
+// Tailwind v4 no detecta clases dinámicas: colores literales en `style`.
+type AlertLevel = "rojo" | "ambar" | "verde"
+
+const ALERT_COLOR: Record<AlertLevel, string> = {
+  rojo:  "#b91c1c",
+  ambar: "#b45309",
+  verde: "#0f766e",
+}
+const ALERT_ORDER: Record<AlertLevel, number> = { rojo: 0, ambar: 1, verde: 2 }
+
 // ── Types ─────────────────────────────────────────────────
+interface Finding {
+  texto: string
+  fuente?: string
+}
+
+interface Alert {
+  nivel: AlertLevel
+  texto: string
+  fuente?: string
+}
+
 interface Analysis {
   summary: string
-  findings: string[]
-  alerts: string[]
+  // La API normaliza a objetos, pero toleramos strings de sesiones antiguas.
+  findings: (Finding | string)[]
+  alerts: (Alert | string)[]
   recommendations: string[]
+  preguntas?: string[]
+}
+
+/** Normaliza un hallazgo: acepta string suelto sin reventar. */
+function toFinding(f: Finding | string | null | undefined): Finding {
+  if (typeof f === "string") return { texto: f, fuente: "" }
+  return { texto: f?.texto ?? "", fuente: f?.fuente ?? "" }
+}
+
+/** Normaliza una alerta: acepta string suelto y nivel desconocido. */
+function toAlert(a: Alert | string | null | undefined): Alert {
+  if (typeof a === "string") return { nivel: "ambar", texto: a, fuente: "" }
+  const nivel = a?.nivel
+  return {
+    nivel: nivel && nivel in ALERT_COLOR ? nivel : "ambar",
+    texto: a?.texto ?? "",
+    fuente: a?.fuente ?? "",
+  }
 }
 
 interface ChatMsg {
@@ -298,7 +340,10 @@ export default function SessionPage() {
                   <AgentsCollaboration />
                 </div>
               ) : !hasAnalysis ? (
-                /* Empty state — no analysis yet */
+                /* Empty state — no analysis yet: primero el board pack, luego el botón */
+                <div className="space-y-5">
+                <BoardPack sessionId={id} />
+
                 <div className="border border-gray-100 rounded-2xl p-16 flex flex-col items-center text-center space-y-7">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {AGENTS.map(a => (
@@ -316,8 +361,9 @@ export default function SessionPage() {
                       Tu consejo está listo para analizar
                     </p>
                     <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
-                      Los cinco consejeros con IA revisarán tu perfil, y el Retador
-                      aplicará un pre-mortem a cada análisis antes de mostrártelo.
+                      Los cinco consejeros con IA revisarán tu perfil y los documentos que hayas
+                      subido, y el Retador aplicará un pre-mortem a cada análisis antes de
+                      mostrártelo.
                     </p>
                   </div>
 
@@ -331,6 +377,7 @@ export default function SessionPage() {
                   >
                     Iniciar análisis
                   </button>
+                </div>
                 </div>
               ) : (
                 /* Analysis results */
@@ -390,6 +437,11 @@ export default function SessionPage() {
                     {AGENTS.map((a, i) => {
                       const analysis = session.agent_analyses?.[a.id]
                       if (!analysis) return null
+                      const findings = (analysis.findings ?? []).map(toFinding)
+                      const alerts = (analysis.alerts ?? [])
+                        .map(toAlert)
+                        .sort((x, y) => ALERT_ORDER[x.nivel] - ALERT_ORDER[y.nivel])
+                      const preguntas = analysis.preguntas ?? []
                       return (
                         <motion.div
                           key={a.id}
@@ -407,32 +459,55 @@ export default function SessionPage() {
                             {analysis.summary}
                           </p>
 
-                          {analysis.findings?.length > 0 && (
+                          {findings.length > 0 && (
                             <div className="space-y-2">
                               <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">
                                 Hallazgos
                               </p>
-                              <ul className="space-y-1.5">
-                                {analysis.findings.map((f, j) => (
+                              <ul className="space-y-2">
+                                {findings.map((f, j) => (
                                   <li key={j} className="flex gap-2 text-xs text-gray-600 leading-relaxed">
                                     <span className="text-gray-300 flex-shrink-0 mt-0.5">·</span>
-                                    {f}
+                                    <span>
+                                      {f.texto}
+                                      {f.fuente && (
+                                        <span className="block text-[10px] text-gray-400 mt-0.5">
+                                          {f.fuente}
+                                        </span>
+                                      )}
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
                             </div>
                           )}
 
-                          {analysis.alerts?.length > 0 && (
+                          {alerts.length > 0 && (
                             <div className="space-y-2">
                               <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">
                                 Alertas
                               </p>
-                              <ul className="space-y-1.5">
-                                {analysis.alerts.map((al, j) => (
-                                  <li key={j} className="flex gap-2 text-xs text-gray-700 font-medium leading-relaxed">
-                                    <span className="text-gray-400 flex-shrink-0">!</span>
-                                    {al}
+                              <ul className="space-y-2">
+                                {alerts.map((al, j) => (
+                                  <li key={j} className="flex gap-2.5 text-xs leading-relaxed">
+                                    <span
+                                      aria-hidden
+                                      className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-[5px]"
+                                      style={{ backgroundColor: ALERT_COLOR[al.nivel] }}
+                                    />
+                                    <span>
+                                      <span
+                                        className="font-medium"
+                                        style={{ color: ALERT_COLOR[al.nivel] }}
+                                      >
+                                        {al.texto}
+                                      </span>
+                                      {al.fuente && (
+                                        <span className="block text-[10px] text-gray-400 mt-0.5">
+                                          {al.fuente}
+                                        </span>
+                                      )}
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
@@ -455,6 +530,28 @@ export default function SessionPage() {
                             </div>
                           )}
 
+                          {preguntas.length > 0 && (
+                            <div className="space-y-2 rounded-xl bg-[var(--gob-bone)] p-4">
+                              <p className="text-[10px] font-medium tracking-widest text-[var(--gob-navy)] uppercase">
+                                Preguntas para la junta
+                              </p>
+                              <p className="text-[10px] text-gray-500 leading-relaxed">
+                                Lo que {a.id} quiere que se discuta en la sesión.
+                              </p>
+                              <ul className="space-y-1.5">
+                                {preguntas.map((q, j) => (
+                                  <li
+                                    key={j}
+                                    className="flex gap-2 text-xs text-[var(--gob-ink)] leading-relaxed"
+                                  >
+                                    <span className="text-gray-400 flex-shrink-0">?</span>
+                                    {q}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
                           <div className="pt-1 mt-auto">
                             <button
                               onClick={() => { setActiveAgent(a.id); setTab("chat") }}
@@ -467,6 +564,9 @@ export default function SessionPage() {
                       )
                     })}
                   </div>
+
+                  {/* Board pack — secundario una vez que hay análisis, pero consultable */}
+                  <BoardPack sessionId={id} collapsible />
                 </div>
               )}
             </motion.div>

@@ -51,6 +51,17 @@ def download_from_storage(key: str) -> bytes | None:
         return None
 
 
+def delete_from_storage(key: str) -> bool:
+    """Borra el objeto del storage. Sin credenciales o ante cualquier fallo → False (no rompe el borrado en DB)."""
+    if not settings.AWS_ACCESS_KEY_ID:
+        return False
+    try:
+        _s3_client().delete_object(Bucket=settings.S3_BUCKET_DOCUMENTS, Key=key)
+        return True
+    except Exception:
+        return False
+
+
 def presigned_get_url(key: str, expires: int = 300) -> str | None:
     """URL GET prefirmada y temporal. Sin credenciales o ante fallo → None."""
     if not settings.AWS_ACCESS_KEY_ID:
