@@ -1,7 +1,7 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import Date, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,9 @@ class AnnualPlan(Base, UUIDMixin, TimestampMixin):
     horizon_years: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     milestones: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     roadmap: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Ciclo del roadmap: "borrador" (editable) → "validado" (solo lectura, registrado para el consejo).
+    roadmap_status: Mapped[str] = mapped_column(String(20), nullable=False, default="borrador")
+    roadmap_validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     months: Mapped[list["MonthlyPlan"]] = relationship(
         back_populates="annual_plan",
