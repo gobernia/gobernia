@@ -3,7 +3,10 @@ from types import SimpleNamespace
 from app.services.ai.roadmap import generate_roadmap, _roadmap_fallback
 
 _KEYS = {"vision", "mision", "propuesta_valor", "metas_3anios",
-         "resumen_foda", "resumen_entorno", "pilares"}
+         "resumen_foda", "resumen_entorno", "pilares",
+         # campos del template de presentación (opcionales, ver test_roadmap_ai.py)
+         "anio_objetivo", "objetivos_estrategicos", "key_enablers", "temas_por_anio",
+         "conclusion_diagnostico", "conclusion_entorno"}
 
 
 def test_fallback_estructura_completa_y_metas_desde_kpis_sin_inventar_target():
