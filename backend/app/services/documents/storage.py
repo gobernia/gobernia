@@ -28,14 +28,20 @@ async def upload_to_storage(
     content: bytes,
     key: str,
 ) -> str:
-    """Sube el archivo a S3. Si no hay credenciales configuradas, devuelve la clave sin subir."""
+    """
+    Sube el archivo a S3. Si no hay credenciales configuradas, devuelve la clave sin subir.
+    boto3 es síncrono: el put_object va a un thread para no bloquear el event loop.
+    """
     if not settings.AWS_ACCESS_KEY_ID:
         return key
 
-    _s3_client().put_object(
-        Bucket=settings.S3_BUCKET_DOCUMENTS,
-        Key=key,
-        Body=content,
+    import anyio
+    await anyio.to_thread.run_sync(
+        lambda: _s3_client().put_object(
+            Bucket=settings.S3_BUCKET_DOCUMENTS,
+            Key=key,
+            Body=content,
+        )
     )
     return key
 
@@ -49,6 +55,17 @@ def download_from_storage(key: str) -> bytes | None:
         return obj["Body"].read()
     except Exception:
         return None
+
+
+def delete_from_storage(key: str) -> bool:
+    """Borra el objeto del storage. Sin credenciales o ante cualquier fallo → False (no rompe el borrado en DB)."""
+    if not settings.AWS_ACCESS_KEY_ID:
+        return False
+    try:
+        _s3_client().delete_object(Bucket=settings.S3_BUCKET_DOCUMENTS, Key=key)
+        return True
+    except Exception:
+        return False
 
 
 def presigned_get_url(key: str, expires: int = 300) -> str | None:

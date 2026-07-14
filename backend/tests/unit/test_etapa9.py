@@ -144,10 +144,16 @@ def test_run_analysis_sin_api_key_devuelve_placeholder():
 
 
 def test_run_analysis_con_api_key_llama_claude():
-    mock_response = MagicMock()
-    mock_response.content = [MagicMock(
-        text='{"summary": "Análisis CFO", "findings": ["f1"], "alerts": [], "recommendations": ["r1"]}'
-    )]
+    """El agente usa tool-use forzado: el análisis viene en block.input, no en texto libre."""
+    from tests.unit.test_board_documents import _tool_response  # helper compartido
+
+    mock_response = _tool_response({
+        "summary": "Análisis CFO",
+        "findings": [{"texto": "f1", "fuente": ""}],
+        "alerts": [],
+        "recommendations": ["r1"],
+        "preguntas": ["¿Cuál es el plan de liquidez?"],
+    })
     with patch("app.services.ai.agents.base.settings") as mock_settings, \
          patch("app.services.ai.agents.base.anthropic.Anthropic") as mock_client:
         mock_settings.ANTHROPIC_API_KEY = "test-key"
@@ -155,6 +161,8 @@ def test_run_analysis_con_api_key_llama_claude():
         mock_client.return_value.messages.create.return_value = mock_response
         result = run_agent_analysis("CFO", _buf(), _kpi_snapshot(), 2025, 4)
     assert result["summary"] == "Análisis CFO"
+    assert result["findings"] == [{"texto": "f1", "fuente": ""}]
+    assert result["preguntas"] == ["¿Cuál es el plan de liquidez?"]
 
 
 # ── run_agent_chat sin API key ────────────────────────────────────────────────

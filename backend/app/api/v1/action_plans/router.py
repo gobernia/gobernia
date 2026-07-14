@@ -31,6 +31,7 @@ from app.schemas.action_plan import (
     AdaptarTareaOut,
     GeneratePlanResponse,
 )
+from app.schemas.board_session import normalize_agent_analyses
 from app.services.ai.plan_generator import generate_action_plan
 from app.services.ai.task_explainer import generate_explicacion
 from app.services.ai.task_adapter import adapt_task
@@ -157,7 +158,11 @@ async def generate_or_replace_plan(
             plan = plan_result.scalar_one()
 
     # 2. Generar tareas con el LLM (puede tardar 30s).
-    new_tasks = generate_action_plan(bs.agent_analyses, memory_buffer, period_label)
+    #    Se normaliza el análisis: las sesiones viejas guardan findings/alerts como
+    #    list[str] y las nuevas como dicts. El generador ve siempre el mismo shape.
+    new_tasks = generate_action_plan(
+        normalize_agent_analyses(bs.agent_analyses) or {}, memory_buffer, period_label
+    )
 
     # 3. Reemplazar tareas existentes con las nuevas.
     await db.execute(delete(ActionTask).where(ActionTask.plan_id == plan.id))
