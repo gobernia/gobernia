@@ -132,37 +132,42 @@ def _normalize_tags(v) -> list[str]:
     return [str(t).lower().strip()[:30] for t in v if t][:3]
 
 
-def _fallback_plan_from_analyses(agent_analyses: dict[str, dict]) -> list[dict]:
-    """Plan determinista cuando no hay API key: una tarea por recomendación."""
+def _item_text(item) -> str:
+    """
+    Texto de una alerta o recomendación. Desde el board pack las alertas son dicts
+    {nivel, texto, fuente}; las sesiones viejas las tienen como string suelto.
+    Sin esto, str(dict) titulaba la tarea "{'nivel': 'rojo', 'texto': ...}".
+    """
+    if isinstance(item, dict):
+        return str(item.get("texto") or item.get("text") or "").strip()
+    return str(item or "").strip()
+
+
+def _fallback_plan_from_analyses(agent_analyses: dict[str, dict] | None) -> list[dict]:
+    """Plan determinista cuando el LLM no está disponible o no devolvió JSON parseable."""
     tasks = []
     idx = 0
-    for agent, analysis in agent_analyses.items():
+    for agent, analysis in (agent_analyses or {}).items():
         if not isinstance(analysis, dict):
             continue
-        alerts = analysis.get("alerts") or []
-        recs = analysis.get("recommendations") or []
-        for a in alerts:
-            tasks.append({
-                "title":        str(a)[:200],
-                "description":  None,
-                "source_agent": agent,
-                "priority":     "alta",
-                "owner":        None,
-                "due_date":     _due_date_from_horizon("30d"),
-                "tags":         [],
-                "order_index":  idx,
-            })
-            idx += 1
-        for r in recs:
-            tasks.append({
-                "title":        str(r)[:200],
-                "description":  None,
-                "source_agent": agent,
-                "priority":     "media",
-                "owner":        None,
-                "due_date":     _due_date_from_horizon("90d"),
-                "tags":         [],
-                "order_index":  idx,
-            })
-            idx += 1
+        fuentes = (
+            (analysis.get("alerts") or [], "alta", "30d"),
+            (analysis.get("recommendations") or [], "media", "90d"),
+        )
+        for items, priority, horizon in fuentes:
+            for item in items:
+                title = _item_text(item)
+                if not title:
+                    continue
+                tasks.append({
+                    "title":        title[:200],
+                    "description":  None,
+                    "source_agent": agent,
+                    "priority":     priority,
+                    "owner":        None,
+                    "due_date":     _due_date_from_horizon(horizon),
+                    "tags":         [],
+                    "order_index":  idx,
+                })
+                idx += 1
     return tasks

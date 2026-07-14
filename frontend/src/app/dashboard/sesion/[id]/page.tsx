@@ -53,6 +53,8 @@ interface Analysis {
   alerts: (Alert | string)[]
   recommendations: string[]
   preguntas?: string[]
+  // El consejero no pudo leer los documentos y se analizó sin ellos.
+  _documentos_omitidos?: boolean
 }
 
 /** Normaliza un hallazgo: acepta string suelto sin reventar. */
@@ -458,6 +460,13 @@ export default function SessionPage() {
                           <p className="text-sm text-gray-600 leading-relaxed">
                             {analysis.summary}
                           </p>
+
+                          {analysis._documentos_omitidos && (
+                            <p className="text-xs text-gray-400 leading-relaxed">
+                              El consejero no pudo leer los documentos de esta sesión: su análisis
+                              se apoya solo en el contexto y los KPIs.
+                            </p>
+                          )}
 
                           {findings.length > 0 && (
                             <div className="space-y-2">

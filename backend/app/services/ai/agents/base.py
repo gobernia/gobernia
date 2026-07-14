@@ -175,12 +175,18 @@ Dimensiones bajo tu cargo: Gobierno, Cumplimiento.""",
 }
 
 # Qué documentos del board pack lee cada consejero (por document_type).
+# `other` ("Otro documento") es material de apoyo general: lo leen TODOS — si no,
+# el dueño lo sube, se le cobra el storage y ningún agente lo abre jamás.
 AGENT_DOC_TYPES = {
-    "CFO":     {"financial", "business_plan"},
-    "Auditor": {"audit_plan", "financial", "internal_rules", "bylaws"},
-    "CSO":     {"presentation", "business_plan"},
-    "CRO":     {"financial", "audit_plan", "presentation"},
+    "CFO":     {"financial", "business_plan", "other"},
+    "Auditor": {"audit_plan", "financial", "internal_rules", "bylaws", "other"},
+    "CSO":     {"presentation", "business_plan", "other"},
+    "CRO":     {"financial", "audit_plan", "presentation", "other"},
 }
+
+# Tokens del análisis del consejero. El esquema pide summary + findings + alerts +
+# recommendations + preguntas: con 2048 el tool_use se truncaba a media respuesta.
+ANALYSIS_MAX_TOKENS = 4096
 
 # Regla antialucinación: se inyecta en el system prompt de análisis y de revisión.
 ANTI_HALLUCINATION_RULE = """REGLA DE CITACIÓN (INQUEBRANTABLE):
@@ -320,6 +326,49 @@ def _tool_input(response, tool_name: str) -> dict | None:
     return None
 
 
+def _usable_analysis(response, tool_name: str) -> dict | None:
+    """
+    El análisis del tool_use, o None si no sirve.
+    Si el modelo se queda sin tokens, Anthropic devuelve el tool_use con el input a
+    medias (a veces `{}`): un dict vacío o sin `summary` es un fallo, no un análisis
+    — si no, la UI pinta una tarjeta de consejero en blanco y nadie se entera.
+    """
+    if getattr(response, "stop_reason", None) == "max_tokens":
+        _log.warning("respuesta truncada por max_tokens; se descarta el tool_use parcial")
+        return None
+    data = _tool_input(response, tool_name)
+    if not data or not str(data.get("summary") or "").strip():
+        return None
+    return data
+
+
+def _fuentes_de(analysis: dict) -> set[str]:
+    """Todas las `fuente` citadas (no vacías) en findings y alerts."""
+    a = normalize_analysis(analysis)
+    return {
+        item["fuente"].strip()
+        for item in (*a["findings"], *a["alerts"])
+        if item.get("fuente", "").strip()
+    }
+
+
+def _filtrar_fuentes(analysis: dict, permitidas: set[str] | None) -> dict:
+    """
+    Deja en blanco toda `fuente` que no esté en `permitidas`.
+    `permitidas=None` (o vacío) → se vacían todas.
+    Es la verificación determinista de la regla antialucinación: el prompt la pide,
+    pero solo el backend puede garantizarla.
+    """
+    ok = permitidas or set()
+    out = dict(analysis)
+    for campo in ("findings", "alerts"):
+        out[campo] = [
+            {**item, "fuente": item["fuente"] if item.get("fuente", "").strip() in ok else ""}
+            for item in (out.get(campo) or [])
+        ]
+    return out
+
+
 def run_challenger_critique(
     agent: str,
     initial_analysis: dict,
@@ -428,15 +477,19 @@ def run_agent_revision(
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = _create_with_retry(client,
         model=settings.AI_MODEL,
-        max_tokens=2048,
+        max_tokens=ANALYSIS_MAX_TOKENS,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
         tools=[ANALYSIS_TOOL],
         tool_choice={"type": "tool", "name": ANALYSIS_TOOL["name"]},
     )
-    revised = _tool_input(response, ANALYSIS_TOOL["name"])
-    # Si el modelo no devolvió la herramienta, conservamos el análisis original.
-    return normalize_analysis(revised) if revised is not None else initial_analysis
+    revised = _usable_analysis(response, ANALYSIS_TOOL["name"])
+    # Si el modelo no devolvió una revisión utilizable, conservamos el análisis original.
+    if revised is None:
+        return initial_analysis
+    # La revisión NO tiene los documentos a la vista: solo puede sostener las fuentes que
+    # ya citó el análisis inicial. Cualquier fuente nueva es inventada → se vacía.
+    return _filtrar_fuentes(normalize_analysis(revised), _fuentes_de(initial_analysis))
 
 
 def _parse_json_loose(raw: str) -> dict:
@@ -572,17 +625,22 @@ def run_agent_analysis(
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = _create_with_retry(client,
         model=settings.AI_MODEL,
-        max_tokens=2048,
+        max_tokens=ANALYSIS_MAX_TOKENS,
         system=system_prompt,
         messages=[{"role": "user", "content": content}],
         tools=[ANALYSIS_TOOL],
         tool_choice={"type": "tool", "name": ANALYSIS_TOOL["name"]},
     )
 
-    parsed = _tool_input(response, ANALYSIS_TOOL["name"])
+    parsed = _usable_analysis(response, ANALYSIS_TOOL["name"])
     if parsed is None:
         return _placeholder_analysis(agent, period_year, period_month)
-    return normalize_analysis(parsed)
+
+    analysis = normalize_analysis(parsed)
+    if not documents:
+        # No se le adjuntó ningún documento: no hay fuente posible que citar.
+        analysis = _filtrar_fuentes(analysis, permitidas=None)
+    return analysis
 
 
 def run_agent_chat(
@@ -711,6 +769,27 @@ def _placeholder_analysis(agent: str, year: int, month: int) -> dict:
         "alerts": [],
         "recommendations": ["Da click en 'Generar análisis' nuevamente."],
         "preguntas": [],
+    }
+
+
+def failed_agent_analysis(agent: str, year: int, month: int) -> dict:
+    """
+    Placeholder cuando el pipeline de UN agente revienta (documento ilegible, PDF cifrado,
+    error de la API...). Los demás consejeros siguen y lo que sí se logró se persiste.
+    """
+    return {
+        "summary": (
+            f"No pude completar el análisis del {agent} para {_period_label(year, month)}. "
+            "Revisa que los documentos sean PDF válidos, no estén protegidos con contraseña "
+            "y vuelve a generar el análisis."
+        ),
+        "findings": [],
+        "alerts": [],
+        "recommendations": [
+            "Revisa los documentos de esta sesión y vuelve a generar el análisis.",
+        ],
+        "preguntas": [],
+        "_error": True,
     }
 
 

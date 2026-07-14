@@ -10,6 +10,7 @@ POST   /board-sessions/{id}/chat             → enviar mensaje a un agente
 GET    /board-sessions/{id}/chat             → historial del chat
 """
 import base64
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -37,18 +38,28 @@ from app.schemas.board_session import (
 from app.schemas.etapa7 import DOCUMENT_TYPE_LABELS
 from app.services.ai.agents.base import (
     AGENT_DOC_TYPES,
+    failed_agent_analysis,
     run_agent_analysis,
     run_agent_chat,
     run_agent_chat_stream,
     run_challenger_critique,
     run_agent_revision,
 )
-from app.services.ai.doc_blocks import readable_docs
+from app.services.ai.doc_blocks import classify_docs, select_for_agent
 from app.services.documents.storage import download_from_storage
 from app.api.v1.board_sessions.documents import router as documents_router
 
+_log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/board-sessions", tags=["board-sessions"])
 router.include_router(documents_router)
+
+# Nota que recibe el agente cuando su análisis con documentos falló y se reintenta sin ellos.
+_NOTA_SIN_DOCUMENTOS = (
+    "No pude abrir los documentos de esta sesión (pueden estar dañados, protegidos con "
+    "contraseña o ser demasiado extensos). Analiza solo con el contexto y los KPIs, deja "
+    "todas las `fuente` vacías y pídele al dueño que los vuelva a subir en PDF válido."
+)
 
 _MONTH_NAMES = [
     "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -324,7 +335,10 @@ async def run_analyses(
         }
         for d in docs_result.scalars().all()
     ]
-    selected_docs, docs_note = readable_docs(board_docs)
+    # Se clasifican aquí, pero los topes (nº de documentos y bytes) y la nota se aplican
+    # POR AGENTE, después del ruteo: si no, 8 láminas de hoy dejan al CFO sin el estado
+    # financiero de ayer, y el CSO recibe avisos sobre documentos que no son de su competencia.
+    readable_board_docs, unreadable_board_docs = classify_docs(board_docs)
 
     # Snapshot de campos necesarios y liberar la conexión a DB ANTES de los LLM calls.
     # Las 12 llamadas a Claude (4 agentes × 3 fases) pueden tomar minutos; mantener la
@@ -341,40 +355,38 @@ async def run_analyses(
     # Descargar los bytes de los documentos legibles. Si uno falla, se ignora (no rompe la sesión).
     import anyio
     ready_docs: list[dict] = []
-    for d in selected_docs:
+    for d in readable_board_docs:
         raw = await anyio.to_thread.run_sync(lambda k=d["s3_key"]: download_from_storage(k))
         if raw is None:
             continue
         ready_docs.append({
+            "filename": d["filename"],
             "document_type": d["document_type"],
             "kind": d["kind"],
             "media_type": d["media_type"],
+            "size_bytes": len(raw),
             "data": base64.b64encode(raw).decode("ascii"),
             "label": d["label"],
         })
 
-    # Ejecutar pipeline por agente: análisis inicial → crítica del Challenger → revisión
-    # Sin conexión a DB activa; las llamadas son sync pero el event loop sigue libre
-    # para otras requests.
-    for agent in body.agents:
-        agent_types = AGENT_DOC_TYPES.get(agent, set())
-        agent_docs = [d for d in ready_docs if d["document_type"] in agent_types]
+    async def _pipeline(agent: str, docs: list[dict], note: str) -> tuple[dict, dict]:
+        """Análisis inicial → crítica del Challenger → revisión, para UN agente."""
         initial = await anyio.to_thread.run_sync(
-            lambda a=agent, docs=agent_docs: run_agent_analysis(
-                agent=a,
+            lambda: run_agent_analysis(
+                agent=agent,
                 memory_buffer=memory_buffer,
                 kpi_snapshot=kpi_snapshot,
                 period_year=period_year,
                 period_month=period_month,
                 previous_analyses=previous_analyses,
                 documents=docs,
-                documents_note=docs_note,
+                documents_note=note,
             )
         )
         critique = await anyio.to_thread.run_sync(
-            lambda a=agent, ini=initial: run_challenger_critique(
-                agent=a,
-                initial_analysis=ini,
+            lambda: run_challenger_critique(
+                agent=agent,
+                initial_analysis=initial,
                 memory_buffer=memory_buffer,
                 kpi_snapshot=kpi_snapshot,
                 period_year=period_year,
@@ -382,10 +394,10 @@ async def run_analyses(
             )
         )
         revised = await anyio.to_thread.run_sync(
-            lambda a=agent, ini=initial, crit=critique: run_agent_revision(
-                agent=a,
-                initial_analysis=ini,
-                critique=crit,
+            lambda: run_agent_revision(
+                agent=agent,
+                initial_analysis=initial,
+                critique=critique,
                 memory_buffer=memory_buffer,
                 kpi_snapshot=kpi_snapshot,
                 period_year=period_year,
@@ -393,8 +405,45 @@ async def run_analyses(
                 previous_analyses=previous_analyses,
             )
         )
-        analyses[agent] = {**revised, "_challenger_applied": True}
-        critiques[agent] = critique
+        return revised, critique
+
+    # Ejecutar el pipeline por agente. Sin conexión a DB activa; las llamadas son sync pero
+    # el event loop sigue libre para otras requests.
+    # Un agente que revienta (PDF corrupto, cifrado, >100 páginas → BadRequestError de
+    # Anthropic) NO puede tumbar la sesión entera ni tirar a la basura lo que los demás
+    # consejeros ya produjeron: se aísla, se reintenta sin documentos y, si aún así falla,
+    # cae a un placeholder que le dice al dueño qué revisar.
+    for agent in body.agents:
+        agent_types = AGENT_DOC_TYPES.get(agent, set())
+        agent_docs, agent_note = select_for_agent(
+            [d for d in ready_docs if d["document_type"] in agent_types],
+            [d for d in unreadable_board_docs if d["document_type"] in agent_types],
+        )
+        try:
+            revised, critique = await _pipeline(agent, agent_docs, agent_note)
+            analyses[agent] = {**revised, "_challenger_applied": True}
+            critiques[agent] = critique
+            continue
+        except Exception:
+            _log.exception("pipeline del agente %s falló (con %d documentos)", agent, len(agent_docs))
+
+        if agent_docs:
+            # Segundo intento SIN documentos: el dueño al menos obtiene su análisis, aunque
+            # el consejero no haya podido leer los papeles.
+            try:
+                revised, critique = await _pipeline(agent, [], _NOTA_SIN_DOCUMENTOS)
+                analyses[agent] = {
+                    **revised,
+                    "_challenger_applied": True,
+                    "_documentos_omitidos": True,
+                }
+                critiques[agent] = critique
+                continue
+            except Exception:
+                _log.exception("reintento sin documentos del agente %s también falló", agent)
+
+        analyses[agent] = failed_agent_analysis(agent, period_year, period_month)
+        critiques[agent] = {}
 
     # Abrir una nueva sesión de DB para persistir los resultados
     from app.db.session import AsyncSessionLocal
