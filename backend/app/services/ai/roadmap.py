@@ -107,8 +107,49 @@ _SYSTEM = (
 )
 
 
+# Cuando el Consejo ya deliberó, el Roadmap deja de ser una redacción libre: es la TRADUCCIÓN de
+# esa postura a un plan de 3 años. Los pilares se derivan de las prioridades del Consejo.
+_SYSTEM_CONSEJO = (
+    "\n\nLA POSTURA DEL CONSEJO MANDA:\n"
+    "El Consejo de Administración ya deliberó sobre esta empresa y emitió UNA conclusión, una tesis "
+    "estratégica y sus prioridades (te las doy abajo). ESTE ROADMAP ES LA TRADUCCIÓN DE LO QUE EL "
+    "CONSEJO DELIBERÓ, no un plan nuevo:\n"
+    "- Los PILARES se DERIVAN de las prioridades del Consejo (en su orden) y de su tesis "
+    "estratégica. NO inventes pilares de cero ni contradigas al Consejo.\n"
+    "- La tesis estratégica del Consejo es la apuesta que el roadmap debe hacer realidad: los "
+    "'objetivos_estrategicos', los 'temas_por_anio' y los milestones deben servirla.\n"
+    "- Los riesgos que el Consejo señaló deben verse atendidos en algún pilar o en los "
+    "'key_enablers'.\n"
+    "- 'conclusion_diagnostico' debe ser fiel a la conclusión del Consejo, no una lectura distinta."
+)
+
+
 def _anio_objetivo_default() -> int:
     return date.today().year + 3
+
+
+def _deliberacion_ctx(deliberacion: dict | None) -> str:
+    """El bloque de prompt con la postura del Consejo. Vacío si el Consejo no deliberó."""
+    d = deliberacion or {}
+    if not str(d.get("conclusion") or "").strip():
+        return ""
+    prioridades = [str(p).strip() for p in (d.get("prioridades") or []) if str(p).strip()]
+    riesgos = [
+        f"[{str(r.get('nivel') or 'ambar')}] {str(r.get('texto') or '').strip()}"
+        for r in (d.get("riesgos") or [])
+        if isinstance(r, dict) and str(r.get("texto") or "").strip()
+    ]
+    return (
+        "\n=== POSTURA DEL CONSEJO DE ADMINISTRACIÓN (de aquí NACE este roadmap) ===\n"
+        f"CONCLUSIÓN DEL CONSEJO:\n{str(d['conclusion']).strip()}\n\n"
+        f"TESIS ESTRATÉGICA (la apuesta que el roadmap debe hacer realidad):\n"
+        f"{str(d.get('tesis_estrategica') or '(n/d)').strip()}\n\n"
+        "PRIORIDADES DEL CONSEJO, EN ORDEN (de aquí derivas los PILARES):\n"
+        + ("\n".join(f"  {i}. {p}" for i, p in enumerate(prioridades, 1)) or "  (n/d)")
+        + "\n\nRIESGOS QUE EL CONSEJO PUSO SOBRE LA MESA (el roadmap debe atenderlos):\n"
+        + ("\n".join(f"  - {r}" for r in riesgos) or "  (ninguno)")
+        + "\n=== FIN DE LA POSTURA DEL CONSEJO ===\n\n"
+    )
 
 
 def _kpis_metas(memory_buffer: dict) -> list[dict]:
@@ -205,12 +246,23 @@ def _roadmap_fallback(memory_buffer: dict, diagnostico_content: dict) -> dict:
     }
 
 
-def generate_roadmap(memory_buffer: dict, diagnostico_content: dict) -> dict:
+def generate_roadmap(memory_buffer: dict, diagnostico_content: dict,
+                     deliberacion: dict | None = None) -> dict:
+    """
+    El Roadmap Estratégico a 3 años.
+
+    `deliberacion` (opcional): la postura fundacional del Consejo
+    ({conclusion, prioridades, riesgos, tesis_estrategica}). Si viene, el roadmap deja de
+    escribirse de cero: es la TRADUCCIÓN de lo que el Consejo deliberó, y sus pilares se derivan
+    de las prioridades del órgano. Sin ella, se comporta como siempre (retrocompatible).
+    """
     if not settings.ANTHROPIC_API_KEY:
         return _roadmap_fallback(memory_buffer, diagnostico_content)
     c = (memory_buffer or {}).get("company") or {}
     dcont = diagnostico_content or {}
+    consejo = _deliberacion_ctx(deliberacion)
     user = (
+        f"{consejo}"
         f"EMPRESA: {json.dumps(c, ensure_ascii=False)[:1500]}\n"
         f"AÑO ACTUAL: {date.today().year} (horizonte del plan: {_anio_objetivo_default()})\n"
         f"VISIÓN ACTUAL: {((memory_buffer or {}).get('vision') or {}).get('statement') or '(n/d)'}\n"
@@ -222,13 +274,15 @@ def generate_roadmap(memory_buffer: dict, diagnostico_content: dict) -> dict:
         f"FODA: {json.dumps(dcont.get('foda') or {}, ensure_ascii=False)[:2000]}\n"
         f"FACTORES EXTERNOS: {json.dumps(dcont.get('factores_externos') or {}, ensure_ascii=False)[:1500]}\n"
         f"METAS PRIORIZADAS: {json.dumps(dcont.get('metas_orden') or [], ensure_ascii=False)[:800]}\n\n"
-        "Redacta el roadmap en el JSON indicado."
+        + ("Traduce la postura del Consejo al roadmap, en el JSON indicado."
+           if consejo else "Redacta el roadmap en el JSON indicado.")
     )
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
         response = _create_with_retry(
             client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=4096,
-            system=_SYSTEM, messages=[{"role": "user", "content": user}],
+            system=_SYSTEM + (_SYSTEM_CONSEJO if consejo else ""),
+            messages=[{"role": "user", "content": user}],
             tools=[ROADMAP_TOOL], tool_choice={"type": "tool", "name": "roadmap_estrategico"},
         )
         block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)

@@ -5,13 +5,17 @@ Corre en el worker (proceso síncrono) y envuelve la lógica async con asyncio.r
 igual que document_tasks. Crea su propia sesión de DB.
 """
 import asyncio
+import logging
 import uuid
 
 from app.tasks.worker import celery_app
+from app.services.ai.agents.deliberacion import run_deliberacion_fundacional
 from app.services.ai.annual_plan_generator import (
     generate_milestones, generate_quarter_plan, month_calendar,
     compute_active_month_index, due_date_within_month, synthesize_diagnostico,
 )
+
+_log = logging.getLogger(__name__)
 
 
 def kpi_labels_from_buffer(memory_buffer: dict) -> list[str]:
@@ -133,11 +137,26 @@ async def _run_generation(annual_plan_id: str, db) -> None:
             await db.execute(delete(BoardSession).where(BoardSession.id == plan.genesis_session_id))
             plan.genesis_session_id = None
 
-        # Paso 1: diagnóstico
+        # Paso 1: diagnóstico → el Consejo delibera → de su conclusión nace todo lo demás.
         analyses, critiques = run_diagnostico(memory_buffer)
-        plan.diagnostico_summary = synthesize_diagnostico(analyses)
 
-        # Sesión génesis que guarda los análisis (si hay onboarding)
+        # La deliberación fundacional: cuatro análisis, UNA postura del órgano. Va aislada:
+        # la generación del plan tarda minutos y cuesta dinero — no puede morir por esto.
+        # Si falla, el diagnóstico cae a la concatenación de siempre y el plan se genera igual.
+        deliberacion: dict | None = None
+        try:
+            deliberacion = await asyncio.to_thread(
+                run_deliberacion_fundacional, analyses, critiques, memory_buffer, dcont)
+        except Exception:
+            _log.exception("la deliberación fundacional falló; el plan sigue sin ella")
+            deliberacion = None
+
+        conclusion_consejo = str((deliberacion or {}).get("conclusion") or "").strip()
+        plan.diagnostico_summary = conclusion_consejo or synthesize_diagnostico(analyses)
+        # Sin conclusión no hubo Consejo: el Roadmap no puede decir que nace de una postura vacía.
+        postura_consejo = deliberacion if conclusion_consejo else None
+
+        # Sesión génesis que guarda los análisis y la postura del Consejo (si hay onboarding)
         if onboarding is not None:
             genesis = BoardSession(
                 onboarding_session_id=onboarding.id,
@@ -147,6 +166,7 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                 status="completed",
                 agent_analyses=analyses,
                 agent_critiques=critiques,
+                conclusion=postura_consejo,
             )
             db.add(genesis)
             await db.flush()
@@ -207,10 +227,11 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                                 year, month, int(tspec.get("due_day", 28))),
                             order_index=ti, status="pendiente"))
 
-        # Paso 5: roadmap estratégico (visión de largo plazo, no bloquea el plan si falla).
+        # Paso 5: el Roadmap NACE de la postura del Consejo (no bloquea el plan si falla).
         from app.services.ai.roadmap import generate_roadmap
         try:
-            plan.roadmap = await asyncio.to_thread(generate_roadmap, memory_buffer, dcont)
+            plan.roadmap = await asyncio.to_thread(
+                generate_roadmap, memory_buffer, dcont, postura_consejo)
         except Exception:
             plan.roadmap = None
 
