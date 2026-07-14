@@ -175,3 +175,75 @@ def test_ai_shapes_raros_no_revientan(monkeypatch, basura):
     assert p["resultados_esperados"] == [{"titulo": "T", "descripcion": ""}]
     assert p["fases"] == {"anio1": {"titulo": ""}, "anio2": {"titulo": ""}, "anio3": {"titulo": ""}}
     assert p["milestones"] == {"anio1": [], "anio2": [], "anio3": []}
+
+
+# ── El Roadmap NACE de la deliberación del Consejo ───────────────────────────
+
+_DELIBERACION = {
+    "conclusion": "El Consejo concluye que la empresa depende de un solo cliente.",
+    "prioridades": ["Diversificar la cartera de clientes", "Recuperar margen", "Ordenar el gobierno"],
+    "riesgos": [{"nivel": "rojo", "texto": "Liquidez a 30 días"}],
+    "tesis_estrategica": "Dejar de ser proveedor cautivo y construir marca propia.",
+}
+
+
+def _mock_ai_capturando(monkeypatch, payload: dict, captured: dict):
+    monkeypatch.setattr("app.services.ai.roadmap.settings.ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr("app.services.ai.roadmap.anthropic.Anthropic", lambda **k: object())
+    block = SimpleNamespace(type="tool_use", input=payload)
+
+    def _fake(*a, **k):
+        captured.update(k)
+        return SimpleNamespace(content=[block])
+
+    monkeypatch.setattr("app.services.ai.roadmap._create_with_retry", _fake)
+
+
+_PAYLOAD_MIN = {
+    "vision": "V", "mision": "M", "propuesta_valor": "PV",
+    "metas_3anios": [{"meta": "Meta 1", "target": "20%"}],
+    "resumen_foda": "F", "resumen_entorno": "E",
+    "pilares": [{"nombre": "P", "descripcion": "D",
+                 "kpis": [{"label": "Margen", "actual": "6%", "meta": "15%"}]}],
+}
+
+
+def test_roadmap_con_deliberacion_inyecta_la_postura_del_consejo(monkeypatch):
+    captured: dict = {}
+    _mock_ai_capturando(monkeypatch, _PAYLOAD_MIN, captured)
+
+    r = generate_roadmap({"company": {"name": "Acme"}}, {}, _DELIBERACION)
+
+    prompt = captured["messages"][0]["content"]
+    system = captured["system"]
+    # la postura del Consejo entra al prompt: conclusión, tesis, prioridades y riesgos
+    assert "POSTURA DEL CONSEJO" in prompt
+    assert _DELIBERACION["conclusion"] in prompt
+    assert _DELIBERACION["tesis_estrategica"] in prompt
+    for p in _DELIBERACION["prioridades"]:
+        assert p in prompt
+    assert "Liquidez a 30 días" in prompt
+    # y el sistema le dice al modelo que el roadmap es la TRADUCCIÓN de esa deliberación
+    assert "TRADUCCIÓN DE LO QUE EL CONSEJO DELIBERÓ" in system
+    assert "se DERIVAN de las prioridades del Consejo" in system
+
+    # INVARIANTE SAGRADO: ni con Consejo la IA fija el número meta
+    assert set(r.keys()) == _KEYS
+    assert r["metas_3anios"][0]["target"] == ""
+    assert r["pilares"][0]["kpis"][0]["meta"] == ""
+
+
+@pytest.mark.parametrize("delib", [None, {}, {"conclusion": "   ", "prioridades": ["x"]}])
+def test_roadmap_sin_deliberacion_util_funciona_como_siempre(monkeypatch, delib):
+    """Retrocompatibilidad: sin Consejo (o con una deliberación en fallback), el prompt es el
+    de siempre — el roadmap NO puede decir que nace de una postura que no existe."""
+    captured: dict = {}
+    _mock_ai_capturando(monkeypatch, _PAYLOAD_MIN, captured)
+
+    r = generate_roadmap({}, {}, delib)
+
+    prompt = captured["messages"][0]["content"]
+    assert "POSTURA DEL CONSEJO" not in prompt
+    assert "TRADUCCIÓN DE LO QUE EL CONSEJO DELIBERÓ" not in captured["system"]
+    assert set(r.keys()) == _KEYS
+    assert r["metas_3anios"][0]["target"] == ""

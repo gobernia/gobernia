@@ -8,6 +8,11 @@ Sale: una conclusión única, el avance contra el Roadmap, los riesgos del órga
 
 NO se le vuelven a adjuntar los documentos: los análisis ya citan sus fuentes, y readjuntarlos
 duplicaría el costo del board pack completo por sesión.
+
+Dos momentos, un solo órgano:
+- `run_deliberacion`          → la sesión mensual, CONTRA el Roadmap (ya existe un plan).
+- `run_deliberacion_fundacional` → la primera sesión, ANTES de que exista el Roadmap: de su
+  conclusión, sus prioridades y su tesis estratégica NACE el Roadmap.
 """
 import json
 import logging
@@ -160,6 +165,226 @@ DELIBERACION_TOOL = {
         "required": ["conclusion", "avance_roadmap", "riesgos", "acuerdos"],
     },
 }
+
+
+# ── La deliberación FUNDACIONAL ───────────────────────────────────────────────
+# El momento en que todavía NO existe Roadmap: el Consejo se sienta por primera vez sobre el
+# diagnóstico y el FODA, emite UNA postura, y de esa postura NACE el Roadmap. Por eso aquí no
+# hay `avance_roadmap` (no hay plan contra el cual medir) ni `acuerdos` (todavía no hay pilares
+# de los que colgarlos): hay CONCLUSIÓN, PRIORIDADES, RIESGOS y TESIS ESTRATÉGICA.
+
+MIN_PRIORIDADES = 3
+MAX_PRIORIDADES = 5
+MAX_RIESGOS = 7
+
+DELIBERACION_FUNDACIONAL_SYSTEM_PROMPT = """Eres EL CONSEJO DE ADMINISTRACIÓN de esta empresa familiar, hablando con UNA SOLA VOZ.
+
+Es tu PRIMERA sesión. La empresa acaba de terminar su diagnóstico y su FODA. Todavía NO existe un
+plan: de lo que tú concluyas aquí va a nacer el Roadmap Estratégico a 3 años, el documento rector
+que va a ordenar los próximos tres años del negocio. Lo que digas aquí es el cimiento; si te
+equivocas de diagnóstico, todo el plan se construye torcido.
+
+CÓMO HABLAS:
+- Le hablas AL DUEÑO, de frente. Nunca hables de la mecánica interna del Consejo: prohibido escribir
+  "el CFO opina que…", "los agentes coinciden en…", "tres de cuatro consejeros…". El dueño no
+  contrató cuatro asistentes: contrató un Consejo. Dices "El Consejo concluye…".
+- NO resumas a los cuatro consejeros: DELIBERA. Esto no es un resumen de resúmenes ni una lista de
+  cuatro opiniones. Es UNA postura.
+- Donde los consejeros se CONTRADICEN, tu trabajo es RESOLVER: toma partido y di brevemente por qué
+  el Consejo se inclina por una lectura y no por la otra. Un consejo que no resuelve no sirve.
+- Sin jerga de consultor, sin relleno. Tono ejecutivo y directo. Si la situación es grave, se dice.
+
+QUÉ ENTREGAS:
+- `conclusion`: dónde está parada la empresa HOY y qué le exige el momento. Es lo primero que el
+  dueño va a leer sobre su propia empresa.
+- `prioridades`: 3 a 5, EN ORDEN de importancia. Es lo que el Consejo dice que hay que atacar. De
+  aquí van a salir los pilares del Roadmap: si una prioridad no da para sostener un frente de
+  trabajo de tres años, no es una prioridad, es una tarea — déjala fuera.
+- `riesgos`: lo que puede descarrilar a la empresa, con semáforo (rojo = crítico, ambar = atención,
+  verde = bajo control).
+- `tesis_estrategica`: LA APUESTA. Hacia dónde debe ir esta empresa en los próximos tres años y POR
+  QUÉ. Una idea con filo, no un deseo. Es la frase que el Roadmap va a tener que defender.
+
+REGLA INQUEBRANTABLE:
+- NUNCA inventes cifras, documentos, páginas ni hechos que no estén en la información dada. Si un
+  dato no está, el Consejo razona sin él y lo dice; no lo fabrica.
+- NUNCA fijes números meta (ventas objetivo, márgenes objetivo): esos los fija el dueño, no tú."""
+
+DELIBERACION_FUNDACIONAL_TOOL = {
+    "name": "postura_fundacional_consejo",
+    "description": (
+        "Entrega la postura única del Consejo sobre el estado de la empresa y la apuesta "
+        "estratégica de la que nacerá el Roadmap a 3 años."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "conclusion": {
+                "type": "string",
+                "description": (
+                    "La voz del Consejo dirigida al dueño: dónde está la empresa y qué exige el "
+                    "momento. 2-5 párrafos cortos. No es un resumen de las cuatro opiniones."
+                ),
+            },
+            "prioridades": {
+                "type": "array",
+                "description": (
+                    f"{MIN_PRIORIDADES} a {MAX_PRIORIDADES} prioridades EN ORDEN de importancia: "
+                    "lo que el Consejo considera que hay que atacar. De aquí nacen los pilares."
+                ),
+                "items": {"type": "string"},
+            },
+            "riesgos": {
+                "type": "array",
+                "description": "Los riesgos que el Consejo pone sobre la mesa, con semáforo.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "nivel": {
+                            "type": "string",
+                            "enum": ["rojo", "ambar", "verde"],
+                            "description": "rojo = crítico; ambar = atención; verde = bajo control.",
+                        },
+                        "texto": {"type": "string"},
+                    },
+                    "required": ["nivel", "texto"],
+                },
+            },
+            "tesis_estrategica": {
+                "type": "string",
+                "description": (
+                    "La apuesta del Consejo: hacia dónde debe ir la empresa en 3 años y por qué. "
+                    "Una idea con filo, no un deseo."
+                ),
+            },
+        },
+        "required": ["conclusion", "prioridades", "riesgos", "tesis_estrategica"],
+    },
+}
+
+
+def _norm_riesgo_simple(r) -> dict | None:
+    """Riesgo del Consejo fundacional: {nivel, texto}. Sin `fuente`: la deliberación fundacional
+    no tiene los documentos a la vista, así que no se le da superficie para citar nada."""
+    if not isinstance(r, dict):
+        return None
+    texto = str(r.get("texto") or "").strip()
+    if not texto:
+        return None
+    nivel = str(r.get("nivel") or "").strip().lower()
+    if nivel not in _NIVELES:
+        nivel = "ambar"
+    return {"nivel": nivel, "texto": texto}
+
+
+def _fallback_fundacional(analyses: dict) -> dict:
+    """
+    Sin API key (o con el tool-use roto) el Consejo no puede deliberar. `conclusion` sale VACÍA
+    A PROPÓSITO: es la señal para que el llamador caiga al diagnóstico de siempre
+    (`synthesize_diagnostico`) y la generación del plan —que tarda minutos y cuesta dinero— NO se
+    pierda por esto. Las prioridades y los riesgos se derivan de lo que los consejeros ya dijeron.
+    """
+    prioridades: list[str] = []
+    riesgos: list[dict] = []
+    for a in (analyses or {}).values():
+        norm = normalize_analysis(a)
+        for rec in (norm.get("recommendations") or []):
+            rec = str(rec).strip()
+            if rec and rec not in prioridades and len(prioridades) < MAX_PRIORIDADES:
+                prioridades.append(rec)
+        for al in (norm.get("alerts") or []):
+            r = _norm_riesgo_simple(al)
+            if r and r["nivel"] in ("rojo", "ambar") and len(riesgos) < MAX_RIESGOS:
+                riesgos.append(r)
+    return {
+        "conclusion": "",
+        "prioridades": prioridades,
+        "riesgos": riesgos,
+        "tesis_estrategica": "",
+        "_fallback": True,
+    }
+
+
+def run_deliberacion_fundacional(
+    analyses: dict,
+    critiques: dict,
+    memory_buffer: dict,
+    diagnostico_content: dict,
+) -> dict:
+    """
+    La primera sesión del Consejo: los cuatro análisis + la crítica del Abogado del Diablo se
+    convierten en UNA postura del órgano, y de esa postura nace el Roadmap.
+
+    Opus + tool-use forzado. Si no hay API key o el tool-use falla, cae a un fallback determinista
+    con `conclusion` vacía (el llamador debe caer a `synthesize_diagnostico`).
+    """
+    if not settings.ANTHROPIC_API_KEY:
+        return _fallback_fundacional(analyses)
+
+    mb = memory_buffer or {}
+    dcont = diagnostico_content or {}
+    vision = mb.get("vision") or {}
+
+    user_prompt = (
+        "PRIMERA SESIÓN DEL CONSEJO. Todavía no existe Roadmap: de tu postura va a nacer.\n\n"
+        f"EMPRESA: {json.dumps(mb.get('company') or {}, ensure_ascii=False)[:1500]}\n"
+        f"VISIÓN DEL DUEÑO: {vision.get('statement') or '(n/d)'}\n"
+        f"QUÉ HARÍA QUE ESTE CONSEJO VALGA LA PENA (definición de éxito del dueño): "
+        f"{vision.get('exito_consejo') or '(n/d)'}\n"
+        f"KPIs: {json.dumps(mb.get('kpis') or {}, ensure_ascii=False)[:1500]}\n\n"
+        f"FODA: {json.dumps(dcont.get('foda') or {}, ensure_ascii=False)[:2000]}\n"
+        f"FORTALEZAS Y DEBILIDADES: "
+        f"{json.dumps(dcont.get('fortalezas_debilidades') or {}, ensure_ascii=False)[:2000]}\n"
+        f"RIESGOS DEL DIAGNÓSTICO: {json.dumps(dcont.get('riesgos') or [], ensure_ascii=False)[:1200]}\n"
+        f"FACTORES EXTERNOS: "
+        f"{json.dumps(dcont.get('factores_externos') or {}, ensure_ascii=False)[:1500]}\n"
+        f"METAS PRIORIZADAS POR EL DUEÑO: "
+        f"{json.dumps(dcont.get('metas_orden') or [], ensure_ascii=False)[:800]}\n\n"
+        "ANÁLISIS DE LOS CONSEJEROS (ya revisados tras la crítica del consejero independiente). "
+        "Son tu materia prima, NO tu formato de salida:\n"
+        f"{json.dumps(analyses or {}, ensure_ascii=False, indent=2)}\n\n"
+        "CRÍTICAS DEL CONSEJERO INDEPENDIENTE (dónde los análisis eran débiles):\n"
+        f"{json.dumps(critiques or {}, ensure_ascii=False, indent=2)}\n\n"
+        "Delibera y emite la postura del Consejo con la herramienta "
+        f"'{DELIBERACION_FUNDACIONAL_TOOL['name']}'. Resuelve las contradicciones entre "
+        f"consejeros, no las promedies. Entre {MIN_PRIORIDADES} y {MAX_PRIORIDADES} prioridades, "
+        "en orden."
+    )
+
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
+    try:
+        response = _create_with_retry(
+            client,
+            model=settings.DIAGNOSTICO_AI_MODEL,
+            max_tokens=DELIBERACION_MAX_TOKENS,
+            system=DELIBERACION_FUNDACIONAL_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+            tools=[DELIBERACION_FUNDACIONAL_TOOL],
+            tool_choice={"type": "tool", "name": DELIBERACION_FUNDACIONAL_TOOL["name"]},
+        )
+    except Exception:
+        _log.exception("la deliberación fundacional falló; se usa el fallback determinista")
+        return _fallback_fundacional(analyses)
+
+    data = _tool_input(response, DELIBERACION_FUNDACIONAL_TOOL["name"])
+    if not data or not str(data.get("conclusion") or "").strip():
+        _log.warning("la deliberación fundacional no devolvió conclusión utilizable; fallback")
+        return _fallback_fundacional(analyses)
+
+    prioridades = [
+        p for p in (str(x).strip() for x in (data.get("prioridades") or []) if x)
+        if p
+    ][:MAX_PRIORIDADES]
+    riesgos = [
+        x for x in (_norm_riesgo_simple(r) for r in (data.get("riesgos") or [])) if x
+    ][:MAX_RIESGOS]
+
+    return {
+        "conclusion": str(data["conclusion"]).strip(),
+        "prioridades": prioridades or _fallback_fundacional(analyses)["prioridades"],
+        "riesgos": riesgos,
+        "tesis_estrategica": str(data.get("tesis_estrategica") or "").strip(),
+    }
 
 
 def _fecha_default(period_year: int, period_month: int) -> str:
