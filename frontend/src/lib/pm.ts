@@ -37,7 +37,13 @@ export async function getCompromisos(): Promise<Compromiso[]> {
 
 export async function patchCompromiso(
   id: string,
-  body: { responsable_email?: string; responsable_nombre?: string; fecha_compromiso?: string },
+  body: {
+    responsable_email?: string
+    responsable_nombre?: string
+    fecha_compromiso?: string
+    prioridad?: string
+    status?: string
+  },
 ): Promise<Compromiso> {
   const r = await api.patch<Compromiso>(`/pm/compromisos/${id}`, body)
   return r.data

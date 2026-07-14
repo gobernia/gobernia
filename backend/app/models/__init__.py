@@ -12,10 +12,11 @@ from app.models.diagnostico_estrategico import DiagnosticoEstrategico  # noqa: F
 from app.models.todd_session import ToddSession  # noqa: F401
 from app.models.perspectiva_invite import PerspectivaInvite  # noqa: F401
 from app.models.company_logo import CompanyLogo  # noqa: F401
+from app.models.roadmap_version import RoadmapVersion  # noqa: F401
 
 __all__ = [
     "Base", "OnboardingSession", "Document", "BoardSession", "ChatMessage",
     "ActionPlan", "ActionTask", "AnnualPlan", "MonthlyPlan", "Objective",
     "BoardTheme", "Evidence", "Compromiso", "DiagnosticoEstrategico",
-    "ToddSession", "PerspectivaInvite", "CompanyLogo",
+    "ToddSession", "PerspectivaInvite", "CompanyLogo", "RoadmapVersion",
 ]

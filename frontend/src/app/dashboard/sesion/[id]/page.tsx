@@ -11,74 +11,15 @@ import { GoberniaIcon } from "@/components/ui/GoberniaLogo"
 import { PageShell } from "@/components/ui/PageShell"
 import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
 import BoardPack from "@/components/consejo/BoardPack"
+import ConclusionConsejo from "@/components/consejo/ConclusionConsejo"
+import VocesConsejo from "@/components/consejo/VocesConsejo"
+import { AGENTS, Acuerdo, Analysis, Conclusion } from "@/components/consejo/shared"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
-// ── Data ──────────────────────────────────────────────────
-const AGENTS = [
-  { id: "CFO",     role: "Finanzas" },
-  { id: "CSO",     role: "Estrategia" },
-  { id: "CRO",     role: "Riesgos" },
-  { id: "Auditor", role: "Auditoría" },
-]
-
-// ── Semáforo de alertas ───────────────────────────────────
-// Tailwind v4 no detecta clases dinámicas: colores literales en `style`.
-type AlertLevel = "rojo" | "ambar" | "verde"
-
-const ALERT_COLOR: Record<AlertLevel, string> = {
-  rojo:  "#b91c1c",
-  ambar: "#b45309",
-  verde: "#0f766e",
-}
-const ALERT_ORDER: Record<AlertLevel, number> = { rojo: 0, ambar: 1, verde: 2 }
-// El semáforo también se lee sin color (lectores de pantalla).
-const ALERT_LABEL: Record<AlertLevel, string> = {
-  rojo: "Alerta crítica", ambar: "Alerta media", verde: "En orden",
-}
-
 // ── Types ─────────────────────────────────────────────────
-interface Finding {
-  texto: string
-  fuente?: string
-}
-
-interface Alert {
-  nivel: AlertLevel
-  texto: string
-  fuente?: string
-}
-
-interface Analysis {
-  summary: string
-  // La API normaliza a objetos, pero toleramos strings de sesiones antiguas.
-  findings: (Finding | string)[]
-  alerts: (Alert | string)[]
-  recommendations: string[]
-  preguntas?: string[]
-  // El consejero no pudo leer los documentos y se analizó sin ellos.
-  _documentos_omitidos?: boolean
-}
-
-/** Normaliza un hallazgo: acepta string suelto sin reventar. */
-function toFinding(f: Finding | string | null | undefined): Finding {
-  if (typeof f === "string") return { texto: f, fuente: "" }
-  return { texto: f?.texto ?? "", fuente: f?.fuente ?? "" }
-}
-
-/** Normaliza una alerta: acepta string suelto y nivel desconocido. */
-function toAlert(a: Alert | string | null | undefined): Alert {
-  if (typeof a === "string") return { nivel: "ambar", texto: a, fuente: "" }
-  const nivel = a?.nivel
-  return {
-    nivel: nivel && nivel in ALERT_COLOR ? nivel : "ambar",
-    texto: a?.texto ?? "",
-    fuente: a?.fuente ?? "",
-  }
-}
-
 interface ChatMsg {
   message_id: string
   role: "user" | "assistant"
@@ -94,6 +35,8 @@ interface SessionDetail {
   period_label: string
   status: string
   agent_analyses: Record<string, Analysis> | null
+  /** La conclusión ÚNICA del Consejo. null en sesiones anteriores a la deliberación. */
+  conclusion: Conclusion | null
   messages: ChatMsg[]
 }
 
@@ -151,6 +94,22 @@ export default function SessionPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  /** El dueño asignó responsable / fecha / prioridad a un acuerdo: refléjalo sin recargar. */
+  const onAcuerdoActualizado = useCallback((acuerdoId: string, patch: Partial<Acuerdo>) => {
+    setSession(prev => {
+      if (!prev?.conclusion) return prev
+      return {
+        ...prev,
+        conclusion: {
+          ...prev.conclusion,
+          acuerdos: prev.conclusion.acuerdos.map(a =>
+            a.id === acuerdoId ? { ...a, ...patch } : a
+          ),
+        },
+      }
+    })
+  }, [])
+
   const runAnalysis = async () => {
     setAnalysing(true)
     setAnalyseError(null)
@@ -159,7 +118,12 @@ export default function SessionPage() {
         agents: ["CFO", "CSO", "CRO", "Auditor"],
       }, { timeout: 600000 })  // 10 min — análisis con Challenger puede tomar 2-5 min
       setSession(prev =>
-        prev ? { ...prev, agent_analyses: r.data.analyses, status: "active" } : prev
+        prev ? {
+          ...prev,
+          agent_analyses: r.data.analyses,
+          conclusion: r.data.conclusion ?? null,
+          status: "active",
+        } : prev
       )
     } catch (e: unknown) {
       // El backend a veces completa el análisis aunque la conexión HTTP se corte.
@@ -176,7 +140,13 @@ export default function SessionPage() {
           const analyses = check.data?.agent_analyses
           if (analyses && Object.keys(analyses).length > 0) {
             setSession(prev =>
-              prev ? { ...prev, agent_analyses: analyses, messages: check.data.messages ?? prev.messages, status: check.data.status ?? prev.status } : prev
+              prev ? {
+                ...prev,
+                agent_analyses: analyses,
+                conclusion: check.data?.conclusion ?? prev.conclusion,
+                messages: check.data.messages ?? prev.messages,
+                status: check.data.status ?? prev.status,
+              } : prev
             )
             return
           }
@@ -441,159 +411,21 @@ export default function SessionPage() {
                     <span className="text-xs text-gray-300 group-hover:text-[var(--gob-bone)] transition-colors">→</span>
                   </Link>
 
-                  {/* Los 4 consejeros en rejilla 2×2: se comparan de un vistazo. */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    {AGENTS.map((a, i) => {
-                      const analysis = session.agent_analyses?.[a.id]
-                      if (!analysis) return null
-                      const findings = (analysis.findings ?? []).map(toFinding)
-                      const alerts = (analysis.alerts ?? [])
-                        .map(toAlert)
-                        .sort((x, y) => ALERT_ORDER[x.nivel] - ALERT_ORDER[y.nivel])
-                      const preguntas = analysis.preguntas ?? []
-                      return (
-                        <motion.div
-                          key={a.id}
-                          initial={{ opacity: 0, y: 16 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.4, ease: EASE, delay: i * 0.07 }}
-                          className="border border-gray-100 hover:border-gray-300 rounded-2xl p-7 space-y-5 transition-colors flex flex-col"
-                        >
-                          <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-                            <span className="w-9 h-9 rounded-xl bg-[var(--gob-navy)] flex items-center justify-center shrink-0">
-                              <span className="text-[var(--gob-bone)] text-xs font-bold">{a.id[0]}</span>
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-base font-bold text-black leading-tight">{a.id}</span>
-                              <span className="block text-xs text-gray-400 mt-0.5">{a.role}</span>
-                            </span>
-                            {alerts.length > 0 && (
-                              <span className="ml-auto flex items-center gap-1" aria-hidden>
-                                {alerts.slice(0, 5).map((al, j) => (
-                                  <span
-                                    key={j}
-                                    className="w-1.5 h-1.5 rounded-full"
-                                    style={{ backgroundColor: ALERT_COLOR[al.nivel] }}
-                                  />
-                                ))}
-                              </span>
-                            )}
-                          </div>
+                  {/* El Consejo habla con una sola voz: su conclusión y sus acuerdos mandan. */}
+                  {session.conclusion && (
+                    <ConclusionConsejo
+                      conclusion={session.conclusion}
+                      onAcuerdoActualizado={onAcuerdoActualizado}
+                    />
+                  )}
 
-                          <p className="text-sm text-gray-600 leading-relaxed max-w-[68ch]">
-                            {analysis.summary}
-                          </p>
-
-                          {analysis._documentos_omitidos && (
-                            <p className="text-xs text-gray-400 leading-relaxed">
-                              El consejero no pudo leer los documentos de esta sesión: su análisis
-                              se apoya solo en el contexto y los KPIs.
-                            </p>
-                          )}
-
-                          {findings.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">
-                                Hallazgos
-                              </p>
-                              <ul className="space-y-2">
-                                {findings.map((f, j) => (
-                                  <li key={j} className="flex gap-2 text-xs text-gray-600 leading-relaxed">
-                                    <span className="text-gray-300 flex-shrink-0 mt-0.5">·</span>
-                                    <span>
-                                      {f.texto}
-                                      {f.fuente && (
-                                        <span className="block text-[10px] text-gray-400 italic mt-0.5">
-                                          Fuente: {f.fuente}
-                                        </span>
-                                      )}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {alerts.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">
-                                Alertas
-                              </p>
-                              <ul className="space-y-2">
-                                {alerts.map((al, j) => (
-                                  <li
-                                    key={j}
-                                    className="border-l-2 pl-3 py-0.5 text-xs leading-relaxed"
-                                    style={{ borderLeftColor: ALERT_COLOR[al.nivel] }}
-                                  >
-                                    <span className="sr-only">{ALERT_LABEL[al.nivel]}: </span>
-                                    <span
-                                      className="font-medium"
-                                      style={{ color: ALERT_COLOR[al.nivel] }}
-                                    >
-                                      {al.texto}
-                                    </span>
-                                    {al.fuente && (
-                                      <span className="block text-[10px] text-gray-400 italic mt-0.5">
-                                        Fuente: {al.fuente}
-                                      </span>
-                                    )}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {analysis.recommendations?.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">
-                                Recomendaciones
-                              </p>
-                              <ul className="space-y-1.5">
-                                {analysis.recommendations.map((r, j) => (
-                                  <li key={j} className="flex gap-2 text-xs text-gray-600 leading-relaxed">
-                                    <span className="text-gray-300 flex-shrink-0">→</span>
-                                    {r}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {preguntas.length > 0 && (
-                            <div className="space-y-2 rounded-xl bg-[var(--gob-bone)] p-4">
-                              <p className="text-[10px] font-medium tracking-widest text-[var(--gob-navy)] uppercase">
-                                Preguntas para la junta
-                              </p>
-                              <p className="text-[10px] text-gray-500 leading-relaxed">
-                                Lo que {a.id} quiere que se discuta en la sesión.
-                              </p>
-                              <ul className="space-y-1.5">
-                                {preguntas.map((q, j) => (
-                                  <li
-                                    key={j}
-                                    className="flex gap-2 text-xs text-[var(--gob-ink)] leading-relaxed"
-                                  >
-                                    <span className="text-gray-400 flex-shrink-0">?</span>
-                                    {q}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          <div className="pt-1 mt-auto">
-                            <button
-                              onClick={() => { setActiveAgent(a.id); setTab("chat") }}
-                              className="w-full text-xs font-medium text-gray-500 hover:text-[var(--gob-navy)] border border-gray-200 hover:border-gray-400 px-3 py-2.5 rounded-xl transition-colors"
-                            >
-                              Chatear con {a.id} →
-                            </button>
-                          </div>
-                        </motion.div>
-                      )
-                    })}
-                  </div>
+                  {/* Las cuatro voces: el respaldo de la conclusión. Se pliegan si ya hay
+                      deliberación; en sesiones anteriores a ella, son el análisis y van abiertas. */}
+                  <VocesConsejo
+                    analyses={session.agent_analyses ?? {}}
+                    onChat={(agentId) => { setActiveAgent(agentId); setTab("chat") }}
+                    collapsible={Boolean(session.conclusion)}
+                  />
 
                   {/* Board pack — secundario una vez que hay análisis, pero consultable */}
                   <BoardPack sessionId={id} collapsible />

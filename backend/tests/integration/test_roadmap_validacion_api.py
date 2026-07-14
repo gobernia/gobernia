@@ -41,11 +41,17 @@ async def test_patch_roadmap_bloqueado_si_esta_validado():
     assert plan.roadmap == {"vision": "V"}  # no se modificó
 
 
+def _versions_max(value=None):
+    """Resultado de select(max(RoadmapVersion.version))."""
+    res = MagicMock(); res.scalar.return_value = value
+    return res
+
+
 @pytest.mark.asyncio
 async def test_get_estado_devuelve_borrador_por_defecto():
     plan = _plan("borrador")
     res = MagicMock(); res.scalar_one_or_none.return_value = plan
-    db = AsyncMock(); db.execute = AsyncMock(return_value=res)
+    db = AsyncMock(); db.execute = AsyncMock(side_effect=[res, _versions_max(None)])
     app.dependency_overrides[get_db] = _db_override(db)
     app.dependency_overrides[get_current_user_id] = _user
     try:
@@ -56,6 +62,7 @@ async def test_get_estado_devuelve_borrador_por_defecto():
     assert r.status_code == 200
     assert r.json()["status"] == "borrador"
     assert r.json()["validated_at"] is None
+    assert r.json()["version_actual"] == 0
 
 
 @pytest.mark.asyncio
@@ -64,7 +71,7 @@ async def test_reabrir_regresa_a_borrador():
     res = MagicMock(); res.scalar_one_or_none.return_value = plan
     themes_res = MagicMock(); themes_res.scalars.return_value.all.return_value = []
     db = AsyncMock()
-    db.execute = AsyncMock(side_effect=[res, themes_res])
+    db.execute = AsyncMock(side_effect=[res, themes_res, _versions_max(1)])
     db.commit = AsyncMock()
     app.dependency_overrides[get_db] = _db_override(db)
     app.dependency_overrides[get_current_user_id] = _user
@@ -77,3 +84,6 @@ async def test_reabrir_regresa_a_borrador():
     assert r.json()["status"] == "borrador"
     assert plan.roadmap_status == "borrador"
     assert plan.roadmap_validated_at is None
+    # Reabrir NO borra la versión archivada: sigue reportando la v1.
+    assert r.json()["version_actual"] == 1
+    db.delete.assert_not_called()

@@ -132,6 +132,9 @@ class BoardSessionDetail(BaseModel):
     status: str
     kpi_snapshot: dict | None
     agent_analyses: dict | None
+    # La conclusión ÚNICA del Consejo con sus acuerdos. None en sesiones anteriores a la
+    # deliberación → el frontend cae al render de las cuatro voces.
+    conclusion: dict | None = None
     governance_score_snapshot: float | None
     messages: list[ChatMessageOut]
     created_at: datetime
