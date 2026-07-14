@@ -43,6 +43,10 @@ class BoardSession(Base, UUIDMixin, TimestampMixin):
     # son la base de la revisión que sí se almacena en agent_analyses
     agent_critiques: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # La conclusión ÚNICA del Consejo (deliberación): {conclusion, avance_roadmap, riesgos, acuerdos}.
+    # Sesiones anteriores a la deliberación la tienen en NULL: el frontend cae a agent_analyses.
+    conclusion: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     # Copia del perfil base en el momento de crear la sesión (para histórico)
     profile_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 

@@ -195,6 +195,7 @@ class _FakePersistSession:
     """
     def __init__(self, refreshed):
         self._refreshed = refreshed
+        self.added: list = []          # los acuerdos (Compromiso) que la deliberación materializa
 
     async def __aenter__(self):
         return self
@@ -204,6 +205,22 @@ class _FakePersistSession:
 
     async def get(self, model, _id):
         return self._refreshed
+
+    async def execute(self, _stmt):
+        # El DELETE de los acuerdos previos de la sesión: aquí no hay tabla que tocar.
+        class _R:
+            def scalars(self):
+                return self
+
+            def all(self):
+                return []
+        return _R()
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    async def refresh(self, _obj):
+        return None
 
     async def commit(self):
         return None

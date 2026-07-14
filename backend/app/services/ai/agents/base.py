@@ -144,6 +144,93 @@ def _build_kpi_context(kpi_snapshot: dict | None, memory_buffer: dict | None = N
     return "\n".join(lines)
 
 
+_ANIOS = ("anio1", "anio2", "anio3")
+
+SIN_ROADMAP = (
+    "ROADMAP ESTRATÉGICO: El dueño aún no ha validado su Roadmap Estratégico. "
+    "No existe un plan rector que puedas leer: NO inventes pilares, metas ni milestones, "
+    "y no te refieras al roadmap como si lo hubieras visto. Analiza con el contexto, los KPIs y "
+    "los documentos, y si el juicio depende del plan de largo plazo, pídelo en `preguntas`."
+)
+
+
+def roadmap_pilares(roadmap: dict | None) -> list[str]:
+    """Nombres EXACTOS de los pilares del roadmap. [] si no hay roadmap."""
+    return [
+        str(p["nombre"]).strip()
+        for p in ((roadmap or {}).get("pilares") or [])
+        if isinstance(p, dict) and str(p.get("nombre") or "").strip()
+    ]
+
+
+def _anio_key(roadmap: dict, period_year: int | None) -> str:
+    """Qué año del roadmap (anio1|anio2|anio3) corresponde al periodo analizado.
+    Misma convención que el PDF: el año calendario del 'Año 1' es anio_objetivo - 2."""
+    try:
+        base = int(roadmap.get("anio_objetivo")) - 2
+        idx = int(period_year) - base + 1
+    except (TypeError, ValueError):
+        return "anio1"
+    return _ANIOS[idx - 1] if 1 <= idx <= 3 else "anio1"
+
+
+def _build_roadmap_context(roadmap: dict | None, period_year: int | None = None) -> str:
+    """
+    Resume el Roadmap Estratégico (documento rector) para el prompt del consejero.
+    Si no hay roadmap, lo dice explícitamente: el agente no debe inventárselo.
+    El estado ('borrador'/'validado') viaja en la clave `_status` del propio roadmap.
+    """
+    if not roadmap or not (
+        roadmap.get("pilares") or roadmap.get("metas_3anios") or roadmap.get("vision")
+    ):
+        return SIN_ROADMAP
+
+    estado = str(roadmap.get("_status") or "validado").strip().lower()
+    if estado == "validado":
+        cabecera = (
+            "ROADMAP ESTRATÉGICO (VALIDADO POR EL DUEÑO — DOCUMENTO RECTOR):\n"
+            "Es el plan oficial de la empresa. Tu trabajo es evaluar a la empresa CONTRA ESTE PLAN."
+        )
+    else:
+        cabecera = (
+            "ROADMAP ESTRATÉGICO (EN BORRADOR — el dueño todavía lo está revisando):\n"
+            "Aún no está validado, así que trátalo como la intención declarada del dueño, no como "
+            "compromiso firme. Aun así, evalúa a la empresa contra él y señala lo que no cuadre."
+        )
+
+    lines = [cabecera]
+    if roadmap.get("vision"):
+        lines.append(f"VISIÓN: {roadmap['vision']}")
+    if roadmap.get("mision"):
+        lines.append(f"MISIÓN: {roadmap['mision']}")
+
+    metas = [m for m in (roadmap.get("metas_3anios") or []) if isinstance(m, dict) and m.get("meta")]
+    if metas:
+        lines.append("\nMETAS A 3 AÑOS:")
+        for m in metas:
+            kpi = f" [KPI: {m['kpi']}]" if m.get("kpi") else ""
+            actual = m.get("valor_actual") or "no reportado"
+            target = str(m.get("target") or "").strip()
+            target_txt = target if target else "SIN FIJAR (el dueño aún no ha puesto el número; no lo inventes)"
+            lines.append(f"  - {m['meta']}{kpi} — hoy: {actual} → meta: {target_txt}")
+
+    pilares = [p for p in (roadmap.get("pilares") or []) if isinstance(p, dict) and p.get("nombre")]
+    if pilares:
+        key = _anio_key(roadmap, period_year)
+        etiqueta = {"anio1": "Año 1", "anio2": "Año 2", "anio3": "Año 3"}[key]
+        lines.append(f"\nPILARES ESTRATÉGICOS (con sus milestones del {etiqueta}, el año en curso):")
+        for p in pilares:
+            obj = str(p.get("objetivo") or p.get("descripcion") or "").strip()
+            lines.append(f"  • {p['nombre']}" + (f" — {obj}" if obj else ""))
+            miles = (p.get("milestones") or {}).get(key) if isinstance(p.get("milestones"), dict) else None
+            for ms in (miles or []):
+                lines.append(f"      - {ms}")
+            if not miles:
+                lines.append("      - (sin milestones definidos para este año)")
+
+    return "\n".join(lines)
+
+
 def _build_history_context(previous_analyses: list[dict]) -> str:
     if not previous_analyses:
         return ""
@@ -199,6 +286,16 @@ ANTI_HALLUCINATION_RULE = """REGLA DE CITACIÓN (INQUEBRANTABLE):
 - Si no se te adjuntó ningún documento, todas las `fuente` van vacías y tu análisis se apoya solo en
   el contexto y los KPIs entregados.
 - Si echas en falta un documento para sostener tu juicio, pídelo explícitamente en `preguntas`."""
+
+# El Roadmap es el documento rector: los consejeros no analizan la empresa en abstracto,
+# la analizan CONTRA el plan que el dueño se dio a sí mismo.
+ROADMAP_RULE = """EL ROADMAP ES EL DOCUMENTO RECTOR:
+- Analizas DOS insumos: el Roadmap Estratégico (el plan a 3 años del dueño) y los documentos de la
+  sesión. El Roadmap manda: tu trabajo NO es opinar de la empresa en abstracto, es evaluarla CONTRA
+  ESE PLAN — qué avanza, qué se atrasó, qué lo pone en riesgo, qué actividad no le sirve a ningún pilar.
+- Ata tus hallazgos y recomendaciones a los pilares y metas del Roadmap siempre que puedas.
+- Si el Roadmap no existe o no se te entregó, dilo y NO lo inventes: ni pilares, ni metas, ni milestones.
+- Los `target` vacíos de las metas son vacíos de verdad (el dueño no los ha fijado): no supongas cifras."""
 
 ANALYSIS_TOOL = {
     "name": "analisis_consejero",
@@ -566,11 +663,13 @@ def run_agent_analysis(
     previous_analyses: list[dict] | None = None,
     documents: list[dict] | None = None,
     documents_note: str = "",
+    roadmap: dict | None = None,
 ) -> dict:
     """
     Llama a Claude con el contexto completo y retorna el análisis estructurado.
     `documents`: board pack del agente — [{kind, media_type, data (base64), label}].
     `documents_note`: aviso sobre documentos que no se pudieron adjuntar (xlsx/docx...).
+    `roadmap`: Roadmap Estratégico del dueño (documento rector). None → el prompt lo dice.
     Si ANTHROPIC_API_KEY no está configurada, retorna análisis placeholder.
     """
     agent_cfg = _get_agent_config(memory_buffer, agent)
@@ -584,6 +683,7 @@ def run_agent_analysis(
     company_ctx = _build_company_context(memory_buffer)
     kpi_ctx = _build_kpi_context(kpi_snapshot, memory_buffer)
     history_ctx = _build_history_context(previous_analyses or [])
+    roadmap_ctx = _build_roadmap_context(roadmap, period_year)
     is_family = bool(memory_buffer.get("company", {}).get("is_family_business"))
     knowledge_ctx = build_knowledge_for_agent(agent, is_family_business=is_family)
 
@@ -591,6 +691,7 @@ def run_agent_analysis(
         f"{AGENT_SYSTEM_PROMPTS[agent]}\n\n"
         f"TONO: {tone}. SENSIBILIDAD DE ALERTAS: {sensitivity}.\n"
         + (f"INSTRUCCIONES ADICIONALES: {custom}\n" if custom else "")
+        + f"\n{ROADMAP_RULE}\n"
         + f"\n{ANTI_HALLUCINATION_RULE}\n"
         + f"\n{knowledge_ctx}\n"
     )
@@ -612,11 +713,13 @@ def run_agent_analysis(
     user_prompt = (
         f"Estás analizando el periodo: {_period_label(period_year, period_month)}.\n\n"
         f"{company_ctx}\n\n"
+        f"{roadmap_ctx}\n\n"
         f"{kpi_ctx}\n"
         f"{history_ctx}\n"
         f"{docs_intro}"
         f"{nota_docs}\n"
-        "Genera tu análisis como consejero y entrégalo con la herramienta 'analisis_consejero'."
+        "Genera tu análisis como consejero, evaluando a la empresa contra su Roadmap y contra los "
+        "documentos de la sesión, y entrégalo con la herramienta 'analisis_consejero'."
     )
 
     content = build_doc_blocks(documents) + [{"type": "text", "text": user_prompt}] \

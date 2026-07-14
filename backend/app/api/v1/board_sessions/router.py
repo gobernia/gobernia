@@ -11,20 +11,24 @@ GET    /board-sessions/{id}/chat             → historial del chat
 """
 import base64
 import logging
+import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from app.services.data_completeness import missing_company_data
 from app.core.dependencies import get_current_user_id, get_db
+from app.models.annual_plan import AnnualPlan
 from app.models.board_session import BoardSession
 from app.models.chat_message import ChatMessage
+from app.models.compromiso import Compromiso
 from app.models.document import Document
 from app.models.onboarding_session import OnboardingSession
+from app.services.ai.agents.deliberacion import run_deliberacion
 from app.schemas.board_session import (
     AnalysisRequest,
     BoardSessionCreate,
@@ -224,6 +228,7 @@ async def get_board_session(
         status=bs.status,
         kpi_snapshot=bs.kpi_snapshot,
         agent_analyses=normalize_agent_analyses(bs.agent_analyses),
+        conclusion=await _conclusion_out(db, bs),
         governance_score_snapshot=bs.governance_score_snapshot,
         messages=messages,
         created_at=bs.created_at,
@@ -268,6 +273,37 @@ async def submit_period_kpis(
         "alerts": alerts,
         "status": bs.status,
     }
+
+
+async def _conclusion_out(db: AsyncSession, bs: BoardSession) -> dict | None:
+    """
+    La conclusión del Consejo, con sus acuerdos hidratados desde los `Compromiso` reales
+    (id, responsable y estatus vivos), no desde el texto que produjo la IA: el dueño edita
+    esos compromisos y la pantalla debe mostrar lo que hay hoy, no lo que se acordó ayer.
+    """
+    if not bs.conclusion:
+        return None
+    rows = (await db.execute(
+        select(Compromiso)
+        .where(Compromiso.board_session_id == bs.id)
+        .order_by(Compromiso.created_at)
+    )).scalars().all()
+    acuerdos = [
+        {
+            "id": str(c.id),
+            "texto": c.descripcion,
+            "responsable_sugerido": c.responsable_nombre or "",
+            "responsable_nombre": c.responsable_nombre,
+            "responsable_email": c.responsable_email,
+            "fecha_compromiso": c.fecha_compromiso.isoformat() if c.fecha_compromiso else None,
+            "prioridad": c.prioridad,
+            "pilar": c.pilar or "",
+            "racional": c.racional or "",
+            "status": c.status,
+        }
+        for c in rows
+    ]
+    return {**bs.conclusion, "acuerdos": acuerdos}
 
 
 # ── POST /board-sessions/{id}/analyse ────────────────────────────────────────
@@ -340,6 +376,20 @@ async def run_analyses(
     # financiero de ayer, y el CSO recibe avisos sobre documentos que no son de su competencia.
     readable_board_docs, unreadable_board_docs = classify_docs(board_docs)
 
+    # El ROADMAP es el documento rector: el Consejo evalúa a la empresa CONTRA su plan,
+    # no en abstracto. Se lee aquí (antes de cerrar la conexión) y se pasa a cada consejero.
+    plan_result = await db.execute(
+        select(AnnualPlan)
+        .where(AnnualPlan.user_id == user_id, AnnualPlan.status == "active")
+        .order_by(AnnualPlan.created_at.desc())
+        .limit(1)
+    )
+    plan = plan_result.scalar_one_or_none()
+    roadmap = dict(plan.roadmap) if (plan and plan.roadmap) else None
+    if roadmap is not None:
+        # El agente debe saber si lo lee en firme o si el dueño aún lo está revisando.
+        roadmap["_status"] = getattr(plan, "roadmap_status", "borrador")
+
     # Snapshot de campos necesarios y liberar la conexión a DB ANTES de los LLM calls.
     # Las 12 llamadas a Claude (4 agentes × 3 fases) pueden tomar minutos; mantener la
     # conexión abierta dispara el statement timeout de Supabase (QueryCanceledError).
@@ -381,6 +431,7 @@ async def run_analyses(
                 previous_analyses=previous_analyses,
                 documents=docs,
                 documents_note=note,
+                roadmap=roadmap,
             )
         )
         critique = await anyio.to_thread.run_sync(
@@ -445,6 +496,26 @@ async def run_analyses(
         analyses[agent] = failed_agent_analysis(agent, period_year, period_month)
         critiques[agent] = {}
 
+    # ── La deliberación: cuatro opiniones → UNA conclusión del Consejo ────────────
+    # No es un resumen de resúmenes: es la postura del órgano, con sus acuerdos. Si la
+    # deliberación falla, la sesión NO se pierde: quedan los análisis de los consejeros.
+    conclusion: dict | None = None
+    try:
+        conclusion = await anyio.to_thread.run_sync(
+            lambda: run_deliberacion(
+                analyses=analyses,
+                critiques=critiques,
+                roadmap=roadmap,
+                memory_buffer=memory_buffer,
+                kpi_snapshot=kpi_snapshot,
+                period_year=period_year,
+                period_month=period_month,
+                documents_note=_NOTA_SIN_DOCUMENTOS if not ready_docs else "",
+            )
+        )
+    except Exception:
+        _log.exception("la deliberación del Consejo falló; se conservan los análisis individuales")
+
     # Abrir una nueva sesión de DB para persistir los resultados
     from app.db.session import AsyncSessionLocal
     from sqlalchemy.orm.attributes import flag_modified
@@ -456,12 +527,45 @@ async def run_analyses(
         refreshed.agent_critiques = critiques
         flag_modified(refreshed, "agent_analyses")
         flag_modified(refreshed, "agent_critiques")
+
+        if conclusion is not None:
+            refreshed.conclusion = conclusion
+            flag_modified(refreshed, "conclusion")
+            # Los acuerdos se materializan como compromisos reales (con responsable, fecha,
+            # prioridad y su link de seguimiento). Re-analizar la sesión los reemplaza: los
+            # acuerdos son el resultado de ESTA deliberación, no un histórico que se acumula.
+            await new_db.execute(
+                delete(Compromiso).where(Compromiso.board_session_id == bs_id)
+            )
+            for a in (conclusion.get("acuerdos") or []):
+                try:
+                    fecha = date.fromisoformat(a["fecha_sugerida"])
+                except (KeyError, TypeError, ValueError):
+                    fecha = None
+                new_db.add(Compromiso(
+                    user_id=user_id,
+                    descripcion=a["texto"],
+                    responsable_nombre=a.get("responsable_sugerido") or None,
+                    responsable_email=None,   # lo pone el dueño: la IA no conoce a su gente
+                    fecha_compromiso=fecha,
+                    status="abierto",
+                    token=secrets.token_urlsafe(16),
+                    avances=[],
+                    board_session_id=bs_id,
+                    prioridad=a.get("prioridad") or "media",
+                    pilar=a.get("pilar") or None,
+                    racional=a.get("racional") or None,
+                    source={"board_session_id": str(bs_id)},
+                ))
         await new_db.commit()
+        await new_db.refresh(refreshed)
+        conclusion_out = await _conclusion_out(new_db, refreshed)
 
     return {
         "board_session_id": str(bs_id),
         "agents_analysed": body.agents,
         "analyses": normalize_agent_analyses(analyses),
+        "conclusion": conclusion_out,
     }
 
 

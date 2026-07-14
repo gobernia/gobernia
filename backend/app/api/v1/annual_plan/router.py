@@ -11,6 +11,7 @@ Plan estratégico de 12 meses — API REST.
 (las tareas se editan/borran con los endpoints existentes PATCH/DELETE /tasks/{id})
 """
 import base64
+import copy
 import secrets
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -26,6 +27,7 @@ from app.core.dependencies import get_current_user_id, get_db
 from app.models.action_plan import ActionTask
 from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
 from app.models.evidence import Evidence
+from app.models.roadmap_version import RoadmapVersion
 from app.schemas.annual_plan import (
     AnnualPlanOut, AnnualPlanStatusOut, AnnualTaskCreate, MonthlyPlanOut,
     ObjectiveCreate, ObjectiveOut, ObjectiveUpdate,
@@ -316,11 +318,20 @@ _ROADMAP_THEME_KEY = "roadmap_validado"
 _ROADMAP_THEME_LABEL = "Revisión del Roadmap estratégico"
 
 
-def _estado_out(plan: AnnualPlan) -> dict:
+def _estado_out(plan: AnnualPlan, version_actual: int = 0) -> dict:
     return {
         "status": plan.roadmap_status or "borrador",
         "validated_at": plan.roadmap_validated_at,
+        # Cuántas versiones validadas se han archivado (0 = nunca se validó).
+        "version_actual": version_actual,
     }
+
+
+async def _count_versions(plan: AnnualPlan, db: AsyncSession) -> int:
+    n = (await db.execute(
+        select(func.max(RoadmapVersion.version)).where(RoadmapVersion.plan_id == plan.id)
+    )).scalar()
+    return n or 0
 
 
 @router.get("/annual-plan/roadmap/estado")
@@ -330,22 +341,24 @@ async def get_roadmap_estado(
     plan = await _current_plan(user_id, db)
     if plan is None:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
-    return _estado_out(plan)
+    return _estado_out(plan, await _count_versions(plan, db))
 
 
 @router.post("/annual-plan/roadmap/validar")
 async def validar_roadmap(
     user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
 ):
-    """Sella el roadmap: queda solo lectura y se registra como tema de la próxima sesión."""
+    """Sella el roadmap: queda solo lectura, se archiva como versión inmutable y se
+    registra como tema de la próxima sesión del consejo."""
     plan = await _current_plan(user_id, db)
     if plan is None:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
     if not plan.roadmap:
         raise HTTPException(status_code=409, detail="Aún no hay roadmap que validar.")
 
+    validated_at = datetime.now(timezone.utc)
     plan.roadmap_status = "validado"
-    plan.roadmap_validated_at = datetime.now(timezone.utc)
+    plan.roadmap_validated_at = validated_at
 
     # Lo registra en la agenda del consejo (tema permanente hasta que lo revisen).
     existentes = (await db.execute(
@@ -360,15 +373,25 @@ async def validar_roadmap(
             annual_plan_id=plan.id, key=_ROADMAP_THEME_KEY, label=_ROADMAP_THEME_LABEL,
             type="permanente", every_n_sessions=1, active=True, is_default=False, order_index=0,
         ))
+
+    # Archiva el snapshot: copia profunda, para que editar el roadmap después
+    # (tras reabrirlo) nunca toque la versión ya validada.
+    version = await _count_versions(plan, db) + 1
+    db.add(RoadmapVersion(
+        user_id=user_id, plan_id=plan.id, version=version,
+        roadmap=copy.deepcopy(plan.roadmap), validated_at=validated_at,
+    ))
+
     await db.commit()
-    return _estado_out(plan)
+    return _estado_out(plan, version)
 
 
 @router.post("/annual-plan/roadmap/reabrir")
 async def reabrir_roadmap(
     user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
 ):
-    """Regresa el roadmap a borrador (editable) y lo retira de la agenda del consejo."""
+    """Regresa el roadmap a borrador (editable) y lo retira de la agenda del consejo.
+    Las versiones ya validadas NO se borran: quedan archivadas en la Biblioteca."""
     plan = await _current_plan(user_id, db)
     if plan is None:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
@@ -381,7 +404,17 @@ async def reabrir_roadmap(
     for t in temas:
         t.active = False
     await db.commit()
-    return _estado_out(plan)
+    return _estado_out(plan, await _count_versions(plan, db))
+
+
+async def _pdf_branding(user_id: str, db: AsyncSession) -> tuple[str | None, bytes | None]:
+    onb = (await db.execute(
+        select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+        .order_by(OnboardingSession.created_at.desc())
+    )).scalars().first()
+    company_name = (((onb.memory_buffer if onb else {}) or {}).get("company") or {}).get("name")
+    logo = await get_logo_bytes(user_id, db)
+    return company_name, logo
 
 
 @router.get("/annual-plan/roadmap/pdf")
@@ -391,16 +424,51 @@ async def roadmap_pdf(
     plan = await _current_plan(user_id, db)
     if plan is None or not plan.roadmap:
         raise HTTPException(status_code=404, detail="No hay roadmap disponible.")
-    onb = (await db.execute(
-        select(OnboardingSession).where(OnboardingSession.user_id == user_id)
-        .order_by(OnboardingSession.created_at.desc())
-    )).scalars().first()
-    company_name = (((onb.memory_buffer if onb else {}) or {}).get("company") or {}).get("name")
-    logo = await get_logo_bytes(user_id, db)
+    company_name, logo = await _pdf_branding(user_id, db)
     from app.services.pdf.roadmap_pdf import build_roadmap_pdf
     pdf = await anyio.to_thread.run_sync(lambda: build_roadmap_pdf(plan.roadmap, company_name, logo))
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": 'attachment; filename="roadmap.pdf"'})
+
+
+# ── Versiones archivadas del roadmap ─────────────────────────────────────────
+
+@router.get("/annual-plan/roadmap/versiones")
+async def list_roadmap_versiones(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    """Las versiones validadas del roadmap, de la más reciente a la más antigua."""
+    versiones = (await db.execute(
+        select(RoadmapVersion)
+        .where(RoadmapVersion.user_id == user_id)
+        .order_by(RoadmapVersion.version.desc())
+    )).scalars().all()
+    return [
+        {"id": str(v.id), "version": v.version, "validated_at": v.validated_at}
+        for v in versiones
+    ]
+
+
+@router.get("/annual-plan/roadmap/versiones/{version_id}/pdf")
+async def roadmap_version_pdf(
+    version_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    """El PDF de una versión archivada: se construye con SU snapshot, no con el roadmap actual."""
+    version = (await db.execute(
+        select(RoadmapVersion).where(
+            RoadmapVersion.id == version_id, RoadmapVersion.user_id == user_id)
+    )).scalar_one_or_none()
+    if version is None:
+        raise HTTPException(status_code=404, detail="Versión no encontrada.")
+    company_name, logo = await _pdf_branding(user_id, db)
+    from app.services.pdf.roadmap_pdf import build_roadmap_pdf
+    snapshot = version.roadmap or {}
+    pdf = await anyio.to_thread.run_sync(lambda: build_roadmap_pdf(snapshot, company_name, logo))
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="roadmap-v{version.version}.pdf"'},
+    )
 
 
 # ── CRUD de objetivos ─────────────────────────────────────────────────────────
