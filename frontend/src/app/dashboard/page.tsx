@@ -7,10 +7,11 @@ import Link from "next/link"
 import {
   ArrowRight, Play, ChevronRight,
   CheckCircle2, Circle, ArrowUpRight, X, Loader2,
-  Sparkles,
+  Sparkles, FileSearch, LayoutGrid, MessagesSquare, ClipboardList, Library, Users,
 } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 import SecretarioWelcome from "@/components/dashboard/SecretarioWelcome"
+import { PageShell } from "@/components/ui/PageShell"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
@@ -35,6 +36,35 @@ const ETAPAS = [
 const MONTH_NAMES = [
   "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+]
+
+// El flujo del producto, en el mismo orden que la barra lateral.
+// Es el acceso principal desde Inicio: una rejilla, no una lista suelta.
+const FLUJO = [
+  {
+    href: "/dashboard/diagnostico", icon: FileSearch, step: "01", label: "Diagnóstico",
+    desc: "El estado real de tu gobierno corporativo, con evidencia.",
+  },
+  {
+    href: "/dashboard/foda", icon: LayoutGrid, step: "02", label: "FODA",
+    desc: "Fortalezas, oportunidades, debilidades y amenazas del negocio.",
+  },
+  {
+    href: "/dashboard/perspectivas", icon: MessagesSquare, step: "03", label: "Perspectivas",
+    desc: "Lo que ven tu equipo, tus socios y tus clientes desde fuera.",
+  },
+  {
+    href: "/dashboard/plan", icon: ClipboardList, step: "04", label: "Plan anual",
+    desc: "Objetivos, tareas y KPIs mes a mes, generados por tu consejo.",
+  },
+  {
+    href: "/dashboard/biblioteca", icon: Library, step: "05", label: "Biblioteca",
+    desc: "Los documentos que sostienen cada decisión del consejo.",
+  },
+  {
+    href: "/dashboard/consejo", icon: Users, step: "06", label: "Tu consejo",
+    desc: "Cinco consejeros con IA: finanzas, estrategia, riesgos, auditoría y el Retador.",
+  },
 ]
 
 // Sesiones de consejo ocultas por ahora (no se borra el código). Cambiar a true para reactivar.
@@ -199,7 +229,7 @@ export default function DashboardPage() {
 
       {/* ── Navbar ───────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 md:left-60 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
+        <PageShell className="h-14 flex items-center justify-between">
           <GoberniaLogo size={16} />
 
           <div className="flex items-center gap-5">
@@ -207,7 +237,7 @@ export default function DashboardPage() {
               <span className="text-xs text-gray-400 hidden sm:block">{userEmail}</span>
             )}
           </div>
-        </div>
+        </PageShell>
       </header>
 
       {/* ── Setup-required modal ─────────────────────────── */}
@@ -360,7 +390,7 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       <main className="pt-14">
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-12 space-y-14">
+        <PageShell className="py-12 space-y-14">
 
           {/* ── Greeting ─────────────────────────────────── */}
           <motion.div
@@ -478,7 +508,7 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {/* ── Plan estratégico ─────────────────────────── */}
+          {/* ── El flujo ─────────────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -486,22 +516,49 @@ export default function DashboardPage() {
             className="space-y-6"
           >
             <div>
-              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Estrategia</p>
-              <h2 className="text-2xl font-bold text-black tracking-tight">Plan anual</h2>
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">
+                Tu flujo
+              </p>
+              <h2 className="text-2xl font-bold text-black tracking-tight">
+                Del diagnóstico al plan
+              </h2>
             </div>
 
-            <Link
-              href="/dashboard/plan"
-              className="group block border border-gray-100 rounded-2xl p-5 hover:border-gray-300 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-black">Plan estratégico de 12 meses</span>
-                <span className="text-gray-300 group-hover:text-[var(--gob-navy)] transition-colors">→</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                Objetivos, tareas y KPIs mes a mes, generados por tu consejo.
-              </p>
-            </Link>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {FLUJO.map((f, i) => {
+                const Icon = f.icon
+                return (
+                  <motion.div
+                    key={f.href}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: EASE, delay: 0.35 + i * 0.05 }}
+                  >
+                    <Link
+                      href={f.href}
+                      className="group h-full flex flex-col border border-gray-100 rounded-2xl p-6 hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+                    >
+                      <div className="flex items-start justify-between">
+                        <span className="h-9 w-9 rounded-xl border border-gray-100 flex items-center justify-center text-[var(--gob-navy)] group-hover:border-gray-300 transition-colors">
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="text-[10px] font-medium tracking-widest text-gray-300 tabular-nums">
+                          {f.step}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-black mt-4">{f.label}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed mt-1.5 flex-1">
+                        {f.desc}
+                      </p>
+                      <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 group-hover:text-[var(--gob-navy)] transition-colors">
+                        Abrir
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </span>
+                    </Link>
+                  </motion.div>
+                )
+              })}
+            </div>
           </motion.div>
 
           {/* ── Board sessions ── OCULTO por ahora (no se borra; las "Sesiones de consejo" se deshabilitan temporalmente). El modal "Nueva sesión" queda en el código pero ya no es alcanzable. ── */}
@@ -531,7 +588,7 @@ export default function DashboardPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
               </div>
             ) : sessions.length > 0 ? (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
                 {sessions.map((s, i) => (
                   <motion.div
                     key={s.board_session_id}
@@ -592,12 +649,12 @@ export default function DashboardPage() {
           </motion.div>
           )}
 
-        </div>
+        </PageShell>
       </main>
 
       {/* ── Footer ───────────────────────────────────────── */}
-      <footer className="border-t border-gray-100 py-6 px-6 mt-4">
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto flex items-center justify-between text-xs text-gray-400">
+      <footer className="border-t border-gray-100 py-6 mt-4">
+        <PageShell className="flex items-center justify-between gap-4 flex-wrap text-xs text-gray-400">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-[var(--gob-navy)] flex items-center justify-center">
               <span className="text-[var(--gob-bone)] text-[8px] font-black">G</span>
@@ -605,7 +662,7 @@ export default function DashboardPage() {
             <span>Gobernia © {new Date().getFullYear()}</span>
           </div>
           <span>Tu información está cifrada y protegida.</span>
-        </div>
+        </PageShell>
       </footer>
 
     </div>

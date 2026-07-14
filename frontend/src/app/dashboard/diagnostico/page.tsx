@@ -7,6 +7,7 @@ import {
   Loader2, Sparkles, AlertCircle, Download, FileSearch, ChevronDown, ArrowRight,
   TrendingUp, TrendingDown, Minus, Link2, ShieldAlert, Globe,
 } from "lucide-react"
+import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import {
   getDiagnostico, getDiagnosticoStatus, generateDiagnostico, downloadDiagnosticoPdf,
   type Diagnostico,
@@ -27,7 +28,7 @@ function Accordion({ title, defaultOpen = false, highlight = false, badge, child
       open ? "border-gray-200" : "border-gray-100 hover:border-gray-200"
     } ${highlight ? "border-l-2 border-l-[var(--gob-navy)]" : ""}`}>
       <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left">
+        className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
         <span className="flex items-center gap-2.5 min-w-0">
           <h2 className="text-base font-bold text-black tracking-tight truncate">{title}</h2>
           {badge}
@@ -64,6 +65,16 @@ const SEV_META: Record<string, { chip: string; dot: string; label: string }> = {
 }
 const sevMeta = (s: string) => SEV_META[s] ?? SEV_META.media
 const SEV_ORDER: Record<string, number> = { alta: 0, media: 1, baja: 2 }
+
+// Cifra de cabecera: lo que el diagnóstico encontró, de un vistazo.
+function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 px-5 py-4">
+      <p className={`text-2xl font-bold tracking-tight ${accent}`}>{value}</p>
+      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-gray-400 mt-0.5">{label}</p>
+    </div>
+  )
+}
 
 // Bloque interno reutilizable (Fortalezas / Debilidades): tarjeta con acento superior + lista.
 type Cubi = { area: string; tipo: string; texto: string }
@@ -207,12 +218,12 @@ export default function DiagnosticoPage() {
         </div>
         {isDatos ? (
           <Link href="/dashboard/datos"
-            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
+            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
             Completar mis datos
           </Link>
         ) : (
           <button onClick={onGenerate}
-            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
+            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
             <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar diagnóstico"}
           </button>
         )}
@@ -227,123 +238,144 @@ export default function DiagnosticoPage() {
   const riesgos = [...(diag?.riesgos ?? [])].sort(
     (a, b) => (SEV_ORDER[a.severidad] ?? 1) - (SEV_ORDER[b.severidad] ?? 1))
   const sources = diag?.sources ?? []
+  const sections = (diag?.sections ?? []).filter(s => s.body)
   const sinInterno = fortalezas.length === 0 && debilidades.length === 0 && riesgos.length === 0
+  const hayCifras = fortalezas.length > 0 || debilidades.length > 0 || riesgos.length > 0
 
   return (
     <div className="min-h-dvh bg-white text-black antialiased">
-      {/* Barra superior sticky con acciones */}
-      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="w-full max-w-3xl mx-auto px-[var(--px-fluid)] py-3.5 flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">Diagnóstico estratégico</p>
-            <h1 className="text-lg sm:text-xl font-bold text-black tracking-tight truncate">La realidad de tu empresa</h1>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+      <PageHeader
+        eyebrow="Diagnóstico estratégico"
+        title="La realidad de tu empresa"
+        actions={
+          <>
             <button onClick={onDownload} disabled={downloading}
-              className="inline-flex items-center gap-2 border border-gray-200 text-sm font-medium text-gray-700 px-3.5 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50">
+              className="inline-flex items-center gap-2 border border-gray-200 text-sm font-medium text-gray-700 px-3.5 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
               {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               PDF
             </button>
             <a href="/onboarding/todd/externo"
-              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
+              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
               <span className="hidden sm:inline">Continuar al análisis del entorno</span>
               <span className="sm:hidden">Continuar</span>
               <ArrowRight className="h-4 w-4" />
             </a>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <main>
-        <div className="w-full max-w-3xl mx-auto px-[var(--px-fluid)] py-8 space-y-4">
+        <PageShell className="py-8 space-y-6">
 
-          {/* 1) Diagnóstico interno destacado: Fortalezas → Debilidades → Riesgos */}
-          <InternalBlock title="Fortalezas internas" Icon={TrendingUp} iconColor="text-green-600"
-            accent="border-t-green-500" items={fortalezas} />
-          <InternalBlock title="Debilidades internas" Icon={TrendingDown} iconColor="text-red-500"
-            accent="border-t-red-500" items={debilidades} />
+          {/* Resumen: qué encontró el diagnóstico, de un vistazo */}
+          {hayCifras && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Stat label="Fortalezas" value={fortalezas.length} accent="text-green-600" />
+              <Stat label="Debilidades" value={debilidades.length} accent="text-red-500" />
+              <Stat label="Riesgos" value={riesgos.length} accent="text-amber-500" />
+              <Stat label="Fuentes consultadas" value={sources.length} accent="text-[var(--gob-navy)]" />
+            </div>
+          )}
 
-          {riesgos.length > 0 && (
-            <section className="rounded-2xl border border-gray-100 border-t-4 border-t-amber-500 p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-amber-500" />
-                <h2 className="text-base font-bold text-black tracking-tight">Riesgos</h2>
-                <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{riesgos.length}</span>
+          {/* Lienzo ancho: la lectura a la izquierda, lo accionable a la derecha */}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 lg:items-start">
+
+            {/* Columna de lectura ------------------------------------------------ */}
+            <div className="min-w-0 space-y-4">
+              {/* Hallazgos internos: dos columnas en pantallas grandes */}
+              <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+                <InternalBlock title="Fortalezas internas" Icon={TrendingUp} iconColor="text-green-600"
+                  accent="border-t-green-500" items={fortalezas} />
+                <InternalBlock title="Debilidades internas" Icon={TrendingDown} iconColor="text-red-500"
+                  accent="border-t-red-500" items={debilidades} />
               </div>
-              <ul className="space-y-2.5">
-                {riesgos.map((r, i) => {
-                  const m = sevMeta(r.severidad)
-                  return (
-                    <li key={i} className="flex items-start gap-2.5 text-sm">
-                      <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${m.dot}`} />
-                      <span className="text-gray-700 leading-snug flex-1">{r.riesgo}</span>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${m.chip}`}>{m.label}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
-          )}
 
-          {sinInterno && (
-            <p className="text-sm text-gray-400 py-2">
-              Aún no hay hallazgos internos. Complétalos platicando con Todd — abajo tienes el contexto de mercado.
-            </p>
-          )}
+              {sinInterno && (
+                <p className="text-sm text-gray-400 py-2">
+                  Aún no hay hallazgos internos. Complétalos platicando con Todd — aquí tienes el contexto de mercado.
+                </p>
+              )}
 
-          {/* 2) Contexto de mercado (investigación web) — colapsado por defecto (anexo) */}
-          {(diag?.sections ?? []).some(s => s.body) && (
-            <Accordion title="Contexto de mercado" defaultOpen={sinInterno} badge={
-              <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
-                <Globe className="h-3 w-3" /> investigación web
-              </span>
-            }>
-              <div className="space-y-5">
-                {(diag?.sections ?? []).filter(s => s.body).map(s => (
-                  <div key={s.key} className="space-y-1.5">
-                    <h3 className="text-sm font-bold text-black">{s.title}</h3>
-                    <div className="space-y-2">
-                      {s.body.split("\n").filter(p => p.trim()).map((p, j) => (
-                        <p key={j} className="text-[14px] text-gray-600 leading-relaxed">{p.trim()}</p>
-                      ))}
-                    </div>
+              {/* Contexto de mercado (investigación web) — acordeón */}
+              {sections.length > 0 && (
+                <Accordion title="Contexto de mercado" defaultOpen={sinInterno} badge={
+                  <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
+                    <Globe className="h-3 w-3" /> investigación web
+                  </span>
+                }>
+                  <div className="space-y-6">
+                    {sections.map(s => (
+                      <div key={s.key} className="space-y-1.5">
+                        <h3 className="text-sm font-bold text-black">{s.title}</h3>
+                        <Prose className="space-y-2">
+                          {s.body.split("\n").filter(p => p.trim()).map((p, j) => (
+                            <p key={j} className="text-[14px] text-gray-600 leading-relaxed">{p.trim()}</p>
+                          ))}
+                        </Prose>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </Accordion>
-          )}
+                </Accordion>
+              )}
+            </div>
 
-          {/* 3) Fuentes — colapsable */}
-          {sources.length > 0 && (
-            <Accordion title="Fuentes" badge={
-              <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{sources.length}</span>
-            }>
-              <ul className="space-y-1.5">
-                {sources.map((src, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
-                    <Link2 className="h-3.5 w-3.5 text-gray-300 mt-0.5 shrink-0" />
-                    <a href={src.url} target="_blank" rel="noopener noreferrer"
-                      className="hover:text-[var(--gob-navy)] underline decoration-gray-200">
-                      {src.title}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </Accordion>
-          )}
+            {/* Columna de apoyo: lo accionable primero ---------------------------- */}
+            <aside className="space-y-4 lg:sticky lg:top-24">
+              {riesgos.length > 0 && (
+                <section className="rounded-2xl border border-gray-100 border-t-4 border-t-amber-500 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-amber-500" />
+                    <h2 className="text-base font-bold text-black tracking-tight">Riesgos</h2>
+                    <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{riesgos.length}</span>
+                  </div>
+                  <ul className="space-y-3">
+                    {riesgos.map((r, i) => {
+                      const m = sevMeta(r.severidad)
+                      return (
+                        <li key={i} className="space-y-1.5">
+                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full ${m.chip}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} /> {m.label}
+                          </span>
+                          <p className="text-sm text-gray-700 leading-snug">{r.riesgo}</p>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              )}
+
+              {sources.length > 0 && (
+                <Accordion title="Fuentes" badge={
+                  <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{sources.length}</span>
+                }>
+                  <ul className="space-y-1.5">
+                    {sources.map((src, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
+                        <Link2 className="h-3.5 w-3.5 text-gray-300 mt-0.5 shrink-0" />
+                        <a href={src.url} target="_blank" rel="noopener noreferrer"
+                          className="hover:text-[var(--gob-navy)] underline decoration-gray-200 break-words focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+                          {src.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </Accordion>
+              )}
+            </aside>
+          </div>
 
           {/* Pie: regenerar + continuar */}
-          <div className="pt-2 flex items-center justify-between gap-4 border-t border-gray-100 mt-2">
+          <div className="pt-4 flex items-center justify-between gap-4 flex-wrap border-t border-gray-100">
             <button onClick={onGenerate}
-              className="text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors pt-4">
+              className="text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)] rounded">
               Regenerar diagnóstico
             </button>
             <a href="/onboarding/todd/externo"
-              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors mt-4">
+              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
               Continuar al análisis del entorno <ArrowRight className="h-4 w-4" />
             </a>
           </div>
-        </div>
+        </PageShell>
       </main>
     </div>
   )
