@@ -8,6 +8,7 @@ import Link from "next/link"
 import api from "@/lib/api"
 import { supabase } from "@/lib/supabase"
 import { GoberniaIcon } from "@/components/ui/GoberniaLogo"
+import { PageShell } from "@/components/ui/PageShell"
 import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
 import BoardPack from "@/components/consejo/BoardPack"
 
@@ -33,6 +34,10 @@ const ALERT_COLOR: Record<AlertLevel, string> = {
   verde: "#0f766e",
 }
 const ALERT_ORDER: Record<AlertLevel, number> = { rojo: 0, ambar: 1, verde: 2 }
+// El semáforo también se lee sin color (lectores de pantalla).
+const ALERT_LABEL: Record<AlertLevel, string> = {
+  rojo: "Alerta crítica", ambar: "Alerta media", verde: "En orden",
+}
 
 // ── Types ─────────────────────────────────────────────────
 interface Finding {
@@ -277,7 +282,7 @@ export default function SessionPage() {
 
       {/* ── Navbar ───────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 md:left-60 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center gap-4">
+        <PageShell className="h-14 flex items-center gap-4">
           <button
             onClick={() => router.push("/dashboard")}
             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
@@ -302,12 +307,12 @@ export default function SessionPage() {
           }`}>
             {hasAnalysis ? "Activa" : "Borrador"}
           </span>
-        </div>
+        </PageShell>
       </header>
 
-      {/* ── Tab bar ──────────────────────────────────────── */}
-      <div className="fixed top-2 inset-x-0 md:left-60 z-40 bg-white border-b border-gray-100">
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] flex">
+      {/* ── Tab bar ── justo debajo del navbar, con el mismo lienzo ── */}
+      <div className="fixed top-14 inset-x-0 md:left-60 z-30 bg-white border-b border-gray-100">
+        <PageShell className="flex">
           {(["analisis", "chat"] as Tab[]).map(t => (
             <button
               key={t}
@@ -321,12 +326,12 @@ export default function SessionPage() {
               {t === "analisis" ? "Análisis" : "Chat"}
             </button>
           ))}
-        </div>
+        </PageShell>
       </div>
 
       {/* ── Main ─────────────────────────────────────────── */}
       <main className="flex-1 pt-28">
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] pb-10">
+        <PageShell className="pb-10">
 
           {/* ── Análisis ─────────────────────────────────── */}
           {tab === "analisis" && (
@@ -342,44 +347,45 @@ export default function SessionPage() {
                   <AgentsCollaboration />
                 </div>
               ) : !hasAnalysis ? (
-                /* Empty state — no analysis yet: primero el board pack, luego el botón */
-                <div className="space-y-5">
-                <BoardPack sessionId={id} />
+                /* Empty state — aún sin análisis: el board pack a la izquierda (lo que el
+                   consejo va a leer) y la convocatoria a la derecha. */
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                  <BoardPack sessionId={id} />
 
-                <div className="border border-gray-100 rounded-2xl p-16 flex flex-col items-center text-center space-y-7">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {AGENTS.map(a => (
-                      <div key={a.id} className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
-                          <span className="text-sm font-bold text-gray-300">{a.id[0]}</span>
+                  <div className="border border-gray-100 rounded-2xl p-10 sm:p-12 flex flex-col items-center text-center space-y-7">
+                    <div className="grid grid-cols-4 gap-4">
+                      {AGENTS.map(a => (
+                        <div key={a.id} className="flex flex-col items-center gap-2">
+                          <div className="w-12 h-12 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
+                            <span className="text-sm font-bold text-gray-300">{a.id[0]}</span>
+                          </div>
+                          <span className="text-[10px] font-medium text-gray-400">{a.id}</span>
                         </div>
-                        <span className="text-[10px] font-medium text-gray-400">{a.id}</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-base font-medium text-black">
+                        Tu consejo está listo para analizar
+                      </p>
+                      <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
+                        Los cinco consejeros con IA revisarán tu perfil y los documentos que hayas
+                        subido, y el Retador aplicará un pre-mortem a cada análisis antes de
+                        mostrártelo.
+                      </p>
+                    </div>
+
+                    {analyseError && (
+                      <p className="text-xs text-red-500">{analyseError}</p>
+                    )}
+
+                    <button
+                      onClick={runAnalysis}
+                      className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
+                    >
+                      Iniciar análisis
+                    </button>
                   </div>
-
-                  <div className="space-y-2">
-                    <p className="text-base font-medium text-black">
-                      Tu consejo está listo para analizar
-                    </p>
-                    <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
-                      Los cinco consejeros con IA revisarán tu perfil y los documentos que hayas
-                      subido, y el Retador aplicará un pre-mortem a cada análisis antes de
-                      mostrártelo.
-                    </p>
-                  </div>
-
-                  {analyseError && (
-                    <p className="text-xs text-red-500">{analyseError}</p>
-                  )}
-
-                  <button
-                    onClick={runAnalysis}
-                    className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
-                  >
-                    Iniciar análisis
-                  </button>
-                </div>
                 </div>
               ) : (
                 /* Analysis results */
@@ -435,7 +441,8 @@ export default function SessionPage() {
                     <span className="text-xs text-gray-300 group-hover:text-[var(--gob-bone)] transition-colors">→</span>
                   </Link>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 3xl:grid-cols-4 gap-5">
+                  {/* Los 4 consejeros en rejilla 2×2: se comparan de un vistazo. */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     {AGENTS.map((a, i) => {
                       const analysis = session.agent_analyses?.[a.id]
                       if (!analysis) return null
@@ -452,12 +459,28 @@ export default function SessionPage() {
                           transition={{ duration: 0.4, ease: EASE, delay: i * 0.07 }}
                           className="border border-gray-100 hover:border-gray-300 rounded-2xl p-7 space-y-5 transition-colors flex flex-col"
                         >
-                          <div>
-                            <p className="text-base font-bold text-black">{a.id}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{a.role}</p>
+                          <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+                            <span className="w-9 h-9 rounded-xl bg-[var(--gob-navy)] flex items-center justify-center shrink-0">
+                              <span className="text-[var(--gob-bone)] text-xs font-bold">{a.id[0]}</span>
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-base font-bold text-black leading-tight">{a.id}</span>
+                              <span className="block text-xs text-gray-400 mt-0.5">{a.role}</span>
+                            </span>
+                            {alerts.length > 0 && (
+                              <span className="ml-auto flex items-center gap-1" aria-hidden>
+                                {alerts.slice(0, 5).map((al, j) => (
+                                  <span
+                                    key={j}
+                                    className="w-1.5 h-1.5 rounded-full"
+                                    style={{ backgroundColor: ALERT_COLOR[al.nivel] }}
+                                  />
+                                ))}
+                              </span>
+                            )}
                           </div>
 
-                          <p className="text-sm text-gray-600 leading-relaxed">
+                          <p className="text-sm text-gray-600 leading-relaxed max-w-[68ch]">
                             {analysis.summary}
                           </p>
 
@@ -480,8 +503,8 @@ export default function SessionPage() {
                                     <span>
                                       {f.texto}
                                       {f.fuente && (
-                                        <span className="block text-[10px] text-gray-400 mt-0.5">
-                                          {f.fuente}
+                                        <span className="block text-[10px] text-gray-400 italic mt-0.5">
+                                          Fuente: {f.fuente}
                                         </span>
                                       )}
                                     </span>
@@ -498,25 +521,23 @@ export default function SessionPage() {
                               </p>
                               <ul className="space-y-2">
                                 {alerts.map((al, j) => (
-                                  <li key={j} className="flex gap-2.5 text-xs leading-relaxed">
+                                  <li
+                                    key={j}
+                                    className="border-l-2 pl-3 py-0.5 text-xs leading-relaxed"
+                                    style={{ borderLeftColor: ALERT_COLOR[al.nivel] }}
+                                  >
+                                    <span className="sr-only">{ALERT_LABEL[al.nivel]}: </span>
                                     <span
-                                      aria-hidden
-                                      className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-[5px]"
-                                      style={{ backgroundColor: ALERT_COLOR[al.nivel] }}
-                                    />
-                                    <span>
-                                      <span
-                                        className="font-medium"
-                                        style={{ color: ALERT_COLOR[al.nivel] }}
-                                      >
-                                        {al.texto}
-                                      </span>
-                                      {al.fuente && (
-                                        <span className="block text-[10px] text-gray-400 mt-0.5">
-                                          {al.fuente}
-                                        </span>
-                                      )}
+                                      className="font-medium"
+                                      style={{ color: ALERT_COLOR[al.nivel] }}
+                                    >
+                                      {al.texto}
                                     </span>
+                                    {al.fuente && (
+                                      <span className="block text-[10px] text-gray-400 italic mt-0.5">
+                                        Fuente: {al.fuente}
+                                      </span>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
@@ -587,7 +608,8 @@ export default function SessionPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, ease: EASE }}
-              className="flex flex-col py-6"
+              /* El chat no se estira al lienzo completo: una línea de 1400px no se lee. */
+              className="flex flex-col py-6 mx-auto w-full max-w-[920px]"
               style={{ height: "calc(100dvh - 8rem)" }}
             >
               {/* Agent selector */}
@@ -702,7 +724,7 @@ export default function SessionPage() {
             </motion.div>
           )}
 
-        </div>
+        </PageShell>
       </main>
     </div>
   )

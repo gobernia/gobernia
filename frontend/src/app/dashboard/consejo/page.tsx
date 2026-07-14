@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
-  ArrowRight, ArrowUpRight, Play, X, Loader2, Sparkles,
+  ArrowRight, ArrowUpRight, Play, X, Loader2, Sparkles, ChevronRight,
 } from "lucide-react"
 import { useOnboardingStore } from "@/lib/store"
+import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import api from "@/lib/api"
 
 type CubicBezier = [number, number, number, number]
@@ -36,6 +37,14 @@ interface BoardSession {
   board_session_id: string
   period_year: number
   period_month: number
+  // Sesiones antiguas pueden no traer estos campos: se toleran ausentes.
+  period_label?: string
+  status?: string
+  message_count?: number
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: "Borrador", active: "Activa", completed: "Completada",
 }
 
 export default function ConsejoPage() {
@@ -206,36 +215,111 @@ export default function ConsejoPage() {
         )}
       </AnimatePresence>
 
-      <main>
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] py-12 space-y-8">
-          <div className="space-y-1">
-            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Tu consejo</p>
-            <h1 className="text-3xl font-bold text-black tracking-tight">Cinco consejeros con IA</h1>
-          </div>
+      <PageHeader
+        eyebrow="Tu consejo"
+        title="Cinco consejeros con IA"
+        actions={
+          <button onClick={tryCreateSession}
+            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
+            Nueva sesión <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        }
+      />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {AGENTS.map((a, i) => (
-              <motion.div key={a.name} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: EASE, delay: 0.05 + i * 0.07 }}
-                className="group border border-gray-100 hover:border-gray-300 rounded-2xl p-6 space-y-4 transition-all duration-300 hover:shadow-sm flex flex-col">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-gray-400">{a.tag}</p>
-                    <p className="text-base font-bold text-black mt-0.5">{a.name}</p>
+      <main>
+        <PageShell className="py-10 space-y-12">
+
+          {/* ── Consejeros ───────────────────────────────── */}
+          <section className="space-y-5">
+            <Prose>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Cada consejero analiza tu empresa desde su especialidad y deja por escrito sus
+                hallazgos, alertas y preguntas para la junta. Puedes conversar con cualquiera de
+                ellos dentro de una sesión.
+              </p>
+            </Prose>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {AGENTS.map((a, i) => (
+                <motion.div key={a.name} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: EASE, delay: 0.05 + i * 0.07 }}
+                  className="group border border-gray-100 hover:border-gray-300 rounded-2xl p-6 space-y-4 transition-all duration-300 hover:shadow-sm flex flex-col">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400">{a.tag}</p>
+                      <p className="text-base font-bold text-black mt-0.5">{a.name}</p>
+                    </div>
+                    <ArrowUpRight className={`h-4 w-4 mt-0.5 shrink-0 transition-colors ${
+                      onboardingComplete ? "text-gray-200 group-hover:text-gray-400" : "text-gray-100"}`} />
                   </div>
-                  <ArrowUpRight className={`h-4 w-4 mt-0.5 transition-colors ${
-                    onboardingComplete ? "text-gray-200 group-hover:text-gray-400" : "text-gray-100"}`} />
-                </div>
-                <p className="text-xs text-gray-500 leading-relaxed flex-1">{a.desc}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed flex-1">{a.desc}</p>
+                  <button onClick={tryCreateSession}
+                    className="w-full flex items-center justify-between text-xs font-medium py-2.5 px-3 rounded-xl border border-gray-200 text-gray-700 hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-all duration-150">
+                    Iniciar sesión
+                    <Play className="h-3 w-3" />
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+
+          {/* ── Sesiones de consejo ──────────────────────── */}
+          <section className="space-y-5">
+            <div>
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Historial</p>
+              <h2 className="text-2xl font-bold text-black tracking-tight">Sesiones de consejo</h2>
+            </div>
+
+            {sessions.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+                {sessions.map((s, i) => (
+                  <motion.div key={s.board_session_id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, ease: EASE, delay: i * 0.04 }}>
+                    <Link href={`/dashboard/sesion/${s.board_session_id}`}
+                      className="group h-full flex items-center justify-between gap-4 px-5 py-4 border border-gray-100 hover:border-gray-300 rounded-2xl transition-all duration-200 hover:shadow-sm">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <span className="w-10 h-10 rounded-xl border-2 border-gray-100 flex items-center justify-center shrink-0 group-hover:border-gray-300 transition-colors">
+                          <span className="text-xs font-bold text-gray-400">
+                            {MONTH_NAMES[s.period_month]?.slice(0, 3)}
+                          </span>
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-black truncate">
+                            {s.period_label ?? `${MONTH_NAMES[s.period_month]} ${s.period_year}`}
+                          </span>
+                          <span className="block text-xs text-gray-400 mt-0.5">
+                            {STATUS_LABEL[s.status ?? ""] ?? "Borrador"}
+                            {(s.message_count ?? 0) > 0 && ` · ${s.message_count} mensajes`}
+                          </span>
+                        </span>
+                      </div>
+                      <ArrowUpRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" />
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="border border-gray-100 rounded-2xl p-12 flex flex-col items-center justify-center text-center gap-3">
+                <span className="w-12 h-12 rounded-full border-2 border-gray-100 flex items-center justify-center">
+                  <Play className="h-5 w-5 text-gray-200" />
+                </span>
+                <p className="text-sm font-medium text-black">
+                  {onboardingComplete ? "Aún no hay sesiones" : "Completa la configuración primero"}
+                </p>
+                <p className="text-xs text-gray-400 max-w-sm leading-relaxed">
+                  {onboardingComplete
+                    ? "Convoca a tu primera sesión: los consejeros revisarán tu empresa y los documentos que subas."
+                    : "Cuando termines de configurar tu empresa, tus consejeros podrán generar el primer análisis."}
+                </p>
                 <button onClick={tryCreateSession}
-                  className="w-full flex items-center justify-between text-xs font-medium py-2.5 px-3 rounded-xl border border-gray-200 text-gray-700 hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-all duration-150">
-                  Iniciar sesión
-                  <Play className="h-3 w-3" />
+                  className="inline-flex items-center gap-2 border border-gray-200 text-xs font-medium text-gray-700 px-4 py-2.5 rounded-xl hover:border-gray-400 hover:text-[var(--gob-navy)] transition-all duration-150 mt-1">
+                  Convocar sesión <ArrowRight className="h-3.5 w-3.5" />
                 </button>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+              </div>
+            )}
+          </section>
+
+        </PageShell>
       </main>
     </div>
   )

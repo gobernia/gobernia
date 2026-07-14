@@ -217,6 +217,8 @@ function TaskEditor({
   onDelete: () => void
 }) {
   const [local, setLocal] = useState<Task>(task)
+  // Sincroniza el borrador local cuando el padre trae otra tarea.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setLocal(task), [task])
 
   const save = (patch: Partial<Task>) => {
@@ -402,6 +404,8 @@ export default function PlanPage() {
     }
   }, [id])
 
+  // Fetch de montaje: el estado se llena desde la promesa, no de forma síncrona.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadPlan() }, [loadPlan])
 
   const generate = async () => {

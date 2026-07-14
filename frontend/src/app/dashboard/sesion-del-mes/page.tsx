@@ -5,6 +5,7 @@ import Link from "next/link"
 import AgendaPanel from "@/components/plan/AgendaPanel"
 import MinutaView from "@/components/plan/MinutaView"
 import AlertsPanel from "@/components/plan/AlertsPanel"
+import { PageShell } from "@/components/ui/PageShell"
 import { MONTH_NAMES, getAnnualPlanStatus } from "@/lib/annualPlan"
 
 export default function SesionDelMesPage() {
@@ -21,8 +22,8 @@ export default function SesionDelMesPage() {
   const now = new Date()
 
   return (
-    <main className="min-h-screen bg-[var(--gob-bone)] px-4 py-8">
-      <div className="max-w-3xl mx-auto space-y-5">
+    <main className="min-h-dvh bg-[var(--gob-bone)] py-10">
+      <PageShell className="space-y-6">
         <div>
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Tu sesión de</p>
           <h1 className="text-3xl font-bold text-black tracking-tight">
@@ -46,14 +47,19 @@ export default function SesionDelMesPage() {
           </div>
         )}
 
+        {/* Agenda y minuta son la sesión; las alertas la acompañan al costado. */}
         {hasPlan === true && (
-          <>
-            <AgendaPanel />
-            <MinutaView />
-            <AlertsPanel />
-          </>
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+            <div className="xl:col-span-2 space-y-5">
+              <AgendaPanel />
+              <MinutaView />
+            </div>
+            <div className="space-y-5">
+              <AlertsPanel />
+            </div>
+          </div>
         )}
-      </div>
+      </PageShell>
     </main>
   )
 }
