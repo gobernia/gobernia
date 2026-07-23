@@ -49,6 +49,12 @@ export async function setTaskEstado(taskId: string, status: TaskStatus): Promise
   return r.data
 }
 
+/** Cambia el responsable de una tarea. Devuelve la tarea actualizada. */
+export async function setTaskOwner(taskId: string, owner: string): Promise<BoardTask> {
+  const r = await api.patch<BoardTask>(`/tasks/${taskId}`, { owner })
+  return r.data
+}
+
 interface BoardSessionRef {
   board_session_id: string
   period_year: number
