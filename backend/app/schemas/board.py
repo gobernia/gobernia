@@ -17,6 +17,10 @@ class BoardTaskOut(BaseModel):
     # Mes de origen cuando la tarea se arrastra a otro mes (p.ej. "Marzo 2026").
     # None para las tareas propias del mes.
     viene_de:  str | None = None
+    # Cuántas evidencias tiene subidas la tarea.
+    evidencias: int = 0
+    # Veredicto del Consejo sobre la evidencia: {"estado", "motivo"} o None si nunca se validó.
+    validacion: dict | None = None
 
 
 class BoardMonthOut(BaseModel):

@@ -29,12 +29,13 @@ async def _user_override():
 
 
 def _task(objective_id, *, title="Tarea", owner=None, status="pendiente",
-          priority="media", due_date=None, order_index=0):
+          priority="media", due_date=None, order_index=0, validacion=None):
     t = ActionTask(id=uuid.uuid4(), plan_id=None, objective_id=objective_id,
                    title=title, status=status, priority=priority,
                    owner=owner, due_date=due_date, order_index=order_index)
     t.created_at = NOW; t.updated_at = NOW
     t.kpi_ref = None; t.description = None; t.source_agent = None; t.tags = None
+    t.validacion = validacion
     return t
 
 
@@ -61,7 +62,9 @@ async def test_board_groups_by_month():
 
     t1 = _task(obj1.id, title="Cerrar caja", owner="Dirección General",
                status="en_progreso", priority="alta", due_date=date(2026, 3, 15),
-               order_index=0)
+               order_index=0,
+               validacion={"estado": "validada", "motivo": "El acta respalda el cierre.",
+                           "validated_at": "2026-03-01T00:00:00+00:00", "board_session_id": "x"})
     t2 = _task(obj2.id, title="Abrir sucursal", owner="Ventas",
                status="pendiente", priority="baja", order_index=0)
 
@@ -69,7 +72,9 @@ async def test_board_groups_by_month():
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month1, month2]
     r3 = MagicMock(); r3.scalars.return_value.all.return_value = [t1, t2]
-    db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2, r3])
+    # Conteo de evidencias por tarea: t1 tiene 2, t2 ninguna.
+    r4 = MagicMock(); r4.all.return_value = [(t1.id, 2)]
+    db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2, r3, r4])
 
     app.dependency_overrides[get_db] = _db_override(db)
     app.dependency_overrides[get_current_user_id] = _user_override
@@ -96,6 +101,9 @@ async def test_board_groups_by_month():
     assert tarea["due_date"] == "2026-03-15"
     assert tarea["objetivo"] == "Ordenar la operación"
     assert tarea["viene_de"] is None
+    # Evidencias y validación del Consejo: t1 tiene 2 evidencias y quedó validada.
+    assert tarea["evidencias"] == 2
+    assert tarea["validacion"] == {"estado": "validada", "motivo": "El acta respalda el cierre."}
     # Mes actual (=1) sin meses anteriores → sin arrastre.
     assert m1["arrastradas"] == []
 
@@ -103,6 +111,9 @@ async def test_board_groups_by_month():
     assert m2["label"] == "Abril 2026"
     assert m2["es_mes_actual"] is False
     assert m2["tareas"][0]["objetivo"] == "Crecer"
+    # Sin evidencias y sin validación → 0 y None.
+    assert m2["tareas"][0]["evidencias"] == 0
+    assert m2["tareas"][0]["validacion"] is None
     assert m2["arrastradas"] == []
 
 
@@ -150,7 +161,8 @@ async def test_board_arrastra_incompletas_al_mes_actual():
     r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
     r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month1, month2, month3]
     r3 = MagicMock(); r3.scalars.return_value.all.return_value = [t_done, t_ene, t_feb, t_mar]
-    db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2, r3])
+    r4 = MagicMock(); r4.all.return_value = []   # conteo de evidencias (ninguna en este test)
+    db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2, r3, r4])
 
     app.dependency_overrides[get_db] = _db_override(db)
     app.dependency_overrides[get_current_user_id] = _user_override

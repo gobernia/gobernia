@@ -306,9 +306,26 @@ async def get_board(
     grouped = await _tasks_by_objective(obj_ids, db)
     obj_title = {o.id: o.title for m in months for o in m.objectives}
 
+    # Conteo de evidencias por tarea en UNA sola query (sin N+1).
+    task_ids = [t.id for tasks in grouped.values() for t in tasks]
+    evidence_counts: dict = {}
+    if task_ids:
+        cres = await db.execute(
+            select(Evidence.action_task_id, func.count())
+            .where(Evidence.action_task_id.in_(task_ids))
+            .group_by(Evidence.action_task_id)
+        )
+        evidence_counts = {tid: cnt for tid, cnt in cres.all()}
+
     active = compute_active_month_index(
         plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12
     )
+
+    def _validacion_out(v: dict | None) -> dict | None:
+        # Al frontend solo le importa el veredicto, no el rastro interno (validated_at, sesión).
+        if not v:
+            return None
+        return {"estado": v.get("estado"), "motivo": v.get("motivo")}
 
     def _board_task(t: ActionTask, viene_de: str | None = None) -> BoardTaskOut:
         return BoardTaskOut(
@@ -316,6 +333,8 @@ async def get_board(
             status=t.status, priority=t.priority, due_date=t.due_date,
             objetivo=obj_title.get(t.objective_id),
             viene_de=viene_de,
+            evidencias=evidence_counts.get(t.id, 0),
+            validacion=_validacion_out(t.validacion),
         )
 
     def _month_tareas(m: MonthlyPlan) -> list[ActionTask]:

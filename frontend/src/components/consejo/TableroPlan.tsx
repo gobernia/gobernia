@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Loader2, ChevronDown, Check, ArrowRight, Gavel, CornerDownRight, UserPlus, X,
+  Upload, Paperclip, Download, Trash2, ShieldCheck, AlertTriangle, Clock, Info,
 } from "lucide-react"
 import {
-  BoardMes, BoardTask, TaskStatus,
+  BoardMes, BoardTask, TaskStatus, Validacion, ValidacionEstado,
   getBoard, setTaskEstado, setTaskOwner, abrirSesionMes,
 } from "@/lib/board"
+import {
+  Evidence, getEvidence, uploadEvidence, deleteEvidence, downloadEvidenceUrl,
+} from "@/lib/evidence"
 
 /**
  * El tablero tipo Monday del plan mensual, en la paleta sobria de Gobernia.
@@ -42,13 +46,21 @@ const FILETE = ["#142849", "#3a4a63", "#26282E", "#5a6b82", "#1f3a5f", "#4a5568"
 const filete = (i: number) => FILETE[i % FILETE.length]
 
 // ── Rejilla de columnas: mismo template en encabezado y filas ──
-// Tablero ancho: columnas cómodas. La 1ª (Tarea) respira, las demás fijas.
-const GRID_COLS = "md:grid-cols-[minmax(0,1fr)_220px_200px_120px_120px]"
+// Tablero ancho tipo Monday: la 1ª (Tarea) queda congelada y respira; las demás
+// tienen ancho fijo y se desplazan en horizontal dentro del contenedor de la tabla.
+const GRID_COLS = "md:grid-cols-[minmax(260px,1fr)_220px_200px_120px_120px_260px]"
+// Ancho mínimo de la rejilla: fuerza el scroll horizontal cuando el tablero aprieta.
+const GRID_MINW = "md:min-w-[1180px]"
 
 // Sombreado alterno de columnas (efecto Monday, tonos Gobernia).
 // Literales para el JIT: blanco / gris tenue (--gob-paper). Estado va aparte (color).
 const BG_WHITE = "md:bg-white"
 const BG_ALT = "md:bg-[#FBF8F3]"
+
+// La columna Tarea queda fija a la izquierda (sticky) con fondo sólido y un corte
+// (borde + sombra) para marcar el congelado mientras el resto se desplaza. Solo en
+// desktop; en móvil el layout de bloque no necesita congelar nada.
+const STICKY_TAREA = "md:sticky md:left-0 md:z-[15] md:shadow-[6px_0_10px_-8px_rgba(20,40,73,0.22)]"
 
 // ── Fecha corta es-MX ("15 mar") ──
 function venceCorto(iso: string | null): string {
@@ -231,19 +243,196 @@ function EtiquetaMovil({ children }: { children: string }) {
   )
 }
 
+// ── Lee el mensaje de error legible del backend (err.response.data.detail) ──
+function detalleError(err: unknown): string | undefined {
+  return (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+}
+
+// ── Badge de validación del Consejo ──
+// La validación la hace el Consejo al sesionar el mes; aquí solo se muestra su resultado.
+const VALIDACION: Record<ValidacionEstado, {
+  color: string; label: string; Icon: typeof ShieldCheck
+}> = {
+  validada:     { color: "#0f766e", label: "Validada por el Consejo", Icon: ShieldCheck },
+  insuficiente: { color: "#b45309", label: "Falta sustento",          Icon: AlertTriangle },
+  sin_revisar:  { color: "#8E8B84", label: "Sin revisar",             Icon: Clock },
+}
+
+function ValidacionBadge({ validacion, tieneEvidencia }: {
+  validacion?: Validacion | null
+  tieneEvidencia: boolean
+}) {
+  const estado: ValidacionEstado = validacion?.estado ?? "sin_revisar"
+  // Sin evidencia y sin revisar: no ensuciamos la celda con un badge vacío.
+  if (estado === "sin_revisar" && !tieneEvidencia) return null
+
+  const { color, label, Icon } = VALIDACION[estado]
+  const motivo = validacion?.motivo?.trim()
+
+  return (
+    <span className="inline-flex flex-col gap-0.5 min-w-0">
+      <span
+        title={motivo || label}
+        className="inline-flex items-center gap-1 self-start rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+        style={{ color, backgroundColor: `${color}14`, border: `1px solid ${color}33` }}>
+        <Icon className="h-3 w-3 shrink-0" />
+        <span className="truncate">{label}</span>
+      </span>
+      {estado === "insuficiente" && motivo && (
+        <span className="text-[10px] leading-snug text-[var(--gob-muted)] line-clamp-2">{motivo}</span>
+      )}
+    </span>
+  )
+}
+
+// ── Celda de Documentos: subir evidencia, ver/descargar/borrar y estado de validación ──
+function DocumentosCelda({ tarea, onRefresh }: {
+  tarea: BoardTask
+  onRefresh: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  const [lista, setLista] = useState<Evidence[] | null>(null)
+  const [cargandoLista, setCargandoLista] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const count = tarea.evidencias ?? 0
+
+  const subir = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBusy(true); setError(null)
+    try {
+      await uploadEvidence(tarea.id, file)
+      setLista(null)   // invalida la lista para que se recargue al abrir el popover
+      onRefresh()      // refresca el tablero para que suba el conteo
+    } catch (err: unknown) {
+      setError(detalleError(err) ?? "No se pudo subir el documento.")
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ""
+    }
+  }
+
+  const abrirLista = async () => {
+    setOpen(true)
+    if (lista === null) {
+      setCargandoLista(true)
+      try {
+        setLista(await getEvidence(tarea.id))
+      } catch {
+        setError("No se pudieron cargar los documentos.")
+      } finally {
+        setCargandoLista(false)
+      }
+    }
+  }
+
+  const descargar = async (id: string) => {
+    setError(null)
+    try {
+      const url = await downloadEvidenceUrl(id)
+      window.open(url, "_blank", "noopener,noreferrer")
+    } catch {
+      setError("No se pudo abrir el documento.")
+    }
+  }
+
+  const borrar = async (id: string) => {
+    setError(null)
+    setLista(l => (l ? l.filter(x => x.id !== id) : l))
+    try {
+      await deleteEvidence(id)
+      onRefresh()
+    } catch {
+      setError("No se pudo borrar el documento.")
+      setLista(null)
+    }
+  }
+
+  return (
+    <div className="relative flex flex-col gap-1.5 min-w-0 w-full">
+      <ValidacionBadge validacion={tarea.validacion} tieneEvidencia={count > 0} />
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <button type="button" disabled={busy} onClick={() => inputRef.current?.click()}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--gob-rule)] px-2 py-1 text-xs font-medium text-[var(--gob-muted)] hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]">
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          {busy ? "Subiendo…" : "Subir"}
+        </button>
+
+        {count > 0 && (
+          <button type="button" onClick={abrirLista}
+            aria-haspopup="dialog" aria-expanded={open}
+            aria-label={`Ver ${count} ${count === 1 ? "documento" : "documentos"}`}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--gob-navy)] hover:bg-[var(--gob-bone)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]">
+            <Paperclip className="h-3.5 w-3.5" />
+            {count}
+          </button>
+        )}
+      </div>
+
+      {error && <p className="text-[10px] leading-snug" style={{ color: "#b45309" }}>{error}</p>}
+
+      <input ref={inputRef} type="file" className="hidden" onChange={subir}
+        accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx" />
+
+      {open && (
+        <>
+          {/* Cierre al hacer clic fuera */}
+          <button type="button" aria-hidden tabIndex={-1}
+            className="fixed inset-0 z-20 cursor-default" onClick={() => setOpen(false)} />
+          <div role="dialog" aria-label="Documentos de la tarea"
+            className="absolute z-30 mt-1 left-0 top-full w-72 rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg p-3 space-y-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Documentos</p>
+            {cargandoLista ? (
+              <div className="flex items-center justify-center py-3">
+                <Loader2 className="h-4 w-4 animate-spin text-[var(--gob-stone)]" />
+              </div>
+            ) : (lista && lista.length > 0) ? (
+              <ul className="space-y-1.5">
+                {lista.map(ev => (
+                  <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-white border border-[var(--gob-rule)] px-2.5 py-1.5">
+                    <Paperclip className="h-3.5 w-3.5 text-[var(--gob-stone)] shrink-0" />
+                    <span className="flex-1 truncate text-xs text-[var(--gob-charcoal)]" title={ev.filename}>{ev.filename}</span>
+                    <button type="button" onClick={() => descargar(ev.id)}
+                      aria-label={`Descargar ${ev.filename}`}
+                      className="text-[var(--gob-navy)] hover:text-[var(--gob-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)] rounded">
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => borrar(ev.id)}
+                      aria-label={`Borrar ${ev.filename}`}
+                      className="text-[var(--gob-stone)] hover:text-[#b45309] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b45309] rounded">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-[var(--gob-muted)] py-1">Sin documentos todavía.</p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Una fila de tarea (rejilla en desktop, bloque en móvil) ──
-function TareaRow({ tarea, sugerencias, onEstado, onOwner }: {
+function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
   tarea: BoardTask
   sugerencias: string[]
   onEstado: (s: TaskStatus) => void
   onOwner: (owner: string) => void
+  onRefresh: () => void
 }) {
-  const celdaBase = "px-4 py-3 flex items-center gap-2 md:border-r md:border-[var(--gob-rule)]"
+  const celdaBase = "px-4 py-3 flex items-center gap-2"
 
   return (
-    <div className={`grid grid-cols-1 ${GRID_COLS} md:items-stretch border-b border-[var(--gob-rule)] last:border-b-0`}>
-      {/* Tarea + objetivo */}
-      <div className={`px-4 py-3 flex flex-col justify-center min-w-0 ${BG_WHITE} md:border-r md:border-[var(--gob-rule)]`}>
+    <div className={`grid grid-cols-1 ${GRID_COLS} md:gap-x-1 md:bg-[var(--gob-rule)] md:items-stretch border-b border-[var(--gob-rule)] last:border-b-0`}>
+      {/* Tarea + objetivo — columna congelada a la izquierda */}
+      <div className={`px-4 py-3 flex flex-col justify-center min-w-0 ${BG_WHITE} ${STICKY_TAREA}`}>
         <p className="text-sm font-medium text-[var(--gob-ink)] leading-snug">{tarea.title}</p>
         {tarea.viene_de && (
           <span className="inline-flex items-center gap-1 mt-1 self-start rounded-full px-2 py-0.5 text-[10px] font-medium"
@@ -264,7 +453,7 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner }: {
       </div>
 
       {/* Estado (celda rellena tipo Monday) */}
-      <div className="flex flex-col md:border-r md:border-[var(--gob-rule)]">
+      <div className="flex flex-col">
         <span className="md:hidden px-4 pt-3 text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Estado</span>
         <EstadoCelda status={tarea.status} onChange={onEstado} />
       </div>
@@ -277,10 +466,16 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner }: {
         </span>
       </div>
 
-      {/* Prioridad (última columna: sin filete derecho) */}
+      {/* Prioridad */}
       <div className={`px-4 py-3 flex items-center gap-2 ${BG_ALT}`}>
         <EtiquetaMovil>Prioridad</EtiquetaMovil>
         <Prioridad nivel={tarea.priority} />
+      </div>
+
+      {/* Documentos (última columna: sin filete derecho) */}
+      <div className={`px-4 py-3 flex items-start gap-2 ${BG_WHITE}`}>
+        <EtiquetaMovil>Documentos</EtiquetaMovil>
+        <DocumentosCelda tarea={tarea} onRefresh={onRefresh} />
       </div>
     </div>
   )
@@ -304,16 +499,13 @@ function SesionarBtn({ label, cargando, onClick }: {
 
 // ── Encabezado de columnas (rejilla, solo desktop) ──
 function EncabezadoColumnas() {
-  const cols: Array<[string, string]> = [
-    ["Tarea", BG_WHITE], ["Responsable", BG_ALT], ["Estado", BG_ALT],
-    ["Vence", BG_WHITE], ["Prioridad", BG_ALT],
-  ]
+  const cols = ["Tarea", "Responsable", "Estado", "Vence", "Prioridad", "Documentos"]
   return (
-    <div className={`hidden md:grid ${GRID_COLS} border-b border-[var(--gob-rule)] bg-[var(--gob-bone)]`}>
-      {cols.map(([label], i) => (
+    <div className={`hidden md:grid ${GRID_COLS} md:gap-x-1 bg-[var(--gob-rule)] border-b border-[var(--gob-rule)]`}>
+      {cols.map((label, i) => (
         <span key={label}
-          className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--gob-muted)] ${
-            i < cols.length - 1 ? "border-r border-[var(--gob-rule)]" : ""}`}>
+          className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--gob-muted)] bg-[var(--gob-bone)] ${
+            i === 0 ? STICKY_TAREA : ""}`}>
           {label}
         </span>
       ))}
@@ -322,12 +514,13 @@ function EncabezadoColumnas() {
 }
 
 // ── Grupo de un mes ──
-function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onSesionar, sesionando }: {
+function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSesionar, sesionando }: {
   mes: BoardMes
   index: number
   sugerencias: string[]
   onEstado: (taskId: string, s: TaskStatus) => void
   onOwner: (taskId: string, owner: string) => void
+  onRefresh: () => void
   onSesionar: () => void
   sesionando: boolean
 }) {
@@ -350,9 +543,10 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onSesionar, sesi
         <SesionarBtn label={mes.label} cargando={sesionando} onClick={onSesionar} />
       </header>
 
-      {/* La rejilla puede desplazarse en su propio contenedor si el ancho aprieta. */}
+      {/* La rejilla vive en su propio contenedor con scroll horizontal (la columna Tarea
+          queda congelada); el body de la página nunca se desplaza a los lados. */}
       <div className="md:overflow-x-auto">
-        <div className="md:min-w-[720px]">
+        <div className={GRID_MINW}>
           {/* Subgrupo: tareas arrastradas de meses anteriores (solo mes actual) */}
           {arrastradas.length > 0 && (
             <div className="border-b border-[var(--gob-rule)]" style={{ backgroundColor: "#b4530908" }}>
@@ -364,7 +558,8 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onSesionar, sesi
               <div>
                 {arrastradas.map(t => (
                   <TareaRow key={t.id} tarea={t} sugerencias={sugerencias}
-                    onEstado={s => onEstado(t.id, s)} onOwner={o => onOwner(t.id, o)} />
+                    onEstado={s => onEstado(t.id, s)} onOwner={o => onOwner(t.id, o)}
+                    onRefresh={onRefresh} />
                 ))}
               </div>
             </div>
@@ -377,7 +572,8 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onSesionar, sesi
           <div>
             {mes.tareas.map(t => (
               <TareaRow key={t.id} tarea={t} sugerencias={sugerencias}
-                onEstado={s => onEstado(t.id, s)} onOwner={o => onOwner(t.id, o)} />
+                onEstado={s => onEstado(t.id, s)} onOwner={o => onOwner(t.id, o)}
+                onRefresh={onRefresh} />
             ))}
           </div>
         </div>
@@ -393,7 +589,11 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading")
   // Mes que se está sesionando (por month_index), para el estado de carga del botón.
   const [sesionandoMes, setSesionandoMes] = useState<number | null>(null)
+  // Recarga interna: sube al subir/borrar documentos para refrescar conteos.
+  const [tick, setTick] = useState(0)
   const aliveRef = useRef(true)
+
+  const refrescarTablero = () => setTick(t => t + 1)
 
   useEffect(() => {
     aliveRef.current = true
@@ -409,7 +609,7 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
         setStatus("ready")
       })
       .catch(() => { if (aliveRef.current) setStatus("error") })
-  }, [reloadSignal])
+  }, [reloadSignal, tick])
 
   // Responsables ya usados en el tablero (tareas + arrastradas), únicos y no vacíos.
   const sugerencias = useMemo(() => {
@@ -503,9 +703,18 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
 
   return (
     <div className="space-y-4">
+      {/* Ayuda: qué es la columna Documentos y quién valida. */}
+      <p className="flex items-start gap-2 text-xs text-[var(--gob-muted)] leading-snug">
+        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[var(--gob-stone)]" />
+        <span>
+          Cada responsable sube en <strong className="font-medium text-[var(--gob-charcoal)]">Documentos</strong> la
+          evidencia de su tarea. La validación la hace el Consejo al sesionar el mes.
+        </span>
+      </p>
+
       {meses.map((mes, i) => (
         <MesGrupo key={mes.month_index} mes={mes} index={i} sugerencias={sugerencias}
-          onEstado={cambiarEstado} onOwner={cambiarOwner}
+          onEstado={cambiarEstado} onOwner={cambiarOwner} onRefresh={refrescarTablero}
           onSesionar={() => sesionarMes(mes)} sesionando={sesionandoMes === mes.month_index} />
       ))}
     </div>
