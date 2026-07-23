@@ -41,6 +41,12 @@ class AdaptarTareaOut(BaseModel):
     por_que: str
 
 
+class TaskEstadoUpdate(BaseModel):
+    # str (no Literal) para validar a mano y devolver 400 en estado inválido,
+    # como pide el tablero. El candado de evidencia NO aplica a esta vía.
+    status: str
+
+
 class ActionTaskUpdate(BaseModel):
     title:        str | None = None
     description:  str | None = None

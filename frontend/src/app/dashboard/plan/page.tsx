@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, ChevronDown, Check, Clock, Gauge, Wand2, RefreshCw, Trash2, X } from "lucide-react"
+import { Loader2, ChevronDown, Clock, Gauge, Wand2, RefreshCw, Trash2, X } from "lucide-react"
 import {
   AnnualPlan, Task, ExplicacionTarea, AdaptacionTarea, MONTH_NAMES,
   getAnnualPlan, getAnnualPlanStatus, updateTask, deleteTask, getTaskExplicacion,
@@ -22,8 +22,8 @@ const DIF_CHIP: Record<string, string> = {
   "Difícil": "text-red-700 bg-red-50",
 }
 
-function TaskRow({ task, onToggle, busy, onReplaced, onRemoved }: {
-  task: Task; onToggle: (t: Task) => void; busy: boolean
+function TaskRow({ task, onReplaced, onRemoved }: {
+  task: Task
   onReplaced: (t: Task) => void; onRemoved: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -71,10 +71,6 @@ function TaskRow({ task, onToggle, busy, onReplaced, onRemoved }: {
   return (
     <div className={`rounded-xl border overflow-hidden ${done ? "border-green-100 bg-green-50/40" : open ? "border-[var(--gob-navy)]/30" : "border-gray-100"}`}>
       <div className="flex items-center gap-3 p-3.5">
-        <button onClick={() => onToggle(task)} disabled={busy}
-          className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 transition-colors ${done ? "bg-green-500 text-white" : "border-2 border-gray-300"}`}>
-          {done && <Check className="h-3.5 w-3.5" />}
-        </button>
         <button onClick={toggleOpen} className="flex-1 flex items-center gap-2 text-left">
           <span className={`flex-1 text-sm font-medium ${done ? "line-through text-green-700/70" : "text-gray-800"}`}>{task.title}</span>
           {task.required_doc && !done && (
@@ -164,8 +160,6 @@ export default function PlanPage() {
   const [active, setActive] = useState<number | null>(null)
   const [status, setStatus] = useState<string>("loading")
   const [view, setView] = useState<"roadmap" | "camino" | "timeline">("roadmap")
-  const [busyTask, setBusyTask] = useState<string | null>(null)
-  const [gateMsg, setGateMsg] = useState<string | null>(null)
   const [fodaReady, setFodaReady] = useState<boolean | null>(null)
   const [generating, setGenerating] = useState(false)
   const [genErr, setGenErr] = useState<string | null>(null)
@@ -323,18 +317,6 @@ export default function PlanPage() {
   const onTaskReplaced = (t: Task) => setPlan(prev => prev ? patchTaskInPlan(prev, t) : prev)
   const onTaskRemoved = (taskId: string) => setPlan(prev => prev ? removeTaskInPlan(prev, taskId) : prev)
 
-  const toggleTask = async (t: Task) => {
-    setBusyTask(t.id); setGateMsg(null)
-    const next = t.status === "completada" ? "pendiente" : "completada"
-    try {
-      const updated = await updateTask(t.id, { status: next })
-      setPlan(prev => prev ? patchTaskInPlan(prev, updated) : prev)
-    } catch (e: unknown) {
-      const code = (e as { response?: { status?: number } })?.response?.status
-      if (code === 409) setGateMsg("Esa tarea necesita su documento de sustento para marcarse como hecha. Súbelo en la tarea.")
-    } finally { setBusyTask(null) }
-  }
-
   if (status === "loading") {
     return <div className="min-h-dvh flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-300" /></div>
   }
@@ -479,14 +461,13 @@ export default function PlanPage() {
                   </div>
                   <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium shrink-0">{doneCount} de {monthTasks.length} hechas</span>
                 </div>
-                {gateMsg && <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{gateMsg}</p>}
                 <div className="space-y-2">
-                  {monthTasks.map(t => <TaskRow key={t.id} task={t} busy={busyTask === t.id} onToggle={toggleTask} onReplaced={onTaskReplaced} onRemoved={onTaskRemoved} />)}
+                  {monthTasks.map(t => <TaskRow key={t.id} task={t} onReplaced={onTaskReplaced} onRemoved={onTaskRemoved} />)}
                   {monthTasks.length === 0 && <p className="text-sm text-gray-400">Sin tareas este mes.</p>}
                 </div>
               </div>
             )}
-            <p className="text-center text-xs text-gray-400">Toca una tarea para ver qué es y cómo hacerla · toca el círculo para marcarla.</p>
+            <p className="text-center text-xs text-gray-400">Toca una tarea para ver qué es y cómo hacerla.</p>
           </>
         ) : (
           <div className="space-y-5">
