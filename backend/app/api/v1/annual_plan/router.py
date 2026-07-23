@@ -310,24 +310,44 @@ async def get_board(
         plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12
     )
 
+    def _board_task(t: ActionTask, viene_de: str | None = None) -> BoardTaskOut:
+        return BoardTaskOut(
+            id=str(t.id), title=t.title, owner=t.owner,
+            status=t.status, priority=t.priority, due_date=t.due_date,
+            objetivo=obj_title.get(t.objective_id),
+            viene_de=viene_de,
+        )
+
+    def _month_tareas(m: MonthlyPlan) -> list[ActionTask]:
+        ts = [t for o in m.objectives for t in grouped.get(o.id, [])]
+        ts.sort(key=lambda t: t.order_index)
+        return ts
+
     meses_out = []
     for m in months:
-        tareas = [t for o in m.objectives for t in grouped.get(o.id, [])]
-        tareas.sort(key=lambda t: t.order_index)
+        # Las tareas PROPIAS del mes (con su status real). Los meses pasados NO se mutan.
+        tareas = [_board_task(t) for t in _month_tareas(m)]
+
+        # El arrastre es a nivel de VISTA: solo el mes actual reúne, en una lista aparte,
+        # las tareas incompletas cuyos meses ya pasaron (marcadas con su mes de origen).
+        arrastradas: list[BoardTaskOut] = []
+        if m.month_index == active:
+            for prev in months:
+                if prev.month_index >= active:
+                    continue
+                prev_label = f"{_MONTH_NAMES[prev.period_month]} {prev.period_year}"
+                for t in _month_tareas(prev):
+                    if t.status != "completada":
+                        arrastradas.append(_board_task(t, viene_de=prev_label))
+
         meses_out.append(BoardMonthOut(
             month_index=m.month_index,
             period_year=m.period_year,
             period_month=m.period_month,
             label=f"{_MONTH_NAMES[m.period_month]} {m.period_year}",
             es_mes_actual=(m.month_index == active),
-            tareas=[
-                BoardTaskOut(
-                    id=str(t.id), title=t.title, owner=t.owner,
-                    status=t.status, priority=t.priority, due_date=t.due_date,
-                    objetivo=obj_title.get(t.objective_id),
-                )
-                for t in tareas
-            ],
+            tareas=tareas,
+            arrastradas=arrastradas,
         ))
     return BoardOut(meses=meses_out)
 

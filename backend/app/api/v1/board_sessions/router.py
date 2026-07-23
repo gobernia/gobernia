@@ -22,13 +22,15 @@ from sqlalchemy.orm import selectinload
 
 from app.services.data_completeness import missing_company_data
 from app.core.dependencies import get_current_user_id, get_db
-from app.models.annual_plan import AnnualPlan
+from app.models.action_plan import ActionTask
+from app.models.annual_plan import AnnualPlan, MonthlyPlan
 from app.models.board_session import BoardSession
 from app.models.chat_message import ChatMessage
 from app.models.compromiso import Compromiso
 from app.models.document import Document
 from app.models.onboarding_session import OnboardingSession
 from app.services.ai.agents.deliberacion import run_deliberacion
+from app.services.ai.annual_plan_generator import compute_active_month_index
 from app.schemas.board_session import (
     AnalysisRequest,
     BoardSessionCreate,
@@ -70,6 +72,79 @@ _MONTH_NAMES = [
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
 VALID_AGENTS = {"CFO", "CSO", "CRO", "Auditor"}
+
+# Cómo se lee cada estatus Kanban en el bloque de AVANCE que ve el Consejo.
+_STATUS_LABEL = {
+    "completada": "completada",
+    "en_progreso": "en proceso",
+    "pendiente": "sin ejecutar",
+}
+
+
+def _format_avance_tareas(months, tasks_by_obj: dict, active_index: int) -> str | None:
+    """
+    Bloque de texto 'AVANCE DEL PLAN' para la deliberación: totales de cumplimiento
+    (hechas / en proceso / sin ejecutar) + el detalle de las tareas del periodo actual y las
+    incompletas arrastradas de meses anteriores. Devuelve None si el plan no tiene tareas.
+    """
+    all_tasks = [t for m in months for o in m.objectives for t in tasks_by_obj.get(o.id, [])]
+    if not all_tasks:
+        return None
+
+    hechas = sum(1 for t in all_tasks if t.status == "completada")
+    en_proceso = sum(1 for t in all_tasks if t.status == "en_progreso")
+    sin_ejecutar = len(all_tasks) - hechas - en_proceso
+
+    def _line(t, sufijo: str = "") -> str:
+        estado = _STATUS_LABEL.get(t.status, t.status)
+        resp = f" (resp. {t.owner})" if t.owner else ""
+        return f"  - [{estado}] {t.title}{resp}{sufijo}"
+
+    lines = [
+        f"Totales del plan: {hechas} completada(s), {en_proceso} en proceso, "
+        f"{sin_ejecutar} sin ejecutar (de {len(all_tasks)} tareas)."
+    ]
+
+    actual = next((m for m in months if m.month_index == active_index), None)
+    if actual is not None:
+        actual_tasks = [t for o in actual.objectives for t in tasks_by_obj.get(o.id, [])]
+        label = f"{_MONTH_NAMES[actual.period_month]} {actual.period_year}"
+        lines.append(f"\nTareas del periodo actual ({label}):")
+        lines.extend(_line(t) for t in actual_tasks) if actual_tasks else \
+            lines.append("  (sin tareas asignadas a este mes)")
+
+    arrastradas = [
+        (m, t)
+        for m in months if m.month_index < active_index
+        for o in m.objectives for t in tasks_by_obj.get(o.id, [])
+        if t.status != "completada"
+    ]
+    if arrastradas:
+        lines.append("\nTareas arrastradas de meses anteriores (incompletas):")
+        for m, t in arrastradas:
+            origen = f"{_MONTH_NAMES[m.period_month]} {m.period_year}"
+            lines.append(_line(t, sufijo=f" — viene de {origen}"))
+
+    return "\n".join(lines)
+
+
+def _format_acuerdos_previos(rows, today: date) -> str | None:
+    """Bloque 'ACUERDOS PENDIENTES DE SESIONES ANTERIORES': descripción, responsable, fecha y si
+    está vencido. Devuelve None si no hay acuerdos abiertos que arrastrar."""
+    if not rows:
+        return None
+    lines = []
+    for c in rows:
+        resp = c.responsable_nombre or "(sin responsable asignado)"
+        if c.fecha_compromiso:
+            fecha = c.fecha_compromiso.isoformat()
+            vencido = " — VENCIDO" if c.fecha_compromiso < today else ""
+        else:
+            fecha, vencido = "(sin fecha)", ""
+        lines.append(
+            f"  - {c.descripcion} · resp. {resp} · fecha {fecha} · estatus «{c.status}»{vencido}"
+        )
+    return "\n".join(lines)
 
 
 async def _get_onboarding_or_404(
@@ -390,6 +465,45 @@ async def run_analyses(
         # El agente debe saber si lo lee en firme o si el dueño aún lo está revisando.
         roadmap["_status"] = getattr(plan, "roadmap_status", "borrador")
 
+    # AVANCE DEL PLAN: el Consejo evalúa cómo van las tareas, no solo los documentos. Se carga
+    # aquí (antes de cerrar la conexión) y se pasa a la deliberación como bloque de texto.
+    avance_tareas: str | None = None
+    if plan is not None:
+        mres = await db.execute(
+            select(MonthlyPlan)
+            .where(MonthlyPlan.annual_plan_id == plan.id)
+            .order_by(MonthlyPlan.month_index)
+            .options(selectinload(MonthlyPlan.objectives))
+        )
+        plan_months = list(mres.scalars().all())
+        plan_obj_ids = [o.id for m in plan_months for o in m.objectives]
+        tasks_by_obj: dict = {}
+        if plan_obj_ids:
+            tres = await db.execute(
+                select(ActionTask)
+                .where(ActionTask.objective_id.in_(plan_obj_ids))
+                .order_by(ActionTask.order_index)
+            )
+            for t in tres.scalars().all():
+                tasks_by_obj.setdefault(t.objective_id, []).append(t)
+        active_index = compute_active_month_index(
+            plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12
+        )
+        avance_tareas = _format_avance_tareas(plan_months, tasks_by_obj, active_index)
+
+    # CONTINUIDAD: la sesión arrastra los acuerdos ABIERTOS de las sesiones anteriores del usuario.
+    # Aquí NO se tocan (la gestión real vive en el módulo pm): solo se le dan al Consejo como
+    # contexto para que revise su cumplimiento y decida si los mantiene, reprograma o cierra.
+    prev_rows = (await db.execute(
+        select(Compromiso).where(
+            Compromiso.user_id == user_id,
+            Compromiso.board_session_id.isnot(None),
+            Compromiso.board_session_id != bs.id,
+            Compromiso.status.notin_(["completado", "cerrado"]),
+        ).order_by(Compromiso.created_at)
+    )).scalars().all()
+    acuerdos_previos = _format_acuerdos_previos(prev_rows, date.today())
+
     # Snapshot de campos necesarios y liberar la conexión a DB ANTES de los LLM calls.
     # Las 12 llamadas a Claude (4 agentes × 3 fases) pueden tomar minutos; mantener la
     # conexión abierta dispara el statement timeout de Supabase (QueryCanceledError).
@@ -511,6 +625,8 @@ async def run_analyses(
                 period_year=period_year,
                 period_month=period_month,
                 documents_note=_NOTA_SIN_DOCUMENTOS if not ready_docs else "",
+                avance_tareas=avance_tareas,
+                acuerdos_previos=acuerdos_previos,
             )
         )
     except Exception:

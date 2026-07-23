@@ -70,6 +70,11 @@ def _db_override(board_session=None, documents=None, document=None, added=None):
                 result.scalar_one_or_none.return_value = onb
                 result.scalars.return_value.first.return_value = onb
                 result.scalars.return_value.all.return_value = []
+            elif "annual_plans" in q:
+                # Estos tests miran el RUTEO de documentos, no el Roadmap ni el avance del
+                # plan: no hay plan activo (como en etapa9), así que /analyse omite ese bloque.
+                result.scalar_one_or_none.return_value = None
+                result.scalars.return_value.all.return_value = []
             else:  # board_sessions
                 result.scalar_one_or_none.return_value = board_session
                 result.scalars.return_value.all.return_value = []

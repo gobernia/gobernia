@@ -89,6 +89,21 @@ REGLA DE CITACIÓN (INQUEBRANTABLE):
   vacía ("") y se enuncia como lectura del Consejo, no como dato duro.
 - NUNCA inventes cifras, documentos, páginas ni fuentes que no aparezcan en los análisis."""
 
+# Bloque que se AÑADE al system prompt solo cuando la sesión trae datos de ejecución
+# (avance de las tareas del plan y/o los acuerdos abiertos de sesiones anteriores).
+DELIBERACION_SEGUIMIENTO_SYSTEM = """
+
+EVALÚA EL CUMPLIMIENTO (esta sesión trae datos de ejecución, no solo documentos):
+- Se te da el AVANCE DEL PLAN: cuántas tareas se completaron, cuáles siguen en proceso y cuáles no se
+  ejecutaron, más las que se arrastran de meses anteriores. Tu trabajo es EVALUAR ese cumplimiento:
+  qué se logró, qué se atrasó y por qué. El `avance_roadmap` debe reflejar ESE avance real, con esos
+  datos, no una impresión general. Si algo no se ejecutó, se dice sin adornos.
+- Se te dan los ACUERDOS PENDIENTES DE SESIONES ANTERIORES. Revísalos uno por uno y decide, como
+  órgano, si el Consejo los MANTIENE, los REPROGRAMA o los CIERRA — y refléjalo en la conclusión y en
+  los nuevos acuerdos (un acuerdo que sigue vivo se reafirma; uno cumplido se reconoce y no se repite).
+- NO inventes progreso que no esté en los datos. El cumplimiento se juzga con lo que hay, no con lo
+  que se esperaría."""
+
 DELIBERACION_TOOL = {
     "name": "conclusion_consejo",
     "description": "Entrega la conclusión única del Consejo de Administración para el periodo.",
@@ -501,10 +516,19 @@ def run_deliberacion(
     period_year: int,
     period_month: int,
     documents_note: str = "",
+    avance_tareas: str | None = None,
+    acuerdos_previos: str | None = None,
 ) -> dict:
     """
     El paso que convierte cuatro opiniones en UNA conclusión del Consejo.
     Opus + tool-use forzado. Si no hay API key o el tool-use falla, cae a un fallback determinista.
+
+    `avance_tareas`: bloque de texto con el AVANCE del plan (tareas hechas / en proceso / sin
+      ejecutar, y el detalle del periodo + las arrastradas). Si viene, el Consejo evalúa el
+      cumplimiento real, no solo los documentos.
+    `acuerdos_previos`: bloque de texto con los acuerdos ABIERTOS de sesiones anteriores. Si viene,
+      el Consejo revisa su cumplimiento y decide si los mantiene, reprograma o cierra.
+    Ambos son opcionales: sin ellos, la deliberación funciona como antes (retrocompat).
     """
     if not settings.ANTHROPIC_API_KEY:
         return _fallback(analyses, roadmap, period_year, period_month)
@@ -528,11 +552,30 @@ def run_deliberacion(
 
     nota_docs = f"\nNOTA SOBRE DOCUMENTOS: {documents_note}\n" if documents_note else ""
 
+    # Bloques de ejecución (opcionales): cómo va el plan y qué acuerdos siguen abiertos.
+    avance_ctx = (
+        f"AVANCE DEL PLAN (cómo va la ejecución de las tareas; evalúa el cumplimiento con "
+        f"ESTOS datos, no inventes progreso):\n{avance_tareas.strip()}\n\n"
+        if avance_tareas and avance_tareas.strip() else ""
+    )
+    acuerdos_ctx = (
+        f"ACUERDOS PENDIENTES DE SESIONES ANTERIORES (revísalos: manténlos, reprográmalos o "
+        f"ciérralos, y refléjalo en la conclusión y en los nuevos acuerdos):\n"
+        f"{acuerdos_previos.strip()}\n\n"
+        if acuerdos_previos and acuerdos_previos.strip() else ""
+    )
+    # El bloque de seguimiento se añade al system prompt solo si hay datos de ejecución.
+    system_prompt = DELIBERACION_SYSTEM_PROMPT + (
+        DELIBERACION_SEGUIMIENTO_SYSTEM if (avance_ctx or acuerdos_ctx) else ""
+    )
+
     user_prompt = (
         f"Sesión del Consejo — periodo {_period_label(period_year, period_month)}.\n\n"
         f"{roadmap_ctx}\n\n"
         f"{kpi_ctx}\n"
         f"{nota_docs}\n"
+        f"{avance_ctx}"
+        f"{acuerdos_ctx}"
         "ANÁLISIS DE LOS CONSEJEROS (ya revisados tras la crítica del consejero independiente). "
         "Son tu materia prima, NO tu formato de salida:\n"
         f"{json.dumps(analyses, ensure_ascii=False, indent=2)}\n\n"
@@ -550,7 +593,7 @@ def run_deliberacion(
             client,
             model=settings.DIAGNOSTICO_AI_MODEL,
             max_tokens=DELIBERACION_MAX_TOKENS,
-            system=DELIBERACION_SYSTEM_PROMPT,
+            system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
             tools=[DELIBERACION_TOOL],
             tool_choice={"type": "tool", "name": DELIBERACION_TOOL["name"]},

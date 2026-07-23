@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, ChevronDown, Check, ArrowRight } from "lucide-react"
-import { BoardMes, BoardTask, TaskStatus, getBoard, setTaskEstado } from "@/lib/board"
+import { Loader2, ChevronDown, Check, ArrowRight, Gavel, CornerDownRight } from "lucide-react"
+import { BoardMes, BoardTask, TaskStatus, getBoard, setTaskEstado, abrirSesionMes } from "@/lib/board"
 
 /**
  * El tablero tipo Monday del plan mensual, en la paleta sobria de Gobernia.
@@ -129,6 +130,13 @@ function TareaRow({ tarea, onEstado }: { tarea: BoardTask; onEstado: (s: TaskSta
       {/* Tarea + objetivo */}
       <div className="min-w-0">
         <p className="text-sm font-medium text-[var(--gob-ink)] leading-snug">{tarea.title}</p>
+        {tarea.viene_de && (
+          <span className="inline-flex items-center gap-1 mt-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+            style={{ color: "#b45309", backgroundColor: "#b4530914", border: "1px solid #b4530933" }}>
+            <CornerDownRight className="h-3 w-3" />
+            viene de {tarea.viene_de}
+          </span>
+        )}
         {tarea.objetivo && (
           <p className="text-xs text-[var(--gob-muted)] leading-snug mt-0.5 truncate">{tarea.objetivo}</p>
         )}
@@ -161,10 +169,32 @@ function TareaRow({ tarea, onEstado }: { tarea: BoardTask; onEstado: (s: TaskSta
   )
 }
 
-// ── Grupo de un mes ──
-function MesGrupo({ mes, index, onEstado }: {
-  mes: BoardMes; index: number; onEstado: (taskId: string, s: TaskStatus) => void
+// ── Botón "Sesionar {mes}" ──
+function SesionarBtn({ label, cargando, onClick }: {
+  label: string; cargando: boolean; onClick: () => void
 }) {
+  return (
+    <button type="button" onClick={onClick} disabled={cargando}
+      aria-label={`Sesionar ${label}: convocar al Consejo a evaluar este mes`}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--gob-rule)] px-2.5 py-1.5 text-xs font-medium text-[var(--gob-muted)] hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--gob-navy)]">
+      {cargando
+        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        : <Gavel className="h-3.5 w-3.5" />}
+      Sesionar
+    </button>
+  )
+}
+
+// ── Grupo de un mes ──
+function MesGrupo({ mes, index, onEstado, onSesionar, sesionando }: {
+  mes: BoardMes
+  index: number
+  onEstado: (taskId: string, s: TaskStatus) => void
+  onSesionar: () => void
+  sesionando: boolean
+}) {
+  const arrastradas = mes.es_mes_actual ? (mes.arrastradas ?? []) : []
+
   return (
     <section className="rounded-2xl border border-[var(--gob-rule)] overflow-hidden bg-white"
       style={{ borderLeftWidth: 4, borderLeftColor: filete(index) }}>
@@ -179,7 +209,24 @@ function MesGrupo({ mes, index, onEstado }: {
         <span className="ml-auto text-xs text-[var(--gob-muted)]">
           {mes.tareas.length} {mes.tareas.length === 1 ? "tarea" : "tareas"}
         </span>
+        <SesionarBtn label={mes.label} cargando={sesionando} onClick={onSesionar} />
       </header>
+
+      {/* Subgrupo: tareas arrastradas de meses anteriores (solo mes actual) */}
+      {arrastradas.length > 0 && (
+        <div className="border-b border-[var(--gob-rule)]" style={{ backgroundColor: "#b4530908" }}>
+          <div className="px-4 py-2">
+            <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "#b45309" }}>
+              Vienen de antes
+            </span>
+          </div>
+          <div className="divide-y divide-[var(--gob-rule)]">
+            {arrastradas.map(t => (
+              <TareaRow key={t.id} tarea={t} onEstado={s => onEstado(t.id, s)} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Encabezado de columnas (solo desktop) */}
       <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_180px_180px_92px_88px] md:gap-4 px-4 py-2 border-b border-[var(--gob-rule)] bg-[var(--gob-paper)]">
@@ -199,9 +246,12 @@ function MesGrupo({ mes, index, onEstado }: {
 }
 
 // ── El tablero ──
-export default function TableroPlan() {
+export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: number }) {
+  const router = useRouter()
   const [meses, setMeses] = useState<BoardMes[]>([])
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading")
+  // Mes que se está sesionando (por month_index), para el estado de carga del botón.
+  const [sesionandoMes, setSesionandoMes] = useState<number | null>(null)
   const aliveRef = useRef(true)
 
   useEffect(() => {
@@ -213,12 +263,24 @@ export default function TableroPlan() {
     getBoard()
       .then(m => {
         if (!aliveRef.current) return
-        // Solo meses con tareas.
-        setMeses(m.filter(x => x.tareas.length > 0))
+        // Meses con tareas propias o con tareas arrastradas (mes actual).
+        setMeses(m.filter(x => x.tareas.length > 0 || (x.arrastradas?.length ?? 0) > 0))
         setStatus("ready")
       })
       .catch(() => { if (aliveRef.current) setStatus("error") })
-  }, [])
+  }, [reloadSignal])
+
+  // Sesionar un mes: crea/abre la sesión del Consejo y navega a la pantalla de sesión.
+  const sesionarMes = async (mes: BoardMes) => {
+    if (sesionandoMes !== null) return
+    setSesionandoMes(mes.month_index)
+    try {
+      const id = await abrirSesionMes(mes.period_year, mes.period_month)
+      router.push(`/dashboard/sesion/${id}`)
+    } catch {
+      if (aliveRef.current) setSesionandoMes(null)
+    }
+  }
 
   // Cambio optimista de estado: aplica ya, revierte si el PATCH falla.
   const cambiarEstado = (taskId: string, next: TaskStatus) => {
@@ -275,7 +337,8 @@ export default function TableroPlan() {
   return (
     <div className="space-y-4">
       {meses.map((mes, i) => (
-        <MesGrupo key={mes.month_index} mes={mes} index={i} onEstado={cambiarEstado} />
+        <MesGrupo key={mes.month_index} mes={mes} index={i} onEstado={cambiarEstado}
+          onSesionar={() => sesionarMes(mes)} sesionando={sesionandoMes === mes.month_index} />
       ))}
     </div>
   )

@@ -10,6 +10,7 @@ import {
 import { useOnboardingStore } from "@/lib/store"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import TableroPlan from "@/components/consejo/TableroPlan"
+import ToddSecretario from "@/components/consejo/ToddSecretario"
 import api from "@/lib/api"
 
 type CubicBezier = [number, number, number, number]
@@ -59,6 +60,8 @@ export default function ConsejoPage() {
   const [modalMonth, setModalMonth] = useState(new Date().getMonth() + 1)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  // Se incrementa cuando Todd reemplaza una tarea, para refrescar el tablero.
+  const [boardReload, setBoardReload] = useState(0)
 
   useEffect(() => {
     api.get("/onboarding/my-session")
@@ -230,14 +233,24 @@ export default function ConsejoPage() {
       <main>
         <PageShell className="py-10 space-y-12">
 
-          {/* ── Tablero del plan (protagonista) ──────────── */}
+          {/* ── Tablero del plan (protagonista) + Todd secretario ──────────── */}
           <section className="space-y-5">
             <Prose>
               <p className="text-sm text-gray-500 leading-relaxed">
                 Aquí operas mes a mes las tareas de tu plan: quién responde, en qué van y cuándo vencen.
+                Sesiona cualquier mes para que el Consejo lo evalúe, o pregúntale a Todd qué está atrasado.
               </p>
             </Prose>
-            <TableroPlan />
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+              {/* El tablero manda: ocupa la columna principal. */}
+              <div className="min-w-0">
+                <TableroPlan reloadSignal={boardReload} />
+              </div>
+              {/* Todd, en panel lateral pegajoso en escritorio; apilado en móvil. */}
+              <div className="lg:sticky lg:top-24">
+                <ToddSecretario onTareaCambiada={() => setBoardReload(n => n + 1)} />
+              </div>
+            </div>
           </section>
 
           {/* ── Tu consejo de administración ─────────────── */}

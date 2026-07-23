@@ -17,6 +17,7 @@ from app.api.v1.todd.router import router as todd_router
 from app.api.v1.perspectivas.router import router as perspectivas_router
 from app.api.v1.biblioteca.router import router as biblioteca_router
 from app.api.v1.company.router import router as company_router
+from app.api.v1.todd_secretario.router import router as todd_secretario_router
 from app.api.v1.perspectivas.public import router as perspectivas_public_router
 
 
@@ -60,6 +61,7 @@ app.include_router(todd_router, prefix="/api/v1", tags=["todd"])
 app.include_router(perspectivas_router, prefix="/api/v1", tags=["perspectivas"])
 app.include_router(biblioteca_router, prefix="/api/v1", tags=["biblioteca"])
 app.include_router(company_router, prefix="/api/v1", tags=["company"])
+app.include_router(todd_secretario_router, prefix="/api/v1", tags=["todd-secretario"])
 app.include_router(perspectivas_public_router, prefix="/api/v1", tags=["perspectivas-public"])
 
 

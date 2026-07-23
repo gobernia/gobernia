@@ -95,11 +95,92 @@ async def test_board_groups_by_month():
     assert tarea["priority"] == "alta"
     assert tarea["due_date"] == "2026-03-15"
     assert tarea["objetivo"] == "Ordenar la operación"
+    assert tarea["viene_de"] is None
+    # Mes actual (=1) sin meses anteriores → sin arrastre.
+    assert m1["arrastradas"] == []
 
     m2 = meses[1]
     assert m2["label"] == "Abril 2026"
     assert m2["es_mes_actual"] is False
     assert m2["tareas"][0]["objetivo"] == "Crecer"
+    assert m2["arrastradas"] == []
+
+
+def _start_n_months_ago(n: int) -> date:
+    """start_date tal que compute_active_month_index(...) == n+1 hoy (test estable)."""
+    today = date.today()
+    month = today.month - n
+    year = today.year
+    while month <= 0:
+        month += 12
+        year -= 1
+    return date(year, month, 1)
+
+
+@pytest.mark.asyncio
+async def test_board_arrastra_incompletas_al_mes_actual():
+    # Mes activo = 3 (arranca 2 meses atrás). Meses 1 y 2 tienen tareas incompletas.
+    plan = AnnualPlan(id=uuid.uuid4(), user_id=MOCK_USER_ID, title="P",
+                      start_date=_start_n_months_ago(2), status="active")
+    plan.horizon_years = 1
+
+    obj1 = Objective(id=uuid.uuid4(), monthly_plan_id=uuid.uuid4(), title="Enero obj", order_index=0)
+    obj2 = Objective(id=uuid.uuid4(), monthly_plan_id=uuid.uuid4(), title="Febrero obj", order_index=0)
+    obj3 = Objective(id=uuid.uuid4(), monthly_plan_id=uuid.uuid4(), title="Marzo obj", order_index=0)
+
+    month1 = MonthlyPlan(id=uuid.uuid4(), annual_plan_id=plan.id, month_index=1,
+                         period_year=2026, period_month=1, status="done")
+    month1.objectives = [obj1]
+    month2 = MonthlyPlan(id=uuid.uuid4(), annual_plan_id=plan.id, month_index=2,
+                         period_year=2026, period_month=2, status="done")
+    month2.objectives = [obj2]
+    month3 = MonthlyPlan(id=uuid.uuid4(), annual_plan_id=plan.id, month_index=3,
+                         period_year=2026, period_month=3, status="active")
+    month3.objectives = [obj3]
+
+    # Enero: una completada (NO se arrastra) y una pendiente (SÍ se arrastra).
+    t_done = _task(obj1.id, title="Enero hecha", status="completada", order_index=0)
+    t_ene = _task(obj1.id, title="Enero pendiente", status="pendiente", order_index=1)
+    # Febrero: una en progreso (SÍ se arrastra).
+    t_feb = _task(obj2.id, title="Febrero en curso", status="en_progreso", order_index=0)
+    # Marzo (mes actual): tarea propia.
+    t_mar = _task(obj3.id, title="Marzo propia", status="pendiente", order_index=0)
+
+    from unittest.mock import AsyncMock, MagicMock
+    r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
+    r2 = MagicMock(); r2.scalars.return_value.all.return_value = [month1, month2, month3]
+    r3 = MagicMock(); r3.scalars.return_value.all.return_value = [t_done, t_ene, t_feb, t_mar]
+    db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2, r3])
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.get("/api/v1/annual-plan/board")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert r.status_code == 200
+    meses = r.json()["meses"]
+    m1, m2, m3 = meses
+
+    # Los meses pasados NO se mutan: sus tareas quedan en `tareas` con su status real, sin arrastre.
+    assert [t["title"] for t in m1["tareas"]] == ["Enero hecha", "Enero pendiente"]
+    assert all(t["viene_de"] is None for t in m1["tareas"])
+    assert m1["arrastradas"] == []
+    assert [t["title"] for t in m2["tareas"]] == ["Febrero en curso"]
+    assert m2["arrastradas"] == []
+
+    # El mes actual conserva su tarea propia en `tareas`...
+    assert [t["title"] for t in m3["tareas"]] == ["Marzo propia"]
+    assert m3["tareas"][0]["viene_de"] is None
+    # ...y reúne las incompletas de meses anteriores en `arrastradas`, con su mes de origen.
+    arr = m3["arrastradas"]
+    assert [t["title"] for t in arr] == ["Enero pendiente", "Febrero en curso"]
+    assert arr[0]["viene_de"] == "Enero 2026"
+    assert arr[1]["viene_de"] == "Febrero 2026"
+    # La completada de Enero NO se arrastra.
+    assert all(t["title"] != "Enero hecha" for t in arr)
 
 
 @pytest.mark.asyncio
