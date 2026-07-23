@@ -34,6 +34,7 @@ from app.schemas.annual_plan import (
     CloseMonthRequest, ApplyProposalRequest, GeneratePlanRequest,
 )
 from app.schemas.action_plan import ActionTaskOut
+from app.schemas.board import BoardOut, BoardMonthOut, BoardTaskOut
 from app.models.board_theme import BoardTheme
 from app.schemas.board_theme import BoardThemeOut, BoardThemeCreate, BoardThemeUpdate
 from app.services.ai.annual_plan_generator import compute_active_month_index
@@ -278,6 +279,57 @@ async def get_month(
         focus=month.focus, status=month.status, review=month.review,
         objectives=[_objective_out(o, grouped.get(o.id, [])) for o in month.objectives],
     )
+
+
+# ── GET /annual-plan/board ────────────────────────────────────────────────────
+# Tablero operativo (tipo Monday): TODAS las tareas del plan activo, agrupadas por
+# mes en orden cronológico. Sin candado de evidencia — es el rastreador operativo.
+
+@router.get("/annual-plan/board", response_model=BoardOut)
+async def get_board(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if not plan:
+        return BoardOut(meses=[])
+
+    mres = await db.execute(
+        select(MonthlyPlan)
+        .where(MonthlyPlan.annual_plan_id == plan.id)
+        .order_by(MonthlyPlan.month_index)
+        .options(selectinload(MonthlyPlan.objectives))
+    )
+    months = list(mres.scalars().all())
+
+    obj_ids = [o.id for m in months for o in m.objectives]
+    grouped = await _tasks_by_objective(obj_ids, db)
+    obj_title = {o.id: o.title for m in months for o in m.objectives}
+
+    active = compute_active_month_index(
+        plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12
+    )
+
+    meses_out = []
+    for m in months:
+        tareas = [t for o in m.objectives for t in grouped.get(o.id, [])]
+        tareas.sort(key=lambda t: t.order_index)
+        meses_out.append(BoardMonthOut(
+            month_index=m.month_index,
+            period_year=m.period_year,
+            period_month=m.period_month,
+            label=f"{_MONTH_NAMES[m.period_month]} {m.period_year}",
+            es_mes_actual=(m.month_index == active),
+            tareas=[
+                BoardTaskOut(
+                    id=str(t.id), title=t.title, owner=t.owner,
+                    status=t.status, priority=t.priority, due_date=t.due_date,
+                    objetivo=obj_title.get(t.objective_id),
+                )
+                for t in tareas
+            ],
+        ))
+    return BoardOut(meses=meses_out)
 
 
 # ── Roadmap estratégico ───────────────────────────────────────────────────────

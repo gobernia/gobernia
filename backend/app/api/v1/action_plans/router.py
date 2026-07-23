@@ -27,6 +27,7 @@ from app.schemas.action_plan import (
     ActionTaskCreate,
     ActionTaskOut,
     ActionTaskUpdate,
+    TaskEstadoUpdate,
     AdaptarTareaIn,
     AdaptarTareaOut,
     GeneratePlanResponse,
@@ -49,7 +50,8 @@ _MONTHS = [
 def _task_to_out(t: ActionTask) -> ActionTaskOut:
     return ActionTaskOut(
         id=str(t.id),
-        plan_id=str(t.plan_id),
+        plan_id=str(t.plan_id) if t.plan_id else None,
+        objective_id=str(t.objective_id) if t.objective_id else None,
         title=t.title,
         description=t.description,
         source_agent=t.source_agent,
@@ -294,6 +296,33 @@ async def update_task(
         setattr(task, key, value)
     task.updated_at = datetime.utcnow()
 
+    await db.flush()
+    await db.commit()
+    await db.refresh(task)
+    return _task_to_out(task)
+
+
+# ── PATCH /tasks/{task_id}/estado ─────────────────────────────────────────────
+# Vía del TABLERO operativo: el dueño marca el avance libremente.
+# SIN candado de evidencia (a diferencia de PATCH /tasks/{id}), porque el tablero
+# es el rastreador, no el registro formal de acuerdos.
+
+_ESTADOS_VALIDOS = ("pendiente", "en_progreso", "completada")
+
+
+@router.patch("/tasks/{task_id}/estado", response_model=ActionTaskOut)
+async def update_task_estado(
+    task_id: uuid.UUID,
+    body: TaskEstadoUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cambia SOLO el estatus de una tarea desde el tablero, sin exigir evidencia."""
+    if body.status not in _ESTADOS_VALIDOS:
+        raise HTTPException(status_code=400, detail="Estado inválido.")
+    task = await _get_user_task_or_404(task_id, user_id, db)
+    task.status = body.status
+    task.updated_at = datetime.utcnow()
     await db.flush()
     await db.commit()
     await db.refresh(task)
