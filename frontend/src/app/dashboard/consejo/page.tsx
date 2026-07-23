@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
-  ArrowRight, ArrowUpRight, Play, X, Loader2, Sparkles, ChevronRight,
+  ArrowRight, ArrowUpRight, Play, X, Loader2, Sparkles, ChevronRight, MessageSquare,
 } from "lucide-react"
 import { useOnboardingStore } from "@/lib/store"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
@@ -62,6 +62,8 @@ export default function ConsejoPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   // Se incrementa cuando Todd reemplaza una tarea, para refrescar el tablero.
   const [boardReload, setBoardReload] = useState(0)
+  // Cajón lateral de Todd: cerrado por defecto para que el tablero se vea ancho.
+  const [toddOpen, setToddOpen] = useState(false)
 
   useEffect(() => {
     api.get("/onboarding/my-session")
@@ -219,6 +221,29 @@ export default function ConsejoPage() {
         )}
       </AnimatePresence>
 
+      {/* Cajón lateral de Todd (deslizándose desde la derecha) */}
+      <AnimatePresence>
+        {toddOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }} className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+              onClick={() => setToddOpen(false)} />
+            <motion.aside initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+              transition={{ duration: 0.3, ease: EASE }}
+              role="dialog" aria-label="Todd, secretario del Consejo"
+              className="fixed right-0 top-0 z-50 h-dvh w-full max-w-[400px] bg-white border-l border-[var(--gob-rule)] shadow-2xl flex flex-col">
+              <button onClick={() => setToddOpen(false)} aria-label="Cerrar el panel de Todd"
+                className="absolute top-3 right-3 z-10 inline-flex items-center justify-center h-8 w-8 rounded-lg text-[var(--gob-muted)] hover:bg-[var(--gob-bone)] hover:text-[var(--gob-ink)] transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+              <div className="flex-1 min-h-0">
+                <ToddSecretario fill onTareaCambiada={() => setBoardReload(n => n + 1)} />
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
       <PageHeader
         eyebrow="Centro de operaciones"
         title="Tu consejo"
@@ -233,24 +258,23 @@ export default function ConsejoPage() {
       <main>
         <PageShell className="py-10 space-y-12">
 
-          {/* ── Tablero del plan (protagonista) + Todd secretario ──────────── */}
+          {/* ── Tablero del plan (protagonista, a todo lo ancho) ──────────── */}
           <section className="space-y-5">
-            <Prose>
-              <p className="text-sm text-gray-500 leading-relaxed">
-                Aquí operas mes a mes las tareas de tu plan: quién responde, en qué van y cuándo vencen.
-                Sesiona cualquier mes para que el Consejo lo evalúe, o pregúntale a Todd qué está atrasado.
-              </p>
-            </Prose>
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
-              {/* El tablero manda: ocupa la columna principal. */}
-              <div className="min-w-0">
-                <TableroPlan reloadSignal={boardReload} />
-              </div>
-              {/* Todd, en panel lateral pegajoso en escritorio; apilado en móvil. */}
-              <div className="lg:sticky lg:top-24">
-                <ToddSecretario onTareaCambiada={() => setBoardReload(n => n + 1)} />
-              </div>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <Prose>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Aquí operas mes a mes las tareas de tu plan: quién responde, en qué van y cuándo vencen.
+                  Sesiona cualquier mes para que el Consejo lo evalúe, o pregúntale a Todd qué está atrasado.
+                </p>
+              </Prose>
+              <button onClick={() => setToddOpen(true)}
+                aria-label="Abrir el panel de Todd, el secretario del Consejo"
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-[var(--gob-rule)] px-4 py-2.5 text-sm font-medium text-[var(--gob-navy)] hover:border-[var(--gob-navy)] hover:bg-[var(--gob-paper)] transition-colors">
+                <MessageSquare className="h-4 w-4" />
+                Pregúntale a Todd
+              </button>
             </div>
+            <TableroPlan reloadSignal={boardReload} />
           </section>
 
           {/* ── Tu consejo de administración ─────────────── */}

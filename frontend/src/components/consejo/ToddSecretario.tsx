@@ -106,7 +106,11 @@ function PropuestaCambio({ accion, onReemplazado, onDescartar }: {
   )
 }
 
-export default function ToddSecretario({ onTareaCambiada }: { onTareaCambiada?: () => void }) {
+export default function ToddSecretario({ onTareaCambiada, fill = false }: {
+  onTareaCambiada?: () => void
+  /** Si es true, Todd llena el alto de su contenedor (para el cajón lateral). */
+  fill?: boolean
+}) {
   const [mensajes, setMensajes] = useState<ToddMensaje[]>([])
   const [cargandoHistorial, setCargandoHistorial] = useState(true)
   const [texto, setTexto] = useState("")
@@ -170,7 +174,10 @@ export default function ToddSecretario({ onTareaCambiada }: { onTareaCambiada?: 
   const hayHistorial = mensajes.length > 0
 
   return (
-    <div className="flex flex-col rounded-2xl border border-[var(--gob-rule)] bg-white overflow-hidden h-[560px] max-h-[75vh]">
+    <div className={`flex flex-col bg-white overflow-hidden ${
+      fill
+        ? "h-full"
+        : "rounded-2xl border border-[var(--gob-rule)] h-[560px] max-h-[75vh]"}`}>
       {/* Encabezado */}
       <header className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--gob-rule)] bg-[var(--gob-paper)]">
         <ToddAvatar />
