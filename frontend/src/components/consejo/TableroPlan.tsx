@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -53,9 +54,11 @@ const GRID_COLS = "md:grid-cols-[minmax(260px,1fr)_220px_200px_120px_120px_260px
 const GRID_MINW = "md:min-w-[1180px]"
 
 // Sombreado alterno de columnas (efecto Monday, tonos Gobernia).
-// Literales para el JIT: blanco / gris tenue (--gob-paper). Estado va aparte (color).
+// Literales para el JIT: blanco / hueso (--gob-bone #F4F1EC). Con el gutter blanco las
+// columnas blancas se funden con la separación, así que la alterna sube a hueso para que
+// el rayado siga leyéndose. Estado va aparte (color).
 const BG_WHITE = "md:bg-white"
-const BG_ALT = "md:bg-[#FBF8F3]"
+const BG_ALT = "md:bg-[#F4F1EC]"
 
 // La columna Tarea queda fija a la izquierda (sticky) con fondo sólido y un corte
 // (borde + sombra) para marcar el congelado mientras el resto se desplaza. Solo en
@@ -96,6 +99,81 @@ function Prioridad({ nivel }: { nivel: BoardTask["priority"] }) {
   )
 }
 
+// ── Menú flotante: escapa de cualquier contenedor con overflow ──
+// Se posiciona con `position: fixed` a partir del getBoundingClientRect() del botón
+// disparador, así NINGÚN overflow lo recorta (el bug de la última fila). Voltea hacia
+// arriba si no hay espacio abajo, se clampea al borde derecho, y se cierra con clic
+// fuera, Escape, scroll (con capture, para atrapar el scroll horizontal del mes) y resize.
+function MenuFlotante({ anchorRef, open, onClose, ancho, altoEstimado = 240, children }: {
+  anchorRef: React.RefObject<HTMLButtonElement | null>
+  open: boolean
+  onClose: () => void
+  ancho: number
+  altoEstimado?: number
+  children: React.ReactNode
+}) {
+  const [coords, setCoords] = useState<{ left: number; top: number | null; bottom: number | null }>(
+    { left: 0, top: null, bottom: null },
+  )
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const btn = anchorRef.current
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    // Voltea hacia arriba solo si no cabe abajo Y sí cabe arriba.
+    const flipUp = rect.bottom + altoEstimado > window.innerHeight && rect.top > altoEstimado
+    // Alinea a la izquierda del botón y clampea para no salirse por la derecha.
+    let left = rect.left
+    const maxLeft = window.innerWidth - ancho - 8
+    if (left > maxLeft) left = maxLeft
+    if (left < 8) left = 8
+    setCoords(
+      flipUp
+        ? { left, top: null, bottom: window.innerHeight - rect.top + 4 }
+        : { left, top: rect.bottom + 4, bottom: null },
+    )
+  }, [open, anchorRef, ancho, altoEstimado])
+
+  useEffect(() => {
+    if (!open) return
+    const cerrar = () => onClose()
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    // capture: true atrapa el scroll de contenedores internos (el mes con overflow-x).
+    window.addEventListener("scroll", cerrar, true)
+    window.addEventListener("resize", cerrar)
+    window.addEventListener("keydown", onKey)
+    return () => {
+      window.removeEventListener("scroll", cerrar, true)
+      window.removeEventListener("resize", cerrar)
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return createPortal(
+    <>
+      {/* Backdrop de cierre (debajo del menú) */}
+      <button type="button" aria-hidden tabIndex={-1}
+        className="fixed inset-0 z-[60] cursor-default" onClick={onClose} />
+      {/* Menú (encima del backdrop) */}
+      <div
+        style={{
+          position: "fixed",
+          left: coords.left,
+          top: coords.top ?? undefined,
+          bottom: coords.bottom ?? undefined,
+          width: ancho,
+          zIndex: 61,
+        }}>
+        {children}
+      </div>
+    </>,
+    document.body,
+  )
+}
+
 // ── Celda de Responsable, editable con popover ──
 function ResponsableCelda({ owner, sugerencias, onChange }: {
   owner: string | null
@@ -104,6 +182,7 @@ function ResponsableCelda({ owner, sugerencias, onChange }: {
 }) {
   const [open, setOpen] = useState(false)
   const [valor, setValor] = useState(owner ?? "")
+  const btnRef = useRef<HTMLButtonElement>(null)
 
   const abrir = () => { setValor(owner ?? ""); setOpen(true) }
   const cerrar = () => setOpen(false)
@@ -118,7 +197,7 @@ function ResponsableCelda({ owner, sugerencias, onChange }: {
 
   return (
     <div className="relative min-w-0 w-full">
-      <button type="button" onClick={abrir}
+      <button ref={btnRef} type="button" onClick={abrir}
         aria-haspopup="dialog" aria-expanded={open}
         aria-label={owner ? `Responsable: ${owner}. Cambiar responsable` : "Sin asignar. Asignar responsable"}
         className="group inline-flex items-center gap-2 min-w-0 max-w-full rounded-lg -mx-1.5 px-1.5 py-1 text-left hover:bg-[var(--gob-bone)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]">
@@ -127,7 +206,7 @@ function ResponsableCelda({ owner, sugerencias, onChange }: {
             <span className="h-6 w-6 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] text-[10px] font-bold flex items-center justify-center shrink-0">
               {iniciales(owner)}
             </span>
-            <span className="text-sm text-[var(--gob-charcoal)] truncate">{owner}</span>
+            <span className="text-xs text-[var(--gob-charcoal)] truncate">{owner}</span>
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-xs text-[var(--gob-stone)] group-hover:text-[var(--gob-muted)]">
@@ -137,14 +216,10 @@ function ResponsableCelda({ owner, sugerencias, onChange }: {
         )}
       </button>
 
-      {open && (
-        <>
-          {/* Cierre al hacer clic fuera */}
-          <button type="button" aria-hidden tabIndex={-1}
-            className="fixed inset-0 z-20 cursor-default" onClick={cerrar} />
-          <div role="dialog" aria-label="Editar responsable"
-            className="absolute z-30 mt-1 left-0 w-64 rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg p-3 space-y-2.5">
-            <input
+      <MenuFlotante anchorRef={btnRef} open={open} onClose={cerrar} ancho={256} altoEstimado={200}>
+        <div role="dialog" aria-label="Editar responsable"
+          className="w-full rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg p-3 space-y-2.5">
+          <input
               autoFocus
               value={valor}
               onChange={e => setValor(e.target.value)}
@@ -185,9 +260,8 @@ function ResponsableCelda({ owner, sugerencias, onChange }: {
                 Cancelar
               </button>
             </div>
-          </div>
-        </>
-      )}
+        </div>
+      </MenuFlotante>
     </div>
   )
 }
@@ -195,41 +269,37 @@ function ResponsableCelda({ owner, sugerencias, onChange }: {
 // ── Celda de Estado tipo Monday: rellena del color del estado, editable (optimista) ──
 function EstadoCelda({ status, onChange }: { status: TaskStatus; onChange: (s: TaskStatus) => void }) {
   const [open, setOpen] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
   const color = ESTADO_COLOR[status]
 
   return (
     <div className="relative h-full">
-      <button type="button" onClick={() => setOpen(o => !o)}
+      <button ref={btnRef} type="button" onClick={() => setOpen(o => !o)}
         aria-haspopup="listbox" aria-expanded={open}
         aria-label={`Estado: ${ESTADO_LABEL[status]}. Cambiar estado`}
-        className="w-full h-full min-h-[3.25rem] flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--gob-navy)]"
+        className="w-full h-full min-h-[2.75rem] flex items-center gap-2 px-4 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--gob-navy)]"
         style={{ color, backgroundColor: `${color}22` }}>
         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <span className="flex-1 text-left truncate">{ESTADO_LABEL[status]}</span>
         <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
       </button>
 
-      {open && (
-        <>
-          {/* Cierre al hacer clic fuera */}
-          <button type="button" aria-hidden tabIndex={-1}
-            className="fixed inset-0 z-20 cursor-default" onClick={() => setOpen(false)} />
-          <ul role="listbox" aria-label="Estados"
-            className="absolute z-30 mt-1 left-3 min-w-[184px] rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg py-1">
-            {ESTADOS.map(s => (
-              <li key={s} role="option" aria-selected={s === status}>
-                <button type="button"
-                  onClick={() => { setOpen(false); if (s !== status) onChange(s) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left hover:bg-[var(--gob-bone)] transition-colors focus-visible:outline-none focus-visible:bg-[var(--gob-bone)]">
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ESTADO_COLOR[s] }} />
-                  <span className="flex-1" style={{ color: ESTADO_COLOR[s] }}>{ESTADO_LABEL[s]}</span>
-                  {s === status && <Check className="h-3.5 w-3.5 text-[var(--gob-muted)]" />}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      <MenuFlotante anchorRef={btnRef} open={open} onClose={() => setOpen(false)} ancho={200} altoEstimado={140}>
+        <ul role="listbox" aria-label="Estados"
+          className="w-full rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg py-1">
+          {ESTADOS.map(s => (
+            <li key={s} role="option" aria-selected={s === status}>
+              <button type="button"
+                onClick={() => { setOpen(false); if (s !== status) onChange(s) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left hover:bg-[var(--gob-bone)] transition-colors focus-visible:outline-none focus-visible:bg-[var(--gob-bone)]">
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ESTADO_COLOR[s] }} />
+                <span className="flex-1" style={{ color: ESTADO_COLOR[s] }}>{ESTADO_LABEL[s]}</span>
+                {s === status && <Check className="h-3.5 w-3.5 text-[var(--gob-muted)]" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </MenuFlotante>
     </div>
   )
 }
@@ -296,6 +366,7 @@ function DocumentosCelda({ tarea, onRefresh }: {
   const [lista, setLista] = useState<Evidence[] | null>(null)
   const [cargandoLista, setCargandoLista] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const verBtnRef = useRef<HTMLButtonElement>(null)
 
   const count = tarea.evidencias ?? 0
 
@@ -363,7 +434,7 @@ function DocumentosCelda({ tarea, onRefresh }: {
         </button>
 
         {count > 0 && (
-          <button type="button" onClick={abrirLista}
+          <button ref={verBtnRef} type="button" onClick={abrirLista}
             aria-haspopup="dialog" aria-expanded={open}
             aria-label={`Ver ${count} ${count === 1 ? "documento" : "documentos"}`}
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--gob-navy)] hover:bg-[var(--gob-bone)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]">
@@ -378,43 +449,38 @@ function DocumentosCelda({ tarea, onRefresh }: {
       <input ref={inputRef} type="file" className="hidden" onChange={subir}
         accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx" />
 
-      {open && (
-        <>
-          {/* Cierre al hacer clic fuera */}
-          <button type="button" aria-hidden tabIndex={-1}
-            className="fixed inset-0 z-20 cursor-default" onClick={() => setOpen(false)} />
-          <div role="dialog" aria-label="Documentos de la tarea"
-            className="absolute z-30 mt-1 left-0 top-full w-72 rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg p-3 space-y-2">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Documentos</p>
-            {cargandoLista ? (
-              <div className="flex items-center justify-center py-3">
-                <Loader2 className="h-4 w-4 animate-spin text-[var(--gob-stone)]" />
-              </div>
-            ) : (lista && lista.length > 0) ? (
-              <ul className="space-y-1.5">
-                {lista.map(ev => (
-                  <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-white border border-[var(--gob-rule)] px-2.5 py-1.5">
-                    <Paperclip className="h-3.5 w-3.5 text-[var(--gob-stone)] shrink-0" />
-                    <span className="flex-1 truncate text-xs text-[var(--gob-charcoal)]" title={ev.filename}>{ev.filename}</span>
-                    <button type="button" onClick={() => descargar(ev.id)}
-                      aria-label={`Descargar ${ev.filename}`}
-                      className="text-[var(--gob-navy)] hover:text-[var(--gob-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)] rounded">
-                      <Download className="h-3.5 w-3.5" />
-                    </button>
-                    <button type="button" onClick={() => borrar(ev.id)}
-                      aria-label={`Borrar ${ev.filename}`}
-                      className="text-[var(--gob-stone)] hover:text-[#b45309] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b45309] rounded">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-[var(--gob-muted)] py-1">Sin documentos todavía.</p>
-            )}
-          </div>
-        </>
-      )}
+      <MenuFlotante anchorRef={verBtnRef} open={open} onClose={() => setOpen(false)} ancho={288} altoEstimado={260}>
+        <div role="dialog" aria-label="Documentos de la tarea"
+          className="w-full rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg p-3 space-y-2">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Documentos</p>
+          {cargandoLista ? (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 className="h-4 w-4 animate-spin text-[var(--gob-stone)]" />
+            </div>
+          ) : (lista && lista.length > 0) ? (
+            <ul className="space-y-1.5">
+              {lista.map(ev => (
+                <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-white border border-[var(--gob-rule)] px-2.5 py-1.5">
+                  <Paperclip className="h-3.5 w-3.5 text-[var(--gob-stone)] shrink-0" />
+                  <span className="flex-1 truncate text-xs text-[var(--gob-charcoal)]" title={ev.filename}>{ev.filename}</span>
+                  <button type="button" onClick={() => descargar(ev.id)}
+                    aria-label={`Descargar ${ev.filename}`}
+                    className="text-[var(--gob-navy)] hover:text-[var(--gob-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)] rounded">
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                  <button type="button" onClick={() => borrar(ev.id)}
+                    aria-label={`Borrar ${ev.filename}`}
+                    className="text-[var(--gob-stone)] hover:text-[#b45309] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b45309] rounded">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-[var(--gob-muted)] py-1">Sin documentos todavía.</p>
+          )}
+        </div>
+      </MenuFlotante>
     </div>
   )
 }
@@ -427,13 +493,13 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
   onOwner: (owner: string) => void
   onRefresh: () => void
 }) {
-  const celdaBase = "px-4 py-3 flex items-center gap-2"
+  const celdaBase = "px-4 py-2.5 flex items-center gap-2"
 
   return (
-    <div className={`grid grid-cols-1 ${GRID_COLS} md:gap-x-1 md:bg-[var(--gob-rule)] md:items-stretch border-b border-[var(--gob-rule)] last:border-b-0`}>
+    <div className={`grid grid-cols-1 ${GRID_COLS} md:gap-x-1 md:bg-white md:items-stretch border-b border-[var(--gob-rule)] last:border-b-0`}>
       {/* Tarea + objetivo — columna congelada a la izquierda */}
-      <div className={`px-4 py-3 flex flex-col justify-center min-w-0 ${BG_WHITE} ${STICKY_TAREA}`}>
-        <p className="text-sm font-medium text-[var(--gob-ink)] leading-snug">{tarea.title}</p>
+      <div className={`px-4 py-2.5 flex flex-col justify-center min-w-0 ${BG_WHITE} ${STICKY_TAREA}`}>
+        <p className="text-[13px] font-medium text-[var(--gob-ink)] leading-snug">{tarea.title}</p>
         {tarea.viene_de && (
           <span className="inline-flex items-center gap-1 mt-1 self-start rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{ color: "#b45309", backgroundColor: "#b4530914", border: "1px solid #b4530933" }}>
@@ -442,7 +508,7 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
           </span>
         )}
         {tarea.objetivo && (
-          <p className="text-xs text-[var(--gob-muted)] leading-snug mt-0.5 truncate">{tarea.objetivo}</p>
+          <p className="text-[11px] text-[var(--gob-muted)] leading-snug mt-0.5 truncate">{tarea.objetivo}</p>
         )}
       </div>
 
@@ -454,26 +520,26 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
 
       {/* Estado (celda rellena tipo Monday) */}
       <div className="flex flex-col">
-        <span className="md:hidden px-4 pt-3 text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Estado</span>
+        <span className="md:hidden px-4 pt-2.5 text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Estado</span>
         <EstadoCelda status={tarea.status} onChange={onEstado} />
       </div>
 
       {/* Vence */}
       <div className={`${celdaBase} ${BG_WHITE}`}>
         <EtiquetaMovil>Vence</EtiquetaMovil>
-        <span className="text-sm text-[var(--gob-charcoal)]">
+        <span className="text-xs text-[var(--gob-charcoal)]">
           {venceCorto(tarea.due_date) || <span className="text-[var(--gob-stone)]">—</span>}
         </span>
       </div>
 
       {/* Prioridad */}
-      <div className={`px-4 py-3 flex items-center gap-2 ${BG_ALT}`}>
+      <div className={`px-4 py-2.5 flex items-center gap-2 ${BG_ALT}`}>
         <EtiquetaMovil>Prioridad</EtiquetaMovil>
         <Prioridad nivel={tarea.priority} />
       </div>
 
       {/* Documentos (última columna: sin filete derecho) */}
-      <div className={`px-4 py-3 flex items-start gap-2 ${BG_WHITE}`}>
+      <div className={`px-4 py-2.5 flex items-start gap-2 ${BG_WHITE}`}>
         <EtiquetaMovil>Documentos</EtiquetaMovil>
         <DocumentosCelda tarea={tarea} onRefresh={onRefresh} />
       </div>
@@ -501,7 +567,7 @@ function SesionarBtn({ label, cargando, onClick }: {
 function EncabezadoColumnas() {
   const cols = ["Tarea", "Responsable", "Estado", "Vence", "Prioridad", "Documentos"]
   return (
-    <div className={`hidden md:grid ${GRID_COLS} md:gap-x-1 bg-[var(--gob-rule)] border-b border-[var(--gob-rule)]`}>
+    <div className={`hidden md:grid ${GRID_COLS} md:gap-x-1 md:bg-white border-b border-[var(--gob-rule)]`}>
       {cols.map((label, i) => (
         <span key={label}
           className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--gob-muted)] bg-[var(--gob-bone)] ${
