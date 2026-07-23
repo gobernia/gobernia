@@ -25,14 +25,15 @@ OJO: usa el DATABASE_URL configurado (apunta a PROD). NO lo corras sin autorizac
 import asyncio
 import sys
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 
 from sqlalchemy import text
 
 from app.api.v1.company.service import normalize_logo, upsert_logo
 from app.db.session import AsyncSessionLocal
-from app.models.annual_plan import AnnualPlan
+from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
+from app.models.action_plan import ActionTask
 from app.models.board_session import BoardSession
 from app.models.diagnostico_estrategico import DiagnosticoEstrategico
 from app.models.document import Document
@@ -1280,6 +1281,107 @@ def build_presentacion_pdf() -> bytes:
 # ══════════════════════════════════════════════════════════════════════════════
 # Siembra
 # ══════════════════════════════════════════════════════════════════════════════
+# ── Tareas mensuales realistas para el tablero tipo Monday ────────────────────
+# Tres meses de plan: el mes en curso (activo), el anterior (con atrasos que se
+# arrastran) y el siguiente (todo sin ejecutar). Responsables, estados y fechas
+# variados para que el tablero, el arrastre y "sesionar" se vean con vida real.
+#
+# Cada objetivo: (título, kpi_refs, [tareas]). Cada tarea:
+# (título, responsable, status, prioridad, offset_de_días_para_vencer)
+_PLAN_MESES = [
+    {
+        "offset_meses": -1,          # mes anterior — deja atrasos que se arrastran
+        "focus": "Ordenar la casa",
+        "objetivos": [
+            ("Formalizar el gobierno corporativo", ["Sesiones de consejo al año"], [
+                ("Redactar el reglamento del consejo", "Dirección General", "completada", "alta", -18),
+                ("Definir el tablero único de indicadores", "Finanzas", "en_progreso", "alta", -5),
+                ("Separar las finanzas de la familia y la empresa", "Finanzas", "pendiente", "alta", -8),
+            ]),
+            ("Cerrar la brecha de dependencia operativa", ["Días de cierre contable"], [
+                ("Documentar los 3 procesos más críticos", "Operaciones", "pendiente", "media", -3),
+            ]),
+        ],
+    },
+    {
+        "offset_meses": 0,           # mes en curso (activo)
+        "focus": "Ordenar la casa",
+        "objetivos": [
+            ("Reducir la concentración de clientes", ["Concentración top-3"], [
+                ("Definir el perfil de cliente ideal", "Comercial", "en_progreso", "alta", 6),
+                ("Abrir el canal digital de captación", "Comercial", "pendiente", "media", 20),
+                ("Dejar de vender a los 2 clientes menos rentables", "Dirección General", "pendiente", "media", 25),
+            ]),
+            ("Profesionalizar la reportería financiera", ["Días de cierre contable"], [
+                ("Cerrar los libros mensuales antes del día 10", "Finanzas", "en_progreso", "alta", 10),
+                ("Contratar un despacho contable externo", "Finanzas", "pendiente", "baja", 28),
+            ]),
+        ],
+    },
+    {
+        "offset_meses": 1,           # mes siguiente — todo por delante
+        "focus": "Expandir el negocio",
+        "objetivos": [
+            ("Retener al equipo clave", ["Rotación anual"], [
+                ("Definir bandas salariales y planes de carrera", "Recursos Humanos", "pendiente", "alta", 45),
+                ("Diseñar un plan de sucesión para 5 roles críticos", "Dirección General", "pendiente", "alta", 52),
+            ]),
+        ],
+    },
+]
+
+
+def _sumar_meses(base: date, delta: int) -> date:
+    """El día 1 del mes desplazado `delta` meses respecto a `base`."""
+    total = (base.year * 12 + (base.month - 1)) + delta
+    return date(total // 12, total % 12 + 1, 1)
+
+
+def build_plan_meses(plan_id: uuid.UUID, user_id: str, hoy: date) -> list:
+    """Filas MonthlyPlan → Objective → ActionTask listas para insertar (en ese orden)."""
+    filas: list = []
+    activo = _sumar_meses(hoy, 0)
+    # month_index del mes en curso = su posición desde el arranque del plan (mes -1 → índice 1).
+    base_index = 2  # el mes en curso es el índice 2 (hay un mes anterior sembrado)
+    for mes in _PLAN_MESES:
+        primero = _sumar_meses(hoy, mes["offset_meses"])
+        mindex = base_index + mes["offset_meses"]
+        estado_mes = "done" if mes["offset_meses"] < 0 else ("active" if mes["offset_meses"] == 0 else "locked")
+        # IDs explícitos: UUIDMixin los asigna en el flush, no al construir, y los FK de
+        # los hijos se resuelven aquí mismo.
+        mp = MonthlyPlan(
+            id=uuid.uuid4(),
+            annual_plan_id=plan_id,
+            month_index=mindex,
+            period_year=primero.year,
+            period_month=primero.month,
+            focus=mes["focus"],
+            status=estado_mes,
+        )
+        filas.append(mp)
+        for oi, (obj_titulo, kpis, tareas) in enumerate(mes["objetivos"]):
+            obj = Objective(
+                id=uuid.uuid4(),
+                monthly_plan_id=mp.id,
+                title=obj_titulo,
+                kpi_refs=kpis,
+                order_index=oi,
+            )
+            filas.append(obj)
+            for ti, (titulo, resp, status, prioridad, offset_dias) in enumerate(tareas):
+                filas.append(ActionTask(
+                    id=uuid.uuid4(),
+                    objective_id=obj.id,
+                    title=titulo,
+                    status=status,
+                    priority=prioridad,
+                    owner=resp,
+                    due_date=hoy + timedelta(days=offset_dias),
+                    order_index=ti,
+                ))
+    return filas
+
+
 async def main(email: str) -> None:
     hoy = date.today()
     ahora = datetime.now(timezone.utc)
@@ -1339,7 +1441,9 @@ async def main(email: str) -> None:
         plan = AnnualPlan(
             user_id=user_id,
             title="Plan estratégico de 3 año(s)",
-            start_date=hoy,
+            # Arranca el mes pasado para que el mes en curso sea el índice 2: así hay un mes
+            # anterior con tareas incompletas que se arrastran, y el tablero muestra el arrastre.
+            start_date=_sumar_meses(hoy, -1),
             status="active",
             horizon_years=3,
             roadmap=ROADMAP,
@@ -1351,6 +1455,19 @@ async def main(email: str) -> None:
             ),
         )
         db.add(plan)
+        await db.flush()   # fija plan.id para las tareas mensuales
+
+        # ── 4b) Tareas mensuales del plan (el tablero tipo Monday) ───────────
+        # Se insertan por niveles (mes → objetivo → tarea) con flush entre cada uno:
+        # así el FK de cada hijo ya existe y ningún autoflush intermedio lo viola.
+        from app.models.annual_plan import MonthlyPlan as _MP, Objective as _Obj
+        from app.models.action_plan import ActionTask as _AT
+        filas = build_plan_meses(plan.id, user_id, hoy)
+        for tipo in (_MP, _Obj, _AT):
+            for fila in filas:
+                if isinstance(fila, tipo):
+                    db.add(fila)
+            await db.flush()
 
         # ── 5) CompanyLogo (mismo procesamiento que la app) ──────────────────
         await upsert_logo(user_id, logo_png, db)
