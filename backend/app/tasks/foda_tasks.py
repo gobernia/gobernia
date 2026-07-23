@@ -1,6 +1,7 @@
 """Task de Celery del FODA (espejo de diagnostico_tasks). Sin web, rápida."""
 import asyncio
 
+from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -14,6 +15,8 @@ from app.services.ai.foda import generate_foda
 def generate_foda_task(self, user_id: str) -> dict:
     try:
         return asyncio.run(_run(user_id))
+    except SoftTimeLimitExceeded:
+        raise
     except Exception as exc:
         raise self.retry(exc=exc, countdown=20)
 

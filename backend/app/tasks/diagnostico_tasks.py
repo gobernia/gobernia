@@ -1,6 +1,7 @@
 """Task de Celery del Diagnóstico estratégico (espejo de annual_plan_tasks)."""
 import asyncio
 
+from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy import select
 
 from app.tasks.worker import celery_app
@@ -9,10 +10,13 @@ from app.models.onboarding_session import OnboardingSession
 from app.services.ai.diagnostico_estrategico import generate_diagnostico
 
 
-@celery_app.task(name="generate_diagnostico", bind=True, max_retries=2)
+@celery_app.task(name="generate_diagnostico", bind=True, max_retries=1)
 def generate_diagnostico_task(self, diagnostico_id: str) -> dict:
     try:
         return asyncio.run(_entrypoint(diagnostico_id))
+    except SoftTimeLimitExceeded:
+        # Se agotó el tiempo. `_run_generation` ya marcó 'failed'. No reintentar.
+        raise
     except Exception as exc:
         raise self.retry(exc=exc, countdown=30)
 

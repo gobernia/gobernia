@@ -8,6 +8,8 @@ import asyncio
 import logging
 import uuid
 
+from celery.exceptions import SoftTimeLimitExceeded
+
 from app.tasks.worker import celery_app
 from app.services.ai.agents.deliberacion import run_deliberacion_fundacional
 from app.services.ai.annual_plan_generator import (
@@ -61,10 +63,14 @@ def run_diagnostico(memory_buffer: dict) -> tuple[dict, dict]:
     return analyses, critiques
 
 
-@celery_app.task(name="generate_annual_plan", bind=True, max_retries=2)
+@celery_app.task(name="generate_annual_plan", bind=True, max_retries=1)
 def generate_annual_plan_task(self, annual_plan_id: str) -> dict:
     try:
         return asyncio.run(_entrypoint(annual_plan_id))
+    except SoftTimeLimitExceeded:
+        # Se agotó el tiempo. `_run_generation` ya marcó el plan como 'failed'.
+        # NO reintentar: volvería a colgarse y a re-cobrar las ~17 llamadas.
+        raise
     except Exception as exc:
         raise self.retry(exc=exc, countdown=30)
 
