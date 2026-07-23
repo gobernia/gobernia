@@ -14,6 +14,9 @@ class BoardTaskOut(BaseModel):
     priority:  TaskPriority
     due_date:  date | None = None
     objetivo:  str | None = None   # title del Objective padre
+    # Mes de origen cuando la tarea se arrastra a otro mes (p.ej. "Marzo 2026").
+    # None para las tareas propias del mes.
+    viene_de:  str | None = None
 
 
 class BoardMonthOut(BaseModel):
@@ -23,6 +26,9 @@ class BoardMonthOut(BaseModel):
     label:         str            # "Marzo 2026"
     es_mes_actual: bool
     tareas:        list[BoardTaskOut] = Field(default_factory=list)
+    # Tareas incompletas de meses anteriores, arrastradas a la vista del mes actual.
+    # Vacía para todos los meses salvo el mes actual (y solo si hay atrasos).
+    arrastradas:   list[BoardTaskOut] = Field(default_factory=list)
 
 
 class BoardOut(BaseModel):
