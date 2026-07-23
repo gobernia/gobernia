@@ -57,6 +57,10 @@ class ActionTask(Base, UUIDMixin, TimestampMixin):
     order_index:  Mapped[int]               = mapped_column(Integer, nullable=False, default=0)
     required_doc: Mapped[str | None]        = mapped_column(Text, nullable=True)
     explicacion: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Veredicto del Consejo (Auditor) sobre la evidencia de la tarea, escrito al sesionar.
+    # Shape: {"estado": "validada"|"insuficiente"|"sin_revisar", "motivo": str,
+    #         "validated_at": ISO, "board_session_id": uuid}. None = nunca se validó.
+    validacion: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     evidences: Mapped[list["Evidence"]] = relationship(
         "Evidence", cascade="all, delete-orphan", order_by="Evidence.created_at",
     )

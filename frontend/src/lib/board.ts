@@ -10,6 +10,13 @@ import api from "@/lib/api"
 export type TaskStatus = "pendiente" | "en_progreso" | "completada"
 export type TaskPriority = "alta" | "media" | "baja"
 
+// Resultado de la validación de una tarea por el Consejo al sesionar el mes.
+export type ValidacionEstado = "validada" | "insuficiente" | "sin_revisar"
+export interface Validacion {
+  estado: ValidacionEstado
+  motivo: string
+}
+
 export interface BoardTask {
   id: string
   title: string
@@ -20,6 +27,10 @@ export interface BoardTask {
   objetivo: string | null
   // Si la tarea se arrastró de un mes anterior, de dónde viene (p.ej. "Marzo 2026").
   viene_de?: string | null
+  // Cuántos documentos de evidencia tiene la tarea.
+  evidencias?: number
+  // Última validación del Consejo (null si nunca se validó).
+  validacion?: Validacion | null
 }
 
 export interface BoardMes {

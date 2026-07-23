@@ -28,8 +28,10 @@ from app.models.board_session import BoardSession
 from app.models.chat_message import ChatMessage
 from app.models.compromiso import Compromiso
 from app.models.document import Document
+from app.models.evidence import Evidence
 from app.models.onboarding_session import OnboardingSession
 from app.services.ai.agents.deliberacion import run_deliberacion
+from app.services.ai.agents.validacion import validar_evidencias
 from app.services.ai.annual_plan_generator import compute_active_month_index
 from app.schemas.board_session import (
     AnalysisRequest,
@@ -51,7 +53,7 @@ from app.services.ai.agents.base import (
     run_challenger_critique,
     run_agent_revision,
 )
-from app.services.ai.doc_blocks import classify_docs, select_for_agent
+from app.services.ai.doc_blocks import build_doc_blocks, classify_docs, select_for_agent
 from app.services.documents.storage import download_from_storage
 from app.api.v1.board_sessions.documents import router as documents_router
 
@@ -145,6 +147,64 @@ def _format_acuerdos_previos(rows, today: date) -> str | None:
             f"  - {c.descripcion} · resp. {resp} · fecha {fecha} · estatus «{c.status}»{vencido}"
         )
     return "\n".join(lines)
+
+
+async def _validar_evidencias_del_periodo(candidates: list[dict], memory_buffer: dict) -> dict:
+    """
+    Corre la validación de la evidencia de las tareas del periodo (fuera de la conexión de DB).
+
+    `candidates`: [{task_id, title, status, evidences:[{s3_key, filename, size_bytes}]}] — cargadas
+    ANTES de cerrar la conexión. Devuelve {task_id: {"estado", "motivo"}} solo para las tareas que
+    se resolvieron (una tarea sin evidencia y no `completada` no se toca).
+
+    - Determinista (sin IA): `completada` con CERO evidencias → insuficiente. No gasta tokens.
+    - Con evidencia: descarga los documentos legibles y llama al Auditor (`validar_evidencias`).
+    """
+    import anyio
+
+    resultados: dict = {}
+    ai_batch: list[dict] = []
+
+    for c in candidates:
+        evs = c.get("evidences") or []
+        if not evs:
+            if c["status"] == "completada":
+                resultados[c["task_id"]] = {
+                    "estado": "insuficiente",
+                    "motivo": "Marcada como hecha pero sin ningún documento que lo respalde.",
+                }
+            # en_progreso / pendiente sin evidencia: no reclama cumplimiento → no se valida.
+            continue
+
+        # Tiene evidencia: seleccionar y descargar los documentos legibles (PDF/imagen).
+        readable, unreadable = classify_docs(evs)
+        selected, _note = select_for_agent(readable, unreadable)
+        docs: list[dict] = []
+        for d in selected:
+            raw = await anyio.to_thread.run_sync(lambda k=d["s3_key"]: download_from_storage(k))
+            if raw is None:
+                continue
+            docs.append({
+                "kind": d["kind"],
+                "media_type": d["media_type"],
+                "data": base64.b64encode(raw).decode("ascii"),
+                "label": f"Documento «{d['filename']}»",
+            })
+        ai_batch.append({
+            "task_id": c["task_id"],
+            "title": c["title"],
+            "status": c["status"],
+            "docs": build_doc_blocks(docs),
+        })
+
+    if ai_batch:
+        veredictos = await anyio.to_thread.run_sync(
+            lambda: validar_evidencias(ai_batch, memory_buffer)
+        )
+        for v in veredictos:
+            resultados[str(v["task_id"])] = {"estado": v["estado"], "motivo": v.get("motivo", "")}
+
+    return resultados
 
 
 async def _get_onboarding_or_404(
@@ -491,6 +551,46 @@ async def run_analyses(
         )
         avance_tareas = _format_avance_tareas(plan_months, tasks_by_obj, active_index)
 
+    # VALIDACIÓN DE EVIDENCIAS: el Consejo (Auditor) lee la evidencia de las tareas del periodo y
+    # valida cada una. Alcance acotado por costo: las tareas del mes activo + las arrastradas que
+    # estén `completada` o `en_progreso`. Se cargan aquí (con sus evidencias) ANTES de cerrar la
+    # conexión; la descarga de bytes y el LLM van después, ya sin DB abierta.
+    validacion_candidates: list[dict] = []
+    if plan is not None:
+        cand_tasks: list[ActionTask] = []
+        actual_m = next((m for m in plan_months if m.month_index == active_index), None)
+        if actual_m is not None:
+            cand_tasks.extend(t for o in actual_m.objectives for t in tasks_by_obj.get(o.id, []))
+        for m in plan_months:
+            if m.month_index < active_index:
+                for o in m.objectives:
+                    for t in tasks_by_obj.get(o.id, []):
+                        if t.status in ("completada", "en_progreso"):
+                            cand_tasks.append(t)
+        # Dedupe por id, conservando el orden (una tarea del mes actual no se repite como arrastrada).
+        seen: set = set()
+        cand_tasks = [t for t in cand_tasks if not (t.id in seen or seen.add(t.id))]
+
+        if cand_tasks:
+            ev_res = await db.execute(
+                select(Evidence)
+                .where(Evidence.action_task_id.in_([t.id for t in cand_tasks]))
+                .order_by(Evidence.created_at.desc())
+            )
+            ev_by_task: dict = {}
+            for e in ev_res.scalars().all():
+                ev_by_task.setdefault(e.action_task_id, []).append(e)
+            for t in cand_tasks:
+                validacion_candidates.append({
+                    "task_id": str(t.id),
+                    "title": t.title,
+                    "status": t.status,
+                    "evidences": [
+                        {"s3_key": e.s3_key, "filename": e.filename, "size_bytes": e.size_bytes}
+                        for e in ev_by_task.get(t.id, [])
+                    ],
+                })
+
     # CONTINUIDAD: la sesión arrastra los acuerdos ABIERTOS de las sesiones anteriores del usuario.
     # Aquí NO se tocan (la gestión real vive en el módulo pm): solo se le dan al Consejo como
     # contexto para que revise su cumplimiento y decida si los mantiene, reprograma o cierra.
@@ -632,6 +732,14 @@ async def run_analyses(
     except Exception:
         _log.exception("la deliberación del Consejo falló; se conservan los análisis individuales")
 
+    # ── Validación de la evidencia del periodo (el Auditor del Consejo) ───────────
+    # Envuelta en try/except: si falla, la deliberación y los acuerdos se guardan IGUAL.
+    validaciones: dict = {}
+    try:
+        validaciones = await _validar_evidencias_del_periodo(validacion_candidates, memory_buffer)
+    except Exception:
+        _log.exception("la validación de evidencias del periodo falló; la sesión continúa sin ella")
+
     # Abrir una nueva sesión de DB para persistir los resultados
     from app.db.session import AsyncSessionLocal
     from sqlalchemy.orm.attributes import flag_modified
@@ -673,6 +781,27 @@ async def run_analyses(
                     racional=a.get("racional") or None,
                     source={"board_session_id": str(bs_id)},
                 ))
+
+        # Persistir la validación en cada tarea afectada. Idempotente: re-sesionar sobrescribe.
+        if validaciones:
+            validated_at = datetime.now(timezone.utc).isoformat()
+            task_rows = (await new_db.execute(
+                select(ActionTask).where(
+                    ActionTask.id.in_([uuid.UUID(tid) for tid in validaciones])
+                )
+            )).scalars().all()
+            for t in task_rows:
+                v = validaciones.get(str(t.id))
+                if not v:
+                    continue
+                t.validacion = {
+                    "estado": v["estado"],
+                    "motivo": v.get("motivo", ""),
+                    "validated_at": validated_at,
+                    "board_session_id": str(bs_id),
+                }
+                flag_modified(t, "validacion")
+
         await new_db.commit()
         await new_db.refresh(refreshed)
         conclusion_out = await _conclusion_out(new_db, refreshed)
