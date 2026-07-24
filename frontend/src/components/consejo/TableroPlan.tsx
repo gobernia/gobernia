@@ -655,6 +655,8 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading")
   // Mes que se está sesionando (por month_index), para el estado de carga del botón.
   const [sesionandoMes, setSesionandoMes] = useState<number | null>(null)
+  // Error al intentar sesionar (antes se tragaba en silencio y el botón "no hacía nada").
+  const [sesionError, setSesionError] = useState<string | null>(null)
   // Recarga interna: sube al subir/borrar documentos para refrescar conteos.
   const [tick, setTick] = useState(0)
   const aliveRef = useRef(true)
@@ -690,12 +692,17 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
   // Sesionar un mes: crea/abre la sesión del Consejo y navega a la pantalla de sesión.
   const sesionarMes = async (mes: BoardMes) => {
     if (sesionandoMes !== null) return
+    setSesionError(null)
     setSesionandoMes(mes.month_index)
     try {
       const id = await abrirSesionMes(mes.period_year, mes.period_month)
       router.push(`/dashboard/sesion/${id}`)
-    } catch {
-      if (aliveRef.current) setSesionandoMes(null)
+    } catch (err: unknown) {
+      // El error ya no se traga: el cliente ve por qué no pudo sesionar.
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      const msg = typeof detail === "string" ? detail
+        : "No se pudo abrir la sesión del Consejo. Intenta de nuevo."
+      if (aliveRef.current) { setSesionError(msg); setSesionandoMes(null) }
     }
   }
 
@@ -777,6 +784,14 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
           evidencia de su tarea. La validación la hace el Consejo al sesionar el mes.
         </span>
       </p>
+
+      {sesionError && (
+        <div role="alert" className="flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-xs leading-snug"
+          style={{ backgroundColor: "#b4530910", border: "1px solid #b4530933", color: "#b45309" }}>
+          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>{sesionError}</span>
+        </div>
+      )}
 
       {meses.map((mes, i) => (
         <MesGrupo key={mes.month_index} mes={mes} index={i} sugerencias={sugerencias}

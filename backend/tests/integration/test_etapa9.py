@@ -369,8 +369,12 @@ async def test_chat_sin_api_key_devuelve_respuesta():
 
 
 @pytest.mark.asyncio
-async def test_create_session_kpis_sin_valor_400():
-    """Crear sesión bloquea (400) si los KPIs del onboarding no tienen valor."""
+async def test_create_session_kpis_sin_valor_no_bloquea():
+    """
+    Sesionar NO se bloquea por KPIs sin valor: muchas empresas familiares no miden
+    formalmente ('monitoreo informal') y el Consejo sesiona con el Roadmap, las tareas y
+    los documentos. Solo el perfil de empresa es obligatorio.
+    """
     onboarding = _mock_onboarding()
     onboarding.memory_buffer = {**FULL_BUFFER,
         "kpis": {"finance": [{"label": "Margen", "current_value": None, "unknown": True}]}}
@@ -384,5 +388,5 @@ async def test_create_session_kpis_sin_valor_400():
             )
     finally:
         app.dependency_overrides.clear()
-    assert response.status_code == 400
-    assert "KPIs sin valor" in response.json()["detail"]
+    # No debe ser el 400 de datos faltantes; los KPIs sin valor ya no bloquean.
+    assert response.status_code != 400 or "KPIs sin valor" not in response.json().get("detail", "")

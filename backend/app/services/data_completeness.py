@@ -32,6 +32,20 @@ def missing_company_data(memory_buffer: dict | None) -> list[str]:
     return faltantes
 
 
+def missing_company_profile(memory_buffer: dict | None) -> list[str]:
+    """
+    Mínimo para SESIONAR con el Consejo: solo el perfil de empresa.
+    Los KPIs con valor NO se exigen: muchas empresas familiares no miden formalmente
+    ("monitoreo informal"), y el Consejo sesiona igual con el Roadmap, las tareas y los
+    documentos. Bloquear por un dato opcional castiga al cliente honesto.
+    """
+    mb = memory_buffer or {}
+    faltantes: list[str] = []
+    if not (mb.get("company") or {}).get("name"):
+        faltantes.append("el perfil de tu empresa (etapa 1)")
+    return faltantes
+
+
 def missing_diagnostico_data(memory_buffer: dict | None) -> list[str]:
     """Faltantes para generar el diagnóstico estratégico (no requiere KPIs)."""
     company = (memory_buffer or {}).get("company") or {}
