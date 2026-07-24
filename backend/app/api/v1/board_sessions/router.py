@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
-from app.services.data_completeness import missing_company_data
+from app.services.data_completeness import missing_company_profile
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.action_plan import ActionTask
 from app.models.annual_plan import AnnualPlan, MonthlyPlan
@@ -223,7 +223,9 @@ async def _get_onboarding_or_404(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Debes completar el onboarding antes de crear una sesión de consejo.",
         )
-    faltantes = missing_company_data(session.memory_buffer)
+    # Solo se exige el perfil de empresa. Los KPIs con valor NO bloquean: el Consejo sesiona
+    # con el Roadmap, las tareas y los documentos; muchas empresas familiares no miden formalmente.
+    faltantes = missing_company_profile(session.memory_buffer)
     if faltantes:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
