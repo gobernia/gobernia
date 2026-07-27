@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Loader2, Check, ArrowRight, CalendarCheck, BadgeCheck, RotateCcw, AlertTriangle } from "lucide-react"
+import { Loader2, Check, ArrowRight, CalendarCheck, BadgeCheck, RotateCcw, AlertTriangle, LayoutGrid } from "lucide-react"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import {
   getPlanAnual, aprobarPlanAnual, reabrirPlanAnual,
   type PlanAnual, type PilarAnual,
 } from "@/lib/planAnual"
+import TableroPlan from "@/components/consejo/TableroPlan"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -357,12 +358,25 @@ function PlanAprobado({
         ))}
       </div>
 
-      <Prose>
-        <p className="text-xs leading-relaxed text-gray-400">
-          Esto es lo que el Consejo revisa cada mes en{" "}
-          <Link href="/dashboard/consejo" className="font-medium underline" style={{ color: NAVY }}>Board IA</Link>.
-        </p>
-      </Prose>
+      {/* Tablero de ejecución tipo Monday: tarea · encargado · fecha · estatus · evidencia */}
+      <section className="space-y-4 border-t border-gray-100 pt-8">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "#f4f7fb", color: NAVY }}>
+            <LayoutGrid className="h-4.5 w-4.5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold tracking-tight" style={{ color: NAVY }}>Tablero de ejecución</h2>
+            <p className="mt-0.5 text-sm leading-relaxed text-gray-500">
+              Aquí trabajas el año: cada tarea con su <span className="font-medium text-gray-700">encargado</span>,{" "}
+              <span className="font-medium text-gray-700">fecha</span>, <span className="font-medium text-gray-700">estatus</span> y{" "}
+              <span className="font-medium text-gray-700">evidencia</span>. El Consejo le da seguimiento cada mes en{" "}
+              <Link href="/dashboard/consejo" className="font-medium underline" style={{ color: NAVY }}>Board IA</Link>.
+            </p>
+          </div>
+        </div>
+
+        <TableroPlan />
+      </section>
     </motion.div>
   )
 }

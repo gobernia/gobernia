@@ -4,16 +4,18 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Loader2, ArrowRight, Map as MapIcon, CalendarCheck } from "lucide-react"
-import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
-import { getRoadmap, type Roadmap } from "@/lib/roadmap"
-import { roadmapIsEmpty } from "@/components/roadmap/shared"
+import { PageShell, PageHeader } from "@/components/ui/PageShell"
+import { getRoadmap, type Roadmap, type Pilar } from "@/lib/roadmap"
+import { aniosDelPlan, pilarColor, roadmapIsEmpty } from "@/components/roadmap/shared"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
 // Colores por hex — Tailwind v4 no detecta clases dinámicas.
 const NAVY = "#142849"
-const STEEL = "#9fb2ce"
+const AMBER = "#b45309"
+
+type AnioKey = "anio1" | "anio2" | "anio3"
 
 export default function RoadmapBetaPage() {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null)
@@ -30,12 +32,11 @@ export default function RoadmapBetaPage() {
   }, [])
 
   const hasRoadmap = !!roadmap && !roadmapIsEmpty(roadmap)
-  const anioActual = new Date().getFullYear()
 
   return (
     <div className="min-h-dvh bg-white text-black">
       <PageHeader
-        eyebrow="Dirección a 3 años"
+        eyebrow="Cómo te ves a 3 años"
         title="Roadmap"
         actions={
           hasRoadmap ? (
@@ -68,8 +69,8 @@ export default function RoadmapBetaPage() {
               <div className="max-w-md space-y-1.5">
                 <p className="text-base font-medium text-black">Todavía no hay una dirección a 3 años</p>
                 <p className="text-sm leading-relaxed text-gray-500">
-                  Cuando generes tu Roadmap, aquí verás la estrategia a tres años: la visión, las prioridades
-                  y hacia dónde apunta cada año.
+                  Cuando generes tu plan, aquí verás — muy sencillo, año por año — a dónde apunta la
+                  empresa en los próximos tres años. El detalle y las tareas viven en tu Plan anual.
                 </p>
               </div>
               <Link
@@ -81,10 +82,8 @@ export default function RoadmapBetaPage() {
             </div>
           )}
 
-          {/* Contenido */}
-          {loaded && hasRoadmap && (
-            <RoadmapBeta roadmap={roadmap!} anioActual={anioActual} />
-          )}
+          {/* La línea de tiempo, año por año */}
+          {loaded && hasRoadmap && <RoadmapTresAnios roadmap={roadmap!} />}
 
         </PageShell>
       </main>
@@ -92,169 +91,132 @@ export default function RoadmapBetaPage() {
   )
 }
 
-function RoadmapBeta({ roadmap, anioActual }: { roadmap: Roadmap; anioActual: number }) {
-  const objetivos = roadmap.objetivos_estrategicos ?? []
-  const enablers = roadmap.key_enablers ?? []
-  const pilares = (roadmap.pilares ?? []).slice(0, 6)
-  const n = pilares.length || 1
-  const gridCols = { gridTemplateColumns: `repeat(${n}, minmax(190px,1fr))` }
-
+// El roadmap: sencillo, año por año. Qué debe conseguir la empresa cada año durante
+// los próximos tres. El detalle por prioridad y las tareas NO van aquí — van en el Plan.
+function RoadmapTresAnios({ roadmap }: { roadmap: Roadmap }) {
+  const [a1, a2, a3] = aniosDelPlan(roadmap.anio_objetivo)
   const temas = roadmap.temas_por_anio ?? {}
-  // El año objetivo del roadmap ancla los tres años; si no hay, el año 1 es el actual.
-  const anio1 = roadmap.anio_objetivo && roadmap.anio_objetivo > 2000
-    ? roadmap.anio_objetivo - 2
-    : anioActual
-  const anios = [
-    { n: anio1,     lema: temas.anio1, activo: true },
-    { n: anio1 + 1, lema: temas.anio2, activo: false },
-    { n: anio1 + 2, lema: temas.anio3, activo: false },
+  const pilares = roadmap.pilares ?? []
+
+  const anios: { n: number; key: AnioKey; lema?: string; activo: boolean }[] = [
+    { n: a1, key: "anio1", lema: temas.anio1, activo: true },
+    { n: a2, key: "anio2", lema: temas.anio2, activo: false },
+    { n: a3, key: "anio3", lema: temas.anio3, activo: false },
   ]
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: EASE }}
-      className="space-y-8"
+      transition={{ duration: 0.45, ease: EASE }}
+      className="space-y-6"
     >
-      {/* Banner: qué es cada año */}
-      <div className="rounded-2xl border border-[var(--gob-rule)] bg-[var(--gob-bone)]/40 p-5">
-        <p className="text-sm leading-relaxed text-[var(--gob-charcoal)]">
-          Esta es tu <span className="font-semibold text-black">dirección a tres años</span>. El{" "}
-          <span className="font-semibold" style={{ color: NAVY }}>Año 1 es tu Plan anual</span> — lo que
-          de verdad se ejecuta y el Consejo monitorea cada mes. Los{" "}
-          <span className="font-semibold" style={{ color: "#b45309" }}>Años 2 y 3 son una propuesta orientativa</span>:
-          marcan el rumbo, pero se aterrizan año con año.
+      {/* La pregunta que responde el roadmap + la regla de que solo el año 1 se ejecuta */}
+      <div className="max-w-3xl space-y-2">
+        <p className="text-lg font-semibold leading-snug tracking-tight" style={{ color: NAVY }}>
+          ¿Qué debe conseguir la empresa en los próximos tres años para fortalecerse, crecer y
+          asegurar su continuidad?
         </p>
-        <Link
-          href="/dashboard/plan-anual"
-          className="mt-4 inline-flex items-center gap-2 text-sm font-medium transition-colors hover:underline"
-          style={{ color: NAVY }}
-        >
-          <CalendarCheck className="h-4 w-4" /> Ir a mi Plan anual <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
+        <p className="text-sm leading-relaxed text-gray-500">
+          Solo el <span className="font-semibold text-gray-700">año en curso se ejecuta</span> — su detalle
+          y sus tareas están en tu{" "}
+          <Link href="/dashboard/plan-anual" className="font-medium underline" style={{ color: NAVY }}>Plan anual</Link>.
+          Los <span style={{ color: AMBER }}>años 2 y 3 son orientativos</span> y se ajustan al cerrar cada año.
+        </p>
       </div>
 
-      {/* Recorrido de los tres años */}
-      <div className="grid gap-3 md:grid-cols-3">
-        {anios.map((a, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border p-5"
-            style={
-              a.activo
-                ? { background: NAVY, borderColor: NAVY, color: "#fff" }
-                : { background: "#fff", borderColor: "var(--gob-rule)" }
-            }
-          >
-            <div className="flex items-center justify-between">
-              <span
-                className="text-[10px] font-bold uppercase tracking-[0.16em]"
-                style={{ color: a.activo ? "rgba(255,255,255,0.6)" : "var(--gob-muted)" }}
-              >
-                Año {i + 1} · {a.n}
-              </span>
-              <span
-                className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                style={
-                  a.activo
-                    ? { background: "rgba(255,255,255,0.15)", color: "#fff" }
-                    : { background: "#fef3e2", color: "#b45309" }
-                }
-              >
-                {a.activo ? "Plan anual" : "Orientativo"}
-              </span>
-            </div>
-            <p
-              className="mt-3 text-sm font-semibold leading-snug"
-              style={{ color: a.activo ? "#fff" : NAVY }}
-            >
-              {a.lema || (a.activo ? "El año en curso" : "Por definir")}
-            </p>
-            {a.activo && (
-              <Link
-                href="/dashboard/plan-anual"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-white/80 transition-colors hover:text-white"
-              >
-                Elegir prioridades <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            )}
-          </div>
+      {/* Tres columnas: un año cada una */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {anios.map((y, i) => (
+          <ColumnaAnio key={y.n} anio={y} orden={i + 1} pilares={pilares} />
         ))}
       </div>
-
-      {/* Misión · Visión */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl p-6 text-white" style={{ background: NAVY }}>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Misión</p>
-          <p className="text-sm leading-relaxed text-white/90">{roadmap.mision || "—"}</p>
-        </div>
-        <div className="rounded-2xl p-6 text-white" style={{ background: NAVY }}>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Visión</p>
-          <p className="text-sm leading-relaxed text-white/90">{roadmap.vision || "—"}</p>
-        </div>
-      </div>
-
-      {/* KPI Visión */}
-      {objetivos.length > 0 && (
-        <div className="rounded-xl px-6 py-3.5 text-sm text-white" style={{ background: NAVY }}>
-          <span className="font-bold">KPI Visión: </span>
-          <span className="text-white/85">{objetivos.join(" · ")}</span>
-        </div>
-      )}
-
-      {/* Prioridades estratégicas */}
-      <div className="space-y-4">
-        <div
-          className="rounded-xl py-2.5 text-center text-sm font-bold uppercase tracking-wide"
-          style={{ background: STEEL, color: NAVY }}
-        >
-          Prioridades estratégicas
-        </div>
-
-        <div className="overflow-x-auto">
-          <div className="grid min-w-[860px] gap-3" style={gridCols}>
-            {pilares.map((p, i) => {
-              const kpis = (p.kpis ?? []).filter(k => k.label).slice(0, 3)
-              const desc = p.objetivo || p.descripcion
-              return (
-                <article key={i} className="rounded-2xl p-4 text-center text-white" style={{ background: NAVY }}>
-                  <h3 className="text-sm font-bold leading-tight">{p.nombre || `Prioridad ${i + 1}`}</h3>
-                  {desc && (
-                    <p className="mt-2 text-xs italic leading-relaxed text-white/75 line-clamp-3">{desc}</p>
-                  )}
-                  {kpis.length > 0 && (
-                    <div className="mt-3 border-t border-white/15 pt-3">
-                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/50">Indicadores</p>
-                      <ul className="space-y-1">
-                        {kpis.map((k, j) => (
-                          <li key={j} className="text-xs leading-snug text-white/85">{k.label}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </article>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Key enablers */}
-      {enablers.length > 0 && (
-        <div className="rounded-xl px-6 py-3.5 text-sm text-white" style={{ background: NAVY }}>
-          <span className="font-bold">Key enablers: </span>
-          <span className="text-white/85">{enablers.join(" · ")}</span>
-        </div>
-      )}
-
-      {/* Cierre: solo lectura */}
-      <Prose>
-        <p className="text-xs leading-relaxed text-gray-400">
-          Esta vista es solo de lectura. Para trabajar el año en curso, elige y aprueba tus prioridades en{" "}
-          <Link href="/dashboard/plan-anual" className="font-medium underline" style={{ color: NAVY }}>Plan anual</Link>.
-        </p>
-      </Prose>
     </motion.div>
+  )
+}
+
+function ColumnaAnio({
+  anio, orden, pilares,
+}: {
+  anio: { n: number; key: AnioKey; lema?: string; activo: boolean }
+  orden: number
+  pilares: Pilar[]
+}) {
+  // Qué avanza cada pilar ESE año: su fase (el titular del año) y sus milestones.
+  const filas = pilares
+    .map((p, pi) => ({
+      nombre: p.nombre,
+      color: pilarColor(pi),
+      fase: p.fases?.[anio.key]?.titulo?.trim() || "",
+      hitos: (p.milestones?.[anio.key] ?? []).map(s => s.trim()).filter(Boolean),
+    }))
+    .filter(f => f.nombre && (f.fase || f.hitos.length > 0))
+
+  const activo = anio.activo
+
+  return (
+    <section
+      className="flex flex-col overflow-hidden rounded-2xl border"
+      style={activo ? { borderColor: NAVY } : { borderColor: "#e5e7eb" }}
+    >
+      {/* Cabecera del año */}
+      <div className="p-5" style={activo ? { background: NAVY, color: "#fff" } : { background: "#f7f8fa" }}>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: activo ? "rgba(255,255,255,0.55)" : "#9ca3af" }}>
+              Año {orden}
+            </p>
+            <p className="text-xl font-bold tabular-nums" style={{ color: activo ? "#fff" : NAVY }}>{anio.n}</p>
+          </div>
+          <span
+            className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+            style={activo ? { background: "rgba(255,255,255,0.16)", color: "#fff" } : { background: "#f3ede3", color: AMBER }}
+          >
+            {activo ? "En ejecución" : "Orientativo"}
+          </span>
+        </div>
+        {anio.lema && (
+          <p className="mt-2 text-sm font-medium leading-snug" style={{ color: activo ? "rgba(255,255,255,0.92)" : "var(--gob-charcoal)" }}>
+            «{anio.lema}»
+          </p>
+        )}
+      </div>
+
+      {/* Qué se trabaja ese año, prioridad por prioridad */}
+      <div className="flex-1 space-y-4 p-5">
+        {filas.length > 0 ? (
+          filas.map((f, j) => (
+            <div key={j} className="border-l-2 pl-3" style={{ borderColor: f.color }}>
+              <p className="text-sm font-bold leading-tight" style={{ color: NAVY }}>{f.nombre}</p>
+              {f.fase && <p className="mt-0.5 text-xs font-medium text-gray-600">{f.fase}</p>}
+              {f.hitos.length > 0 && (
+                <ul className="mt-1.5 space-y-1">
+                  {f.hitos.map((h, k) => (
+                    <li key={k} className="flex gap-1.5 text-xs leading-relaxed text-gray-500">
+                      <span className="mt-1 h-1 w-1 shrink-0 rounded-full" style={{ background: f.color }} />
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))
+        ) : (
+          <p className="text-xs italic text-gray-400">Sin actividades definidas para este año todavía.</p>
+        )}
+      </div>
+
+      {/* El año en curso conecta con el Plan anual */}
+      {activo && (
+        <div className="border-t border-gray-100 p-4">
+          <Link
+            href="/dashboard/plan-anual"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--gob-navy)] px-4 py-2.5 text-xs font-medium text-[var(--gob-bone)] transition-colors hover:bg-[var(--gob-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]"
+          >
+            <CalendarCheck className="h-3.5 w-3.5" /> Trabajar este año en mi Plan anual
+          </Link>
+        </div>
+      )}
+    </section>
   )
 }
