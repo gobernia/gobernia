@@ -17,7 +17,7 @@ import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
 import { getLogo } from "@/lib/logo"
 import { getRoadmap, type Roadmap } from "@/lib/roadmap"
-import { roadmapIsEmpty, pilarColor } from "@/components/roadmap/shared"
+import { roadmapIsEmpty } from "@/components/roadmap/shared"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -113,156 +113,139 @@ function statusLabel(s: string) {
 }
 
 // ── One-pager (solo lectura) ──────────────────────────────
-// El Inicio muestra la estrategia de un vistazo: reusa la data del Roadmap
-// que ya vive en /dashboard/plan. Aquí no se edita — para eso está "Editar mi Roadmap".
-const kicker = "text-[10px] font-bold tracking-[0.18em] uppercase text-[var(--gob-stone)]"
-
-function PilarResumen({ pilar, indice }: { pilar: Roadmap["pilares"][number]; indice: number }) {
-  const color = pilarColor(indice)
-  const estrategias = pilar.estrategias ?? []
-  const kpis = (pilar.kpis ?? []).filter(k => k.label)
-
-  return (
-    <article className="flex flex-col rounded-2xl border border-[var(--gob-rule)] bg-white p-5">
-      <span className="mb-3 block h-1 w-10 rounded-full" style={{ background: color }} />
-      <p className={kicker} style={{ color }}>Prioridad estratégica {indice + 1}</p>
-      <h3 className="mt-0.5 text-base font-bold leading-tight tracking-tight text-[var(--gob-ink)]">
-        {pilar.nombre || `Prioridad estratégica ${indice + 1}`}
-      </h3>
-
-      {pilar.objetivo && (
-        <p className="mt-3 text-sm leading-relaxed text-[var(--gob-muted)]">{pilar.objetivo}</p>
-      )}
-
-      {kpis.length > 0 && (
-        <div className="mt-4 space-y-1.5">
-          <p className={kicker}>Indicadores</p>
-          <ul className="space-y-1.5">
-            {kpis.map((k, i) => (
-              <li key={i} className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="text-[var(--gob-charcoal)]">{k.label}</span>
-                <span className="shrink-0 tabular-nums text-[var(--gob-muted)]">
-                  {k.actual || "—"} <span style={{ color }}>→</span> <span className="font-semibold text-[var(--gob-ink)]">{k.meta || "—"}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {estrategias.length > 0 && (
-        <div className="mt-4 space-y-1.5">
-          <p className={kicker}>Tareas</p>
-          <ul className="space-y-1.5">
-            {estrategias.map((s, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
-                <span className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{s}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </article>
-  )
-}
+// El Inicio muestra la estrategia de un vistazo con la plantilla clásica de
+// estrategia (one-pager): reusa la data del Roadmap que ya vive en /dashboard/plan.
+// Aquí no se edita — para eso está "Editar mi Roadmap". Colores por hex porque
+// Tailwind v4 no detecta clases dinámicas.
+const NAVY = "#142849"
+const STEEL = "#9fb2ce"
+const LIGHT = "#e7ecf4"
 
 function RoadmapOnePager({ roadmap }: { roadmap: Roadmap }) {
   const objetivos = roadmap.objetivos_estrategicos ?? []
   const enablers = roadmap.key_enablers ?? []
-  const pilares = roadmap.pilares ?? []
+  const pilares = (roadmap.pilares ?? []).slice(0, 6)
+  const n = pilares.length || 1
+  // Mismas columnas para tarjetas (pilares) y columnas de tareas → quedan alineadas.
+  const gridCols = { gridTemplateColumns: `repeat(${n}, minmax(190px,1fr))` }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: EASE, delay: 0.25 }}
-      className="space-y-10"
+      className="space-y-4"
     >
       {/* Encabezado + acceso a edición */}
-      <div className="flex items-end justify-between gap-4">
+      <div className="mb-2 flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Tu estrategia</p>
-          <h2 className="text-2xl font-bold text-black tracking-tight">Roadmap de un vistazo</h2>
+          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-400">Tu estrategia</p>
+          <h2 className="text-2xl font-bold tracking-tight text-black">Roadmap de un vistazo</h2>
         </div>
         <Link
           href="/dashboard/plan"
-          className="inline-flex items-center gap-2 border border-gray-200 text-xs font-medium text-gray-700 px-4 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors whitespace-nowrap"
+          className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-medium text-gray-700 transition-colors hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)]"
         >
           <Pencil className="h-3.5 w-3.5" /> Editar mi Roadmap
         </Link>
       </div>
 
-      {/* Misión · Visión + KPI Visión */}
-      <section className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-12">
-        <div>
-          {roadmap.vision && (
-            <>
-              <p className={`${kicker} mb-2`}>Visión</p>
-              <p className="text-2xl sm:text-[1.75rem] font-semibold leading-[1.25] tracking-tight text-balance text-[var(--gob-ink)]">
-                {roadmap.vision}
-              </p>
-            </>
-          )}
-          {objetivos.length > 0 && (
-            <div className="mt-6 rounded-2xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] p-5">
-              <h3 className="mb-3 text-sm font-bold tracking-tight text-[var(--gob-ink)]">KPI Visión</h3>
-              <ol className="space-y-2.5">
-                {objetivos.map((o, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--gob-navy)]/[0.08] text-[11px] font-bold text-[var(--gob-navy)]">
-                      {i + 1}
-                    </span>
-                    <span className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{o}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
+      {/* 1. Misión · Visión — dos recuadros navy lado a lado */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl p-6 text-white" style={{ background: NAVY }}>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Misión</p>
+          <p className="text-sm leading-relaxed text-white/90 line-clamp-4">{roadmap.mision || "—"}</p>
         </div>
-
-        <div className="space-y-5 lg:border-l lg:border-[var(--gob-rule)] lg:pl-8">
-          {roadmap.mision && (
-            <div>
-              <p className={`${kicker} mb-1`}>Misión</p>
-              <p className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{roadmap.mision}</p>
-            </div>
-          )}
-          {roadmap.propuesta_valor && (
-            <div>
-              <p className={`${kicker} mb-1`}>Propuesta de valor</p>
-              <p className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{roadmap.propuesta_valor}</p>
-            </div>
-          )}
+        <div className="rounded-2xl p-6 text-white" style={{ background: NAVY }}>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Visión</p>
+          <p className="text-sm leading-relaxed text-white/90 line-clamp-4">{roadmap.vision || "—"}</p>
         </div>
-      </section>
+      </div>
 
-      {/* Prioridades estratégicas */}
-      {pilares.length > 0 && (
-        <section className="space-y-4">
-          <div>
-            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Cómo lo logramos</p>
-            <h2 className="text-xl font-bold text-black tracking-tight">Prioridades estratégicas</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {pilares.map((p, i) => <PilarResumen key={i} pilar={p} indice={i} />)}
-          </div>
-        </section>
+      {/* 2. KPI Visión — barra navy a todo el ancho */}
+      {objetivos.length > 0 && (
+        <div className="rounded-xl px-6 py-3.5 text-sm text-white" style={{ background: NAVY }}>
+          <span className="font-bold">KPI Visión: </span>
+          <span className="text-white/85">{objetivos.join(" · ")}</span>
+        </div>
       )}
 
-      {/* Key enablers */}
+      {/* 3. Franja azul acero */}
+      <div
+        className="rounded-xl py-2.5 text-center text-sm font-bold uppercase tracking-wide"
+        style={{ background: STEEL, color: NAVY }}
+      >
+        Prioridades estratégicas
+      </div>
+
+      {/* 4 + 5 + 6 — mismas columnas; scroll horizontal solo aquí, el body no se rompe */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[860px] space-y-4">
+          {/* 4. Tarjetas navy por pilar */}
+          <div className="grid gap-3" style={gridCols}>
+            {pilares.map((p, i) => {
+              const kpis = (p.kpis ?? []).filter(k => k.label).slice(0, 3)
+              const desc = p.objetivo || p.descripcion
+              return (
+                <article key={i} className="rounded-2xl p-4 text-center text-white" style={{ background: NAVY }}>
+                  <h3 className="text-sm font-bold leading-tight">{p.nombre || `Prioridad ${i + 1}`}</h3>
+                  {desc && (
+                    <p className="mt-2 text-xs italic leading-relaxed text-white/75 line-clamp-2">{desc}</p>
+                  )}
+                  {kpis.length > 0 && (
+                    <div className="mt-3 border-t border-white/15 pt-3">
+                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/50">Indicadores</p>
+                      <ul className="space-y-1">
+                        {kpis.map((k, j) => (
+                          <li key={j} className="text-xs leading-snug text-white/85">{k.label}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+
+          {/* 5. Franja azul acero */}
+          <div
+            className="rounded-xl py-2.5 text-center text-sm font-bold uppercase tracking-wide"
+            style={{ background: STEEL, color: NAVY }}
+          >
+            Tareas
+          </div>
+
+          {/* 6. Columnas claras por pilar — tareas numeradas, alineadas bajo cada pilar */}
+          <div className="grid gap-3" style={gridCols}>
+            {pilares.map((p, i) => {
+              const estrategias = (p.estrategias ?? []).slice(0, 5)
+              return (
+                <div key={i} className="rounded-2xl p-4" style={{ background: LIGHT, color: NAVY }}>
+                  {estrategias.length > 0 ? (
+                    <ol className="space-y-2">
+                      {estrategias.map((s, j) => (
+                        <li key={j} className="flex gap-2 text-xs leading-relaxed">
+                          <span className="shrink-0 font-bold tabular-nums">{j + 1}.</span>
+                          <span className="line-clamp-2">{s}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="text-center text-xs text-[#142849]/40">—</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 7. Key enablers — barra navy a todo el ancho */}
       {enablers.length > 0 && (
-        <section className="rounded-2xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] p-5 sm:p-6">
-          <h2 className="mb-3 text-base font-bold tracking-tight text-[var(--gob-ink)]">Key enablers</h2>
-          <ul className="grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
-            {enablers.map((e, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--gob-navy)]" />
-                <span className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{e}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <div className="rounded-xl px-6 py-3.5 text-sm text-white" style={{ background: NAVY }}>
+          <span className="font-bold">Key enablers: </span>
+          <span className="text-white/85">{enablers.join(" · ")}</span>
+        </div>
       )}
     </motion.div>
   )
