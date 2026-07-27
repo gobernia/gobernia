@@ -85,3 +85,29 @@ class ApplyProposalRequest(BaseModel):
 class CloseMonthResponse(BaseModel):
     month:              MonthlyPlanOut
     active_month_index: int
+
+
+# ── Plan anual (prioridades aprobadas del roadmap) ────────────────────────────
+
+class PilarAnualOut(BaseModel):
+    """Un pilar del roadmap, con su índice, para elegirlo/mostrarlo en el plan anual."""
+    indice:      int
+    nombre:      str | None = None
+    descripcion: str | None = None
+    objetivo:    str | None = None
+    kpis:        list[dict] = Field(default_factory=list)
+    estrategias: list = Field(default_factory=list)
+
+
+class PlanAnualOut(BaseModel):
+    anio:                int
+    aprobado:            bool
+    aprobado_at:         str | None = None
+    # Los pilares del roadmap (con índice), para elegir.
+    pilares_disponibles: list[PilarAnualOut] = Field(default_factory=list)
+    # Los guardados en plan_anual (o [] si no está aprobado).
+    pilares_aprobados:   list[PilarAnualOut] = Field(default_factory=list)
+
+
+class AprobarPlanAnualIn(BaseModel):
+    indices: list[int]

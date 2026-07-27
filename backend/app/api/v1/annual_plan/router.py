@@ -32,6 +32,7 @@ from app.schemas.annual_plan import (
     AnnualPlanOut, AnnualPlanStatusOut, AnnualTaskCreate, MonthlyPlanOut,
     ObjectiveCreate, ObjectiveOut, ObjectiveUpdate,
     CloseMonthRequest, ApplyProposalRequest, GeneratePlanRequest,
+    PlanAnualOut, PilarAnualOut, AprobarPlanAnualIn,
 )
 from app.schemas.action_plan import ActionTaskOut
 from app.schemas.board import BoardOut, BoardMonthOut, BoardTaskOut
@@ -560,6 +561,114 @@ async def roadmap_version_pdf(
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="roadmap-v{version.version}.pdf"'},
     )
+
+
+# ── Plan anual (prioridades aprobadas del roadmap) ───────────────────────────
+# Capa NUEVA encima del mismo `roadmap`: el usuario elige 3-5 pilares del roadmap
+# como las prioridades del año en curso. El plan no queda activo hasta aprobarlo.
+
+def _pilar_view(p: dict, indice: int) -> dict:
+    """Un pilar del roadmap → vista/snapshot con su índice y los campos del plan anual."""
+    return {
+        "indice": indice,
+        "nombre": p.get("nombre"),
+        "descripcion": p.get("descripcion"),
+        "objetivo": p.get("objetivo"),
+        "kpis": copy.deepcopy(list(p.get("kpis") or [])),
+        "estrategias": copy.deepcopy(list(p.get("estrategias") or [])),
+    }
+
+
+def _roadmap_pilares(plan: AnnualPlan) -> list[dict]:
+    return [p for p in ((plan.roadmap or {}).get("pilares") or []) if isinstance(p, dict)]
+
+
+def _plan_anual_out(plan: AnnualPlan) -> PlanAnualOut:
+    pilares = _roadmap_pilares(plan)
+    disponibles = [_pilar_view(p, i) for i, p in enumerate(pilares)]
+    pa = plan.plan_anual or {}
+    aprobado = bool(pa.get("aprobado"))
+    anio = pa.get("anio") or date.today().year
+    aprobados = pa.get("pilares") or [] if aprobado else []
+    return PlanAnualOut(
+        anio=anio,
+        aprobado=aprobado,
+        aprobado_at=pa.get("aprobado_at"),
+        pilares_disponibles=[PilarAnualOut(**d) for d in disponibles],
+        pilares_aprobados=[PilarAnualOut(**a) for a in aprobados],
+    )
+
+
+@router.get("/annual-plan/plan-anual", response_model=PlanAnualOut)
+async def get_plan_anual(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    return _plan_anual_out(plan)
+
+
+@router.post("/annual-plan/plan-anual/aprobar", response_model=PlanAnualOut)
+async def aprobar_plan_anual(
+    body: AprobarPlanAnualIn,
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+
+    # Índices únicos, preservando el orden en que los eligió el usuario.
+    indices: list[int] = []
+    for i in body.indices:
+        if i not in indices:
+            indices.append(i)
+
+    if len(indices) < 3:
+        raise HTTPException(status_code=400, detail="Elige al menos 3 prioridades.")
+    if len(indices) > 5:
+        raise HTTPException(
+            status_code=400,
+            detail="Elige máximo 5 prioridades — si todo es prioridad, nada es prioridad.",
+        )
+
+    pilares = _roadmap_pilares(plan)
+    fuera = [i for i in indices if i < 0 or i >= len(pilares)]
+    if fuera:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Índice(s) de pilar fuera de rango: {fuera}.",
+        )
+
+    snapshot = [_pilar_view(pilares[i], i) for i in indices]
+    plan.plan_anual = {
+        "anio": date.today().year,
+        "aprobado": True,
+        "aprobado_at": datetime.now(timezone.utc).isoformat(),
+        "pilares": snapshot,
+    }
+    _flag_modified(plan, "plan_anual")
+    await db.commit()
+    return _plan_anual_out(plan)
+
+
+@router.post("/annual-plan/plan-anual/reabrir", response_model=PlanAnualOut)
+async def reabrir_plan_anual(
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    """Regresa el plan anual a NO aprobado, conservando los pilares para re-elegir."""
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    pa = dict(plan.plan_anual or {})
+    pa["aprobado"] = False
+    pa.setdefault("anio", date.today().year)
+    pa.setdefault("aprobado_at", None)
+    pa.setdefault("pilares", [])
+    plan.plan_anual = pa
+    _flag_modified(plan, "plan_anual")
+    await db.commit()
+    return _plan_anual_out(plan)
 
 
 # ── CRUD de objetivos ─────────────────────────────────────────────────────────

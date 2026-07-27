@@ -7,6 +7,7 @@ import {
   Home, ClipboardList, Users,
   FileSearch, MessagesSquare, Library,
   Settings, LogOut, Menu, X,
+  Map, CalendarCheck,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
@@ -19,6 +20,8 @@ const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
   { href: "/dashboard/plan", label: "Roadmap", exact: false, icon: ClipboardList },
+  { href: "/dashboard/roadmap-beta", label: "Roadmap Beta", exact: false, icon: Map },
+  { href: "/dashboard/plan-anual", label: "Plan anual", exact: false, icon: CalendarCheck },
   { href: "/dashboard/consejo", label: "Board IA", exact: false, icon: Users },
   { href: "/dashboard/perspectivas", label: "Equipo", exact: false, icon: MessagesSquare },
   // Oculto por ahora (no se borra; la página /dashboard/compromisos sigue existiendo):
