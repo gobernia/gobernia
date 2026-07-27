@@ -87,9 +87,9 @@ export default function PilarCard({ pilar, indice, color, editing, saving, valid
             className="flex-1 rounded-lg border-2 border-[var(--gob-rule)]/60 px-3 py-1.5 text-base font-bold focus:border-[var(--gob-navy)] focus:outline-none" />
         ) : (
           <div className="min-w-0">
-            <p className={kickerCls} style={{ color }}>Pilar {indice + 1}</p>
+            <p className={kickerCls} style={{ color }}>Prioridad estratégica {indice + 1}</p>
             <h3 className="text-lg font-bold leading-tight tracking-tight text-[var(--gob-ink)]">
-              {pilar.nombre || `Pilar ${indice + 1}`}
+              {pilar.nombre || `Prioridad estratégica ${indice + 1}`}
             </h3>
           </div>
         )}
@@ -104,17 +104,17 @@ export default function PilarCard({ pilar, indice, color, editing, saving, valid
           <div>
             <p className={`${kickerCls} mb-1`}>Objetivo</p>
             <textarea value={draft.objetivo} onChange={e => setDraft(d => ({ ...d, objetivo: e.target.value }))} rows={2}
-              placeholder="El objetivo estratégico de este pilar" aria-label="Objetivo" className={areaCls} />
+              placeholder="El KPI Visión de esta prioridad estratégica" aria-label="Objetivo" className={areaCls} />
           </div>
 
           <div>
-            <p className={`${kickerCls} mb-1`}>Estrategias</p>
+            <p className={`${kickerCls} mb-1`}>Tareas</p>
             <textarea value={draft.estrategias} onChange={e => setDraft(d => ({ ...d, estrategias: e.target.value }))} rows={4}
-              placeholder="Una estrategia por línea" aria-label="Estrategias" className={areaCls} />
+              placeholder="Una tarea por línea" aria-label="Estrategias" className={areaCls} />
           </div>
 
           <div className="space-y-2">
-            <p className={kickerCls}>KPIs</p>
+            <p className={kickerCls}>Indicadores</p>
             {draft.kpis.map((k, ki) => (
               <div key={ki} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <input value={k.label} onChange={e => setKpi(ki, { label: e.target.value })} placeholder="Indicador" aria-label="Indicador" className={inputCls} />
@@ -169,7 +169,7 @@ export default function PilarCard({ pilar, indice, color, editing, saving, valid
 
           {estrategias.length > 0 && (
             <div className="space-y-2">
-              <p className={kickerCls}>Estrategias</p>
+              <p className={kickerCls}>Tareas</p>
               <ul className="space-y-1.5">
                 {estrategias.map((s, i) => (
                   <li key={i} className="flex items-start gap-2.5">
@@ -183,7 +183,7 @@ export default function PilarCard({ pilar, indice, color, editing, saving, valid
 
           {kpis.length > 0 && (
             <div className="space-y-1">
-              <p className={kickerCls}>KPIs · hoy → meta</p>
+              <p className={kickerCls}>Indicadores · hoy → meta</p>
               <ul>
                 {kpis.map((k, i) => <KpiTrayecto key={i} kpi={k} color={color} />)}
               </ul>

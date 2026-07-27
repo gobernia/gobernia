@@ -62,7 +62,7 @@ export default function BoardPack({
     setError(null)
     setWarning(
       UNREADABLE.test(file.name)
-        ? "Los Excel y Word no se pueden leer: súbelos en PDF. Tu consejo verá que existe el archivo, pero no podrá leer su contenido."
+        ? "Los Excel y Word no se pueden leer: súbelos en PDF. Board IA verá que existe el archivo, pero no podrá leer su contenido."
         : null,
     )
     try {
@@ -93,13 +93,13 @@ export default function BoardPack({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-[var(--gob-ink)]">
-            Documentos para el consejo
+            Documentos para el Consejo
             {items.length > 0 && (
               <span className="ml-2 text-[10px] font-medium text-gray-400">{items.length}</span>
             )}
           </p>
           <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-            Sube los documentos que quieres que tu consejo lea antes de analizar (estados
+            Sube los documentos que quieres que Board IA lea antes de analizar (estados
             financieros, presentación, plan de auditoría). Cada consejero leerá lo que le compete.
           </p>
         </div>
@@ -170,7 +170,7 @@ export default function BoardPack({
             {items.length === 0 && (
               <div className="border border-dashed border-gray-200 rounded-xl px-4 py-6 text-center">
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Todavía no hay documentos. Sin ellos tu consejo analizará solo con el perfil de la
+                  Todavía no hay documentos. Sin ellos Board IA analizará solo con el perfil de la
                   empresa; con ellos, cada hallazgo podrá citar su fuente.
                 </p>
               </div>

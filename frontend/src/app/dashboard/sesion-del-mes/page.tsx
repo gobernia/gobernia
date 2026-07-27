@@ -36,13 +36,13 @@ export default function SesionDelMesPage() {
         {hasPlan === false && (
           <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center">
             <p className="text-sm text-gray-500 mb-3">
-              Aún no tienes un plan estratégico. Genera tu plan para convocar a tu consejo.
+              Aún no tienes un plan estratégico. Genera tu plan para convocar a tu Consejo.
             </p>
             <Link
               href="/dashboard/plan"
               className="inline-block px-4 py-2 rounded-lg bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium"
             >
-              Ir al Plan
+              Ir al Roadmap
             </Link>
           </div>
         )}

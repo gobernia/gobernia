@@ -81,7 +81,7 @@ export default function SeccionApertura({ roadmap, editing, setEditing, saving, 
       {(objetivos.length > 0 || !validado) && (
         <div className="mt-10 rounded-2xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] p-5 sm:p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-base font-bold tracking-tight text-[var(--gob-ink)]">Objetivos estratégicos</h3>
+            <h3 className="text-base font-bold tracking-tight text-[var(--gob-ink)]">KPI Visión</h3>
             <EditControls editing={editObj} onEdit={abrirObj}
               onSave={() => onSave({ ...roadmap, objetivos_estrategicos: splitLines(objs) })}
               onCancel={() => setEditing(null)} saving={saving} hide={validado} />

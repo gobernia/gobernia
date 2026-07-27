@@ -29,7 +29,7 @@ export default function MonthReviewPanel({
         <div className={`inline-flex items-center px-3 py-1.5 rounded-lg border text-sm font-bold ${g.cls}`}>
           {g.label}
         </div>
-        <InfoHint text="El veredicto del consejo sobre tu mes, según el cumplimiento de tareas y el avance de tus KPIs." />
+        <InfoHint text="El veredicto del Consejo sobre tu mes, según el cumplimiento de tareas y el avance de tus Indicadores." />
       </div>
       <p className="text-sm text-gray-600 leading-relaxed">{review.summary}</p>
 
@@ -44,13 +44,13 @@ export default function MonthReviewPanel({
         </div>
         <div className="rounded-xl border border-gray-100 py-2">
           <p className="text-lg font-bold text-black">{review.signals.kpis.filter(k => k.on_track).length}/{review.signals.kpis.length}</p>
-          <p className="text-[10px] text-gray-400">KPIs en rumbo</p>
+          <p className="text-[10px] text-gray-400">Indicadores en rumbo</p>
         </div>
       </div>
 
       {review.proposals.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Propuestas para el mes siguiente <InfoHint text="Cambios que el consejo sugiere para el mes siguiente; tú eliges cuáles aplicar." /></p>
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Propuestas para el mes siguiente <InfoHint text="Cambios que el Consejo sugiere para el mes siguiente; tú eliges cuáles aplicar." /></p>
           {review.proposals.map(p => (
             <div key={p.id} className="flex items-center gap-3 border border-gray-100 rounded-xl px-3 py-2.5">
               <div className="flex-1">

@@ -207,7 +207,7 @@ export default function FodaPage() {
 
                 <div className="rounded-2xl border border-gray-100 p-5 space-y-3">
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    Con la matriz lista, tu consejo puede convertirla en un plan de trabajo a tres años.
+                    Con la matriz lista, tu Consejo puede convertirla en un plan de trabajo a tres años.
                   </p>
                   <button onClick={generarPlan} disabled={generando}
                     className="w-full inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">

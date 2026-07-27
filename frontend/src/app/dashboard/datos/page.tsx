@@ -193,7 +193,7 @@ export default function DatosPage() {
                 </Section>
 
                 {/* KPIs */}
-                <Section icon={BarChart3} title="KPIs reportados">
+                <Section icon={BarChart3} title="Indicadores reportados">
                   {kpiRows.length > 0 ? (
                     <div className="divide-y divide-gray-50">
                       {kpiRows.map((k, i) => <Field key={i} label={k.label} value={<span className="font-semibold">{k.value}</span>} />)}

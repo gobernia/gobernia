@@ -37,7 +37,7 @@ export default function SeccionMetas({ roadmap, editing, setEditing, saving, val
               <textarea value={m.meta} onChange={e => patch(i, { meta: e.target.value })} rows={2} placeholder="Meta"
                 aria-label="Meta" className={`${inputCls} resize-none`} />
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <input value={m.kpi ?? ""} onChange={e => patch(i, { kpi: e.target.value })} placeholder="KPI" aria-label="KPI" className={inputCls} />
+                <input value={m.kpi ?? ""} onChange={e => patch(i, { kpi: e.target.value })} placeholder="Indicador" aria-label="KPI" className={inputCls} />
                 <input value={m.valor_actual ?? ""} onChange={e => patch(i, { valor_actual: e.target.value })} placeholder="Valor actual" aria-label="Valor actual" className={inputCls} />
                 <input value={m.target} onChange={e => patch(i, { target: e.target.value })} placeholder="Meta objetivo (target)" aria-label="Meta objetivo"
                   className="w-full rounded-lg border-2 border-[var(--gob-navy)]/30 px-3 py-2 text-sm focus:border-[var(--gob-navy)] focus:outline-none" />

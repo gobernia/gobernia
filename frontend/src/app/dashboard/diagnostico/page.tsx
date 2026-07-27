@@ -186,7 +186,7 @@ export default function DiagnosticoPage() {
         <Loader2 className="h-6 w-6 animate-spin text-[var(--gob-navy)]" />
         <div className="space-y-1">
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Investigando</p>
-          <h1 className="text-2xl font-bold text-black">Tu consejo está investigando tu empresa en la web</h1>
+          <h1 className="text-2xl font-bold text-black">Tu Consejo está investigando tu empresa en la web</h1>
           <p className="text-sm text-gray-500 max-w-md">
             Analiza tu presencia digital, competidores reales, tendencias de mercado y contexto de tu región.
             Esto puede tardar unos minutos.

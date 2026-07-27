@@ -91,7 +91,7 @@ export default function SecretarioWelcome({
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Para activar tu consejo necesito que termines tu información. Continúa donde lo dejaste.
+                  Para activar Board IA necesito que termines tu información. Continúa donde lo dejaste.
                 </p>
               )}
             </div>

@@ -43,7 +43,7 @@ export default function MonthDetail({
 
       {kpis.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">KPIs:</span>
+          <span className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Indicadores:</span>
           {kpis.map(k => (
             <span key={k} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
               {k}

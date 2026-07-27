@@ -49,12 +49,12 @@ export default function RoadmapDoc({ roadmap, validado, validando, fechaValidaci
           <div className="space-y-2 rounded-2xl border-2 border-dashed border-[var(--gob-navy)]/25 bg-[var(--gob-navy)]/[0.03] p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--gob-navy)]">Fase de revisión · borrador</p>
             <p className="max-w-3xl text-sm leading-relaxed text-[var(--gob-charcoal)]">
-              Este es el <strong>borrador</strong> que preparó tu consejo. Revísalo y <strong>ajusta el contenido</strong> con
-              el botón <strong>Editar</strong> de cada bloque. Las metas sin número las fijas tú: el consejo no las inventa.
+              Este es el <strong>borrador</strong> que preparó Board IA. Revísalo y <strong>ajusta el contenido</strong> con
+              el botón <strong>Editar</strong> de cada bloque. Las metas sin número las fijas tú: el Consejo no las inventa.
             </p>
             <p className="max-w-3xl text-sm leading-relaxed text-[var(--gob-charcoal)]">
               Cuando estés conforme, pulsa <strong>Validar roadmap</strong>: queda sellado, en solo lectura,{" "}
-              <strong>registrado para tu próxima sesión de consejo</strong> y guardado en tu Biblioteca.
+              <strong>registrado para tu próxima sesión de Consejo</strong> y guardado en tu Biblioteca.
             </p>
           </div>
         ) : (
@@ -65,7 +65,7 @@ export default function RoadmapDoc({ roadmap, validado, validando, fechaValidaci
               </p>
               <p className="max-w-3xl text-sm leading-relaxed text-[var(--gob-charcoal)]">
                 Tu roadmap está sellado y en solo lectura. Quedó <strong>registrado para tu próxima sesión de
-                consejo</strong> y guardado en tu <strong>Biblioteca</strong>.
+                Consejo</strong> y guardado en tu <strong>Biblioteca</strong>.
               </p>
             </div>
             <button onClick={onReabrir} disabled={validando}
@@ -79,7 +79,7 @@ export default function RoadmapDoc({ roadmap, validado, validando, fechaValidaci
         <SeccionApertura roadmap={roadmap} {...comunes} />
         <SeccionMetas roadmap={roadmap} {...comunes} />
 
-        <DocSection id="pilares" orden="03 · Las apuestas" titulo="Pilares estratégicos"
+        <DocSection id="pilares" orden="03 · Las apuestas" titulo="Prioridades estratégicas"
           nota="Los frentes en los que la empresa concentra su esfuerzo durante los tres años.">
           {pilares.length > 0 ? (
             <div className="grid gap-5 lg:grid-cols-2">
@@ -90,7 +90,7 @@ export default function RoadmapDoc({ roadmap, validado, validando, fechaValidaci
                   onSave={p2 => savePilar(i, p2)} />
               ))}
             </div>
-          ) : <p className="text-xs italic text-[var(--gob-stone)]">Sin pilares aún.</p>}
+          ) : <p className="text-xs italic text-[var(--gob-stone)]">Sin prioridades estratégicas aún.</p>}
         </DocSection>
 
         <SeccionMapa roadmap={roadmap} {...comunes} />
@@ -106,7 +106,7 @@ export default function RoadmapDoc({ roadmap, validado, validando, fechaValidaci
                 : <><BadgeCheck className="h-4 w-4" /> Validar roadmap</>}
             </button>
             <p className="max-w-md text-center text-xs leading-relaxed text-[var(--gob-muted)]">
-              Al validar queda en solo lectura y se registra para tu próxima sesión de consejo.
+              Al validar queda en solo lectura y se registra para tu próxima sesión de Consejo.
               Podrás reabrirlo si necesitas cambiar algo.
             </p>
           </div>

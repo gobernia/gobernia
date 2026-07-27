@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
   ArrowRight, Play, ChevronRight,
-  CheckCircle2, Circle, ArrowUpRight, X, Loader2,
+  CheckCircle2, ArrowUpRight, X, Loader2,
   Sparkles, FileSearch, LayoutGrid, MessagesSquare, ClipboardList, Library, Users,
 } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
@@ -27,7 +27,7 @@ const ETAPAS = [
   { n: 2, label: "Equipo" },
   { n: 3, label: "Prioridades" },
   { n: 4, label: "Diagnóstico" },
-  { n: 5, label: "KPIs" },
+  { n: 5, label: "Indicadores" },
   { n: 6, label: "Gobierno" },
   { n: 7, label: "Documentos" },
   { n: 8, label: "Visión" },
@@ -50,19 +50,19 @@ const FLUJO = [
     desc: "Fortalezas, oportunidades, debilidades y amenazas del negocio.",
   },
   {
-    href: "/dashboard/perspectivas", icon: MessagesSquare, step: "03", label: "Perspectivas",
+    href: "/dashboard/perspectivas", icon: MessagesSquare, step: "03", label: "Equipo",
     desc: "Lo que ven tu equipo, tus socios y tus clientes desde fuera.",
   },
   {
-    href: "/dashboard/plan", icon: ClipboardList, step: "04", label: "Plan anual",
-    desc: "Objetivos, tareas y KPIs mes a mes, generados por tu consejo.",
+    href: "/dashboard/plan", icon: ClipboardList, step: "04", label: "Roadmap",
+    desc: "Prioridades, tareas e Indicadores mes a mes, generados por tu Consejo.",
   },
   {
     href: "/dashboard/biblioteca", icon: Library, step: "05", label: "Biblioteca",
-    desc: "Los documentos que sostienen cada decisión del consejo.",
+    desc: "Los documentos que sostienen cada decisión del Consejo.",
   },
   {
-    href: "/dashboard/consejo", icon: Users, step: "06", label: "Tu consejo",
+    href: "/dashboard/consejo", icon: Users, step: "06", label: "Board IA",
     desc: "Cinco consejeros con IA: finanzas, estrategia, riesgos, auditoría y el Retador.",
   },
 ]
@@ -265,8 +265,8 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 <h2 className="text-lg font-bold text-black">Configura tu empresa primero</h2>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Para que el consejo de IA te entregue análisis útiles, necesitamos conocer
-                  tu empresa: industria, equipo, prioridades, KPIs y gobierno. Toma unos minutos
+                  Para que el Consejo de IA te entregue análisis útiles, necesitamos conocer
+                  tu empresa: industria, equipo, prioridades, Indicadores y gobierno. Toma unos minutos
                   y solo se hace una vez. Después podrás iniciar sesiones cuando quieras.
                 </p>
               </div>
@@ -319,7 +319,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-black">Nueva sesión de consejo</h2>
+                  <h2 className="text-lg font-bold text-black">Nueva sesión de Consejo</h2>
                   <p className="text-xs text-gray-400 mt-0.5">Selecciona el periodo a analizar</p>
                 </div>
                 <button
@@ -419,7 +419,7 @@ export default function DashboardPage() {
               <p className="italic font-light text-sm text-gray-500 mt-1">
                 {completedStages.length === 0
                   ? "Bienvenido a Gobernia. Configura tu empresa cuando estés listo."
-                  : "Completa la configuración para activar tu consejo de IA."}
+                  : "Completa la configuración para activar tu Consejo de IA."}
               </p>
             )}
           </motion.div>
@@ -435,7 +435,7 @@ export default function DashboardPage() {
               <div className="flex-1 space-y-3">
                 <p className="text-sm font-medium text-black">
                   {completedStages.length === 0
-                    ? "Configura tu empresa para activar el consejo"
+                    ? "Configura tu empresa para activar el Consejo"
                     : `Configuración en progreso — ${completedStages.length} de 8 etapas`}
                 </p>
                 <div className="flex gap-1">
@@ -465,46 +465,25 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {/* ── Score + checklist ────────────────────────── */}
+          {/* ── Estatus compacto (onboarding + gobernanza) ─── */}
           {onboardingComplete && (
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: EASE, delay: 0.1 }}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-5"
+              transition={{ duration: 0.4, ease: EASE, delay: 0.1 }}
+              className="flex items-center gap-x-2 gap-y-1 flex-wrap text-xs text-gray-500"
             >
-              {/* Score */}
-              <div className="border border-gray-100 hover:border-gray-300 rounded-2xl p-7 space-y-3 transition-colors">
-                <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
-                  Governance Score
-                </p>
-                {governanceScore !== null ? (
-                  <p className="text-6xl font-bold text-black tracking-tight leading-none">
-                    {governanceScore}
-                  </p>
-                ) : (
-                  <p className="text-5xl font-bold text-gray-200 tracking-tight leading-none">—</p>
-                )}
-                <p className="text-xs text-gray-400">sobre 100 puntos</p>
-              </div>
-
-              {/* Etapas checklist */}
-              <div className="sm:col-span-2 border border-gray-100 rounded-2xl p-7">
-                <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-5">
-                  Onboarding completado
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-4">
-                  {ETAPAS.map(e => (
-                    <div key={e.n} className="flex items-center gap-2">
-                      {completedStages.includes(e.n)
-                        ? <CheckCircle2 className="h-3.5 w-3.5 text-black flex-shrink-0" />
-                        : <Circle className="h-3.5 w-3.5 text-gray-200 flex-shrink-0" />
-                      }
-                      <span className="text-xs text-gray-600">{e.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[var(--gob-navy)]" />
+                Onboarding: <span className="font-medium text-black">Completado</span>
+              </span>
+              <span className="text-gray-300">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                Gobernanza:{" "}
+                <span className="font-medium text-black tabular-nums">
+                  {governanceScore !== null ? `${governanceScore}/100` : "—"}
+                </span>
+              </span>
             </motion.div>
           )}
 
@@ -572,7 +551,7 @@ export default function DashboardPage() {
             <div className="flex items-end justify-between">
               <div>
                 <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Historial</p>
-                <h2 className="text-2xl font-bold text-black tracking-tight">Sesiones de consejo</h2>
+                <h2 className="text-2xl font-bold text-black tracking-tight">Sesiones de Consejo</h2>
               </div>
               <button
                 onClick={tryCreateSession}
@@ -632,7 +611,7 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
                     {onboardingComplete
-                      ? "Inicia tu primera sesión de consejo para generar el diagnóstico completo de tu empresa."
+                      ? "Inicia tu primera sesión de Consejo para generar el diagnóstico completo de tu empresa."
                       : "Una vez que configures tu empresa, tus consejeros con IA generarán el primer análisis de gobierno."}
                   </p>
                 </div>

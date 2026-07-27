@@ -323,7 +323,7 @@ export default function PlanPage() {
   if (status === "generating") {
     return <div className="min-h-dvh flex flex-col items-center justify-center gap-3 text-center px-6">
       <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
-      <p className="text-sm text-gray-500">Tu consejo está armando tu plan a 3 años…</p></div>
+      <p className="text-sm text-gray-500">Tu Consejo está armando tu plan a 3 años…</p></div>
   }
   if (status === "none" || !plan) {
     return (
@@ -335,7 +335,7 @@ export default function PlanPage() {
             <div className="space-y-1.5 max-w-md">
               <p className="text-base font-medium text-black">Tu matriz FODA está lista</p>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Genera tu plan estratégico a 3 años: el consejo lo arma a partir de tu diagnóstico y tu FODA.
+                Genera tu plan estratégico a 3 años: el Consejo lo arma a partir de tu diagnóstico y tu FODA.
               </p>
             </div>
             <button onClick={generar} disabled={generating}
@@ -425,7 +425,7 @@ export default function PlanPage() {
       <main className="max-w-3xl mx-auto px-[var(--px-fluid)] py-10 space-y-8">
         <div className="bg-[var(--gob-navy)] text-[var(--gob-bone)] rounded-2xl p-6">
           <p className="text-[10px] font-medium tracking-widest uppercase opacity-70">Tu plan · {plan.horizon_years} años</p>
-          <h1 className="text-2xl font-bold mt-1">{plan.title || "Plan estratégico"}</h1>
+          <h1 className="text-2xl font-bold mt-1">{plan.title || "Roadmap estratégico"}</h1>
           <div className="mt-4 h-2 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-white rounded-full" style={{ width: `${pct}%` }} /></div>
           <p className="text-xs opacity-90 mt-1.5">Mes {active ?? 1} de {total} · {pct}% completado</p>
         </div>

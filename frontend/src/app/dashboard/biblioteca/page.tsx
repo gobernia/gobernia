@@ -44,7 +44,7 @@ export default function BibliotecaPage() {
         <PageShell className="py-10 space-y-6">
           <Prose>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Aquí se guardan los documentos que validaste. Quedan registrados para tus sesiones de consejo
+              Aquí se guardan los documentos que validaste. Quedan registrados para tus sesiones de Consejo
               y puedes descargarlos cuando los necesites.
             </p>
           </Prose>
@@ -64,7 +64,7 @@ export default function BibliotecaPage() {
                 <p className="text-base font-medium text-black">Tu biblioteca está vacía</p>
                 <p className="text-sm text-gray-500 leading-relaxed">
                   Cuando valides tu Roadmap estratégico, quedará guardado aquí y registrado para tu próxima
-                  sesión de consejo.
+                  sesión de Consejo.
                 </p>
               </div>
               <Link href="/dashboard/plan"

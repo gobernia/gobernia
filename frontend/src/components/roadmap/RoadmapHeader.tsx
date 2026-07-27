@@ -21,7 +21,7 @@ export default function RoadmapHeader({
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-[var(--px-fluid)] py-3.5">
         <div className="min-w-0">
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--gob-stone)]">
-            Documento del consejo · plan a {anios} años
+            Documento del Consejo · plan a {anios} años
           </p>
           <div className="flex items-center gap-2.5">
             <h1 className="truncate text-lg font-bold tracking-tight text-[var(--gob-ink)] sm:text-xl">

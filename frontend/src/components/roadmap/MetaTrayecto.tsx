@@ -109,7 +109,7 @@ export function MetaTrayecto({ meta, indice, editable, saving, onSetTarget }: {
             <p className="text-[15px] font-medium leading-snug text-[var(--gob-ink)]">{meta.meta}</p>
             {meta.kpi && (
               <p className="text-xs text-[var(--gob-muted)]">
-                <span className="font-semibold text-[var(--gob-stone)]">KPI</span> · {meta.kpi}
+                <span className="font-semibold text-[var(--gob-stone)]">Indicador</span> · {meta.kpi}
               </p>
             )}
           </div>

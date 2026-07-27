@@ -30,7 +30,7 @@ export default function DiagnosticoPanel({ summary }: { summary: string | null }
       >
         <div className="flex items-center gap-2.5">
           <Sparkles className="h-4 w-4 text-[var(--gob-navy)]" />
-          <span className="text-sm font-bold text-black">Diagnóstico del consejo</span>
+          <span className="text-sm font-bold text-black">Diagnóstico del Consejo</span>
         </div>
         <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <ChevronDown className="h-4 w-4 text-gray-400" />
