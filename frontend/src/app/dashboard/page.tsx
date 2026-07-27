@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
   ArrowRight, Play, ChevronRight,
-  CheckCircle2, ArrowUpRight, X, Loader2,
+  CheckCircle2, ArrowUpRight, X, Loader2, Pencil,
   Sparkles, FileSearch, LayoutGrid, MessagesSquare, ClipboardList, Library, Users,
 } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
@@ -16,6 +16,8 @@ import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
 import { getLogo } from "@/lib/logo"
+import { getRoadmap, type Roadmap } from "@/lib/roadmap"
+import { roadmapIsEmpty, pilarColor } from "@/components/roadmap/shared"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -110,6 +112,162 @@ function statusLabel(s: string) {
   return map[s] ?? s
 }
 
+// ── One-pager (solo lectura) ──────────────────────────────
+// El Inicio muestra la estrategia de un vistazo: reusa la data del Roadmap
+// que ya vive en /dashboard/plan. Aquí no se edita — para eso está "Editar mi Roadmap".
+const kicker = "text-[10px] font-bold tracking-[0.18em] uppercase text-[var(--gob-stone)]"
+
+function PilarResumen({ pilar, indice }: { pilar: Roadmap["pilares"][number]; indice: number }) {
+  const color = pilarColor(indice)
+  const estrategias = pilar.estrategias ?? []
+  const kpis = (pilar.kpis ?? []).filter(k => k.label)
+
+  return (
+    <article className="flex flex-col rounded-2xl border border-[var(--gob-rule)] bg-white p-5">
+      <span className="mb-3 block h-1 w-10 rounded-full" style={{ background: color }} />
+      <p className={kicker} style={{ color }}>Prioridad estratégica {indice + 1}</p>
+      <h3 className="mt-0.5 text-base font-bold leading-tight tracking-tight text-[var(--gob-ink)]">
+        {pilar.nombre || `Prioridad estratégica ${indice + 1}`}
+      </h3>
+
+      {pilar.objetivo && (
+        <p className="mt-3 text-sm leading-relaxed text-[var(--gob-muted)]">{pilar.objetivo}</p>
+      )}
+
+      {kpis.length > 0 && (
+        <div className="mt-4 space-y-1.5">
+          <p className={kicker}>Indicadores</p>
+          <ul className="space-y-1.5">
+            {kpis.map((k, i) => (
+              <li key={i} className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="text-[var(--gob-charcoal)]">{k.label}</span>
+                <span className="shrink-0 tabular-nums text-[var(--gob-muted)]">
+                  {k.actual || "—"} <span style={{ color }}>→</span> <span className="font-semibold text-[var(--gob-ink)]">{k.meta || "—"}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {estrategias.length > 0 && (
+        <div className="mt-4 space-y-1.5">
+          <p className={kicker}>Tareas</p>
+          <ul className="space-y-1.5">
+            {estrategias.map((s, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
+                <span className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{s}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </article>
+  )
+}
+
+function RoadmapOnePager({ roadmap }: { roadmap: Roadmap }) {
+  const objetivos = roadmap.objetivos_estrategicos ?? []
+  const enablers = roadmap.key_enablers ?? []
+  const pilares = roadmap.pilares ?? []
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: EASE, delay: 0.25 }}
+      className="space-y-10"
+    >
+      {/* Encabezado + acceso a edición */}
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Tu estrategia</p>
+          <h2 className="text-2xl font-bold text-black tracking-tight">Roadmap de un vistazo</h2>
+        </div>
+        <Link
+          href="/dashboard/plan"
+          className="inline-flex items-center gap-2 border border-gray-200 text-xs font-medium text-gray-700 px-4 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors whitespace-nowrap"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Editar mi Roadmap
+        </Link>
+      </div>
+
+      {/* Misión · Visión + KPI Visión */}
+      <section className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-12">
+        <div>
+          {roadmap.vision && (
+            <>
+              <p className={`${kicker} mb-2`}>Visión</p>
+              <p className="text-2xl sm:text-[1.75rem] font-semibold leading-[1.25] tracking-tight text-balance text-[var(--gob-ink)]">
+                {roadmap.vision}
+              </p>
+            </>
+          )}
+          {objetivos.length > 0 && (
+            <div className="mt-6 rounded-2xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] p-5">
+              <h3 className="mb-3 text-sm font-bold tracking-tight text-[var(--gob-ink)]">KPI Visión</h3>
+              <ol className="space-y-2.5">
+                {objetivos.map((o, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--gob-navy)]/[0.08] text-[11px] font-bold text-[var(--gob-navy)]">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{o}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-5 lg:border-l lg:border-[var(--gob-rule)] lg:pl-8">
+          {roadmap.mision && (
+            <div>
+              <p className={`${kicker} mb-1`}>Misión</p>
+              <p className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{roadmap.mision}</p>
+            </div>
+          )}
+          {roadmap.propuesta_valor && (
+            <div>
+              <p className={`${kicker} mb-1`}>Propuesta de valor</p>
+              <p className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{roadmap.propuesta_valor}</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Prioridades estratégicas */}
+      {pilares.length > 0 && (
+        <section className="space-y-4">
+          <div>
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Cómo lo logramos</p>
+            <h2 className="text-xl font-bold text-black tracking-tight">Prioridades estratégicas</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {pilares.map((p, i) => <PilarResumen key={i} pilar={p} indice={i} />)}
+          </div>
+        </section>
+      )}
+
+      {/* Key enablers */}
+      {enablers.length > 0 && (
+        <section className="rounded-2xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] p-5 sm:p-6">
+          <h2 className="mb-3 text-base font-bold tracking-tight text-[var(--gob-ink)]">Key enablers</h2>
+          <ul className="grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
+            {enablers.map((e, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--gob-navy)]" />
+                <span className="text-sm leading-relaxed text-[var(--gob-charcoal)]">{e}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </motion.div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────
 export default function DashboardPage() {
   const router = useRouter()
@@ -120,6 +278,9 @@ export default function DashboardPage() {
   const [summary,     setSummary]     = useState<CompanySummary | null>(null)
   const [sessions,    setSessions]    = useState<BoardSession[]>([])
   const [sessLoading, setSessLoading] = useState(true)
+
+  const [roadmap,     setRoadmap]     = useState<Roadmap | null>(null)
+  const [roadmapChecked, setRoadmapChecked] = useState(false)
 
   const [showSetupModal, setShowSetupModal] = useState(false)
 
@@ -167,6 +328,17 @@ export default function DashboardPage() {
       .finally(() => setSessLoading(false))
   }, [hydrate, reset])
 
+  // El roadmap alimenta el one-pager del Inicio. Si aún no hay (usuario nuevo o
+  // plan sin generar), el Inicio conserva las tarjetas guiadas "Del diagnóstico al plan".
+  useEffect(() => {
+    let alive = true
+    getRoadmap()
+      .then(r => { if (alive) setRoadmap(r) })
+      .catch(() => {})
+      .finally(() => { if (alive) setRoadmapChecked(true) })
+    return () => { alive = false }
+  }, [])
+
   const openModal = () => {
     setModalYear(new Date().getFullYear())
     setModalMonth(new Date().getMonth() + 1)
@@ -205,6 +377,7 @@ export default function DashboardPage() {
   }
 
   const onboardingComplete = completedStages.length >= 8
+  const hasRoadmap         = !!roadmap && !roadmapIsEmpty(roadmap)
   const nextEtapa          = ETAPAS.find(e => !completedStages.includes(e.n))
   const companyName        = summary?.company_name ?? null
   const governanceScore    = summary?.governance_score ?? null
@@ -487,7 +660,16 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {/* ── El flujo ─────────────────────────────────── */}
+          {/* ── El Inicio como one-pager ─────────────────────
+              Con roadmap → estrategia de un vistazo (solo lectura).
+              Sin roadmap → el camino guiado "Del diagnóstico al plan". */}
+          {hasRoadmap ? (
+            <RoadmapOnePager roadmap={roadmap!} />
+          ) : (!roadmapChecked && onboardingComplete) ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+            </div>
+          ) : (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -539,6 +721,7 @@ export default function DashboardPage() {
               })}
             </div>
           </motion.div>
+          )}
 
           {/* ── Board sessions ── OCULTO por ahora (no se borra; las "Sesiones de consejo" se deshabilitan temporalmente). El modal "Nueva sesión" queda en el código pero ya no es alcanzable. ── */}
           {SHOW_SESSIONS && (

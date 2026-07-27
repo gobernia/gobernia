@@ -5,18 +5,19 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Home, ClipboardList, Users,
-  FileSearch, LayoutGrid, MessagesSquare, Library,
+  FileSearch, MessagesSquare, Library,
   Settings, LogOut, Menu, X,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
-// Orden pedido por el cliente: Inicio · Diagnóstico · FODA · Roadmap · Board IA · Equipo · Biblioteca (al final).
+// Orden pedido por el cliente: Inicio · Diagnóstico · Roadmap · Board IA · Equipo · Biblioteca (al final).
+// El FODA ya no va suelto: ahora es una sección dentro del Diagnóstico. La página
+// /dashboard/foda sigue existiendo (la usa el flujo de onboarding → generar plan).
 const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
-  { href: "/dashboard/foda", label: "FODA", exact: false, icon: LayoutGrid },
   { href: "/dashboard/plan", label: "Roadmap", exact: false, icon: ClipboardList },
   { href: "/dashboard/consejo", label: "Board IA", exact: false, icon: Users },
   { href: "/dashboard/perspectivas", label: "Equipo", exact: false, icon: MessagesSquare },
