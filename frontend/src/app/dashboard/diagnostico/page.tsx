@@ -5,7 +5,7 @@ import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Loader2, Sparkles, AlertCircle, Download, FileSearch, ChevronDown, ArrowRight,
-  TrendingUp, TrendingDown, Minus, Link2, ShieldAlert, Globe, Compass, AlertTriangle, LayoutGrid,
+  TrendingUp, TrendingDown, Link2, ShieldAlert, Globe, Compass, AlertTriangle, LayoutGrid,
 } from "lucide-react"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import {
@@ -19,19 +19,25 @@ const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
 type View = "loading" | "none" | "generating" | "failed" | "active" | "error"
 
+// Paleta por hex — Tailwind v4 no detecta clases dinámicas, así que los colores
+// de acento se aplican con `style`. Misma familia visual que el Inicio.
+const NAVY = "#142849"
+const GREEN = "#0f766e"
+const AMBER = "#b45309"
+const RED = "#b91c1c"
+const RESUMEN_KEY = "resumen_ejecutivo"
+
 // --- Acordeón reutilizable -------------------------------------------------
-function Accordion({ title, defaultOpen = false, highlight = false, badge, children }: {
-  title: string; defaultOpen?: boolean; highlight?: boolean; badge?: ReactNode; children: ReactNode
+function Accordion({ title, defaultOpen = false, badge, children }: {
+  title: string; defaultOpen?: boolean; badge?: ReactNode; children: ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className={`rounded-2xl border transition-colors ${
-      open ? "border-gray-200" : "border-gray-100 hover:border-gray-200"
-    } ${highlight ? "border-l-2 border-l-[var(--gob-navy)]" : ""}`}>
+    <div className={`rounded-2xl border transition-colors ${open ? "border-gray-200" : "border-gray-100 hover:border-gray-200"}`}>
       <button onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
         <span className="flex items-center gap-2.5 min-w-0">
-          <h2 className="text-base font-bold text-black tracking-tight truncate">{title}</h2>
+          <h2 className="text-sm font-bold text-black tracking-tight truncate">{title}</h2>
           {badge}
         </span>
         <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
@@ -49,84 +55,164 @@ function Accordion({ title, defaultOpen = false, highlight = false, badge, child
   )
 }
 
-// --- Clasificación visual de hallazgos -------------------------------------
-const TIPO_META: Record<string, { Icon: typeof TrendingUp; color: string; bg: string; border: string; label: string }> = {
-  fortaleza: { Icon: TrendingUp, color: "text-green-600", bg: "bg-green-50", border: "border-l-green-500", label: "Fortaleza" },
-  debilidad: { Icon: TrendingDown, color: "text-red-500", bg: "bg-red-50", border: "border-l-red-500", label: "Debilidad" },
-  parcial: { Icon: Minus, color: "text-amber-500", bg: "bg-amber-50", border: "border-l-amber-500", label: "A mejorar" },
-}
-const tipoMeta = (t: string) =>
-  TIPO_META[t] ?? { Icon: Minus, color: "text-gray-400", bg: "bg-gray-50", border: "border-l-gray-300", label: "Nota" }
-
-// Severidad de riesgos → color coding
-const SEV_META: Record<string, { chip: string; dot: string; label: string }> = {
-  alta: { chip: "text-red-700 bg-red-50", dot: "bg-red-500", label: "Alta" },
-  media: { chip: "text-amber-700 bg-amber-50", dot: "bg-amber-500", label: "Media" },
-  baja: { chip: "text-gray-600 bg-gray-100", dot: "bg-gray-400", label: "Baja" },
-}
-const sevMeta = (s: string) => SEV_META[s] ?? SEV_META.media
-const SEV_ORDER: Record<string, number> = { alta: 0, media: 1, baja: 2 }
-
-// Cifra de cabecera: lo que el diagnóstico encontró, de un vistazo.
-function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
+// Botón "ver más / ver menos" — el mismo gesto en toda la página.
+function VerMas({ open, onClick, more, color }: { open: boolean; onClick: () => void; more?: number; color: string }) {
   return (
-    <div className="rounded-2xl border border-gray-100 px-5 py-4">
-      <p className={`text-2xl font-bold tracking-tight ${accent}`}>{value}</p>
-      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-gray-400 mt-0.5">{label}</p>
-    </div>
+    <button onClick={onClick}
+      className="mt-3 self-start inline-flex items-center gap-1 text-xs font-medium hover:opacity-70 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)] rounded"
+      style={{ color }}>
+      {open ? "Ver menos" : more ? `Ver ${more} más` : "Ver más"}
+      <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
+    </button>
   )
 }
 
-// Bloque interno reutilizable (Fortalezas / Debilidades): tarjeta con acento superior + lista.
-type Cubi = { area: string; tipo: string; texto: string }
-function InternalBlock({ title, Icon, iconColor, accent, items }: {
-  title: string; Icon: typeof TrendingUp; iconColor: string; accent: string; items: Cubi[]
-}) {
-  if (items.length === 0) return null
+// Severidad de riesgos → color por hex.
+const SEV_HEX: Record<string, { color: string; label: string }> = {
+  alta: { color: RED, label: "Alta" },
+  media: { color: AMBER, label: "Media" },
+  baja: { color: "#6C6A66", label: "Baja" },
+}
+const sevHex = (s: string) => SEV_HEX[s] ?? SEV_HEX.media
+const SEV_ORDER: Record<string, number> = { alta: 0, media: 1, baja: 2 }
+
+// --- Resumen ejecutivo: el titular. Recuadro navy como el Inicio, con "ver más".
+function ResumenEjecutivo({ body }: { body: string }) {
+  const [open, setOpen] = useState(false)
+  const paras = body.split("\n").map(p => p.trim()).filter(Boolean)
+  const oneLine = paras.join(" ")
+  const long = oneLine.length > 320 || paras.length > 2
   return (
-    <section className={`rounded-2xl border border-gray-100 border-t-4 ${accent} p-5 space-y-3`}>
-      <div className="flex items-center gap-2">
-        <Icon className={`h-4 w-4 ${iconColor}`} />
-        <h2 className="text-base font-bold text-black tracking-tight">{title}</h2>
-        <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{items.length}</span>
+    <section className="rounded-2xl p-6 text-white" style={{ background: NAVY }}>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Resumen ejecutivo</p>
+      {open ? (
+        <Prose className="space-y-2">
+          {paras.map((p, i) => <p key={i} className="text-sm leading-relaxed text-white/90">{p}</p>)}
+        </Prose>
+      ) : (
+        <p className="text-sm leading-relaxed text-white/90 line-clamp-4">{oneLine}</p>
+      )}
+      {long && <VerMas open={open} onClick={() => setOpen(o => !o)} color="rgba(255,255,255,0.75)" />}
+    </section>
+  )
+}
+
+// --- Cifra compacta (una línea) --------------------------------------------
+function Cifra({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <b className="text-base font-bold tabular-nums" style={{ color }}>{value}</b>
+      <span className="text-[var(--gob-muted)]">{label}</span>
+    </span>
+  )
+}
+
+// --- Bloque interno compacto (Fortalezas / Debilidades) --------------------
+type Cubi = { area: string; tipo: string; texto: string }
+function InternalBlock({ title, Icon, color, items }: {
+  title: string; Icon: typeof TrendingUp; color: string; items: Cubi[]
+}) {
+  const [open, setOpen] = useState(false)
+  if (items.length === 0) return null
+  const CAP = 4
+  const shown = open ? items : items.slice(0, CAP)
+  const more = items.length - CAP
+  return (
+    <section className="rounded-2xl border border-[var(--gob-rule)] p-5 flex flex-col">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="h-4 w-4" style={{ color }} />
+        <h3 className="text-sm font-bold text-black tracking-tight">{title}</h3>
+        <span className="ml-auto text-xs font-bold tabular-nums" style={{ color, opacity: 0.55 }}>{items.length}</span>
       </div>
-      <ul className="space-y-2.5">
-        {items.map((h, i) => {
-          const m = tipoMeta(h.tipo)
+      <ul className="space-y-2.5 flex-1">
+        {shown.map((h, i) => (
+          <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
+            <span className="mt-2 h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
+            <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>{h.texto}</span>
+          </li>
+        ))}
+      </ul>
+      {more > 0 && <VerMas open={open} onClick={() => setOpen(o => !o)} more={more} color={color} />}
+    </section>
+  )
+}
+
+// --- Riesgos compacto (color por severidad) --------------------------------
+function RiesgosBlock({ riesgos }: { riesgos: { riesgo: string; severidad: string }[] }) {
+  const [open, setOpen] = useState(false)
+  if (riesgos.length === 0) return null
+  const CAP = 4
+  const shown = open ? riesgos : riesgos.slice(0, CAP)
+  const more = riesgos.length - CAP
+  return (
+    <section className="rounded-2xl border border-[var(--gob-rule)] p-5 flex flex-col">
+      <div className="flex items-center gap-2 mb-3">
+        <ShieldAlert className="h-4 w-4" style={{ color: AMBER }} />
+        <h3 className="text-sm font-bold text-black tracking-tight">Riesgos</h3>
+        <span className="ml-auto text-xs font-bold tabular-nums" style={{ color: AMBER, opacity: 0.55 }}>{riesgos.length}</span>
+      </div>
+      <ul className="space-y-2.5 flex-1">
+        {shown.map((r, i) => {
+          const m = sevHex(r.severidad)
           return (
-            <li key={i} className="flex items-start gap-2.5 text-sm">
-              <span className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${m.bg}`}>
-                <m.Icon className={`h-3 w-3 ${m.color}`} />
-              </span>
-              <span className="text-gray-700 leading-snug">
-                {h.texto}
-                {h.area && <span className="ml-1.5 text-[11px] text-gray-400 uppercase tracking-wide">· {h.area}</span>}
+            <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
+              <span className="mt-1.5 h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} title={m.label} />
+              <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>
+                {r.riesgo}
+                <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wide" style={{ color: m.color }}>· {m.label}</span>
               </span>
             </li>
           )
         })}
       </ul>
+      {more > 0 && <VerMas open={open} onClick={() => setOpen(o => !o)} more={more} color={AMBER} />}
     </section>
   )
 }
 
-// --- FODA: ahora vive dentro del Diagnóstico ------------------------------
-// La matriz se lee como matriz: columnas = origen (interno / externo),
-// filas = signo (a favor / en contra). Clases de borde literales (Tailwind v4).
-type FodaQuad = {
-  key: keyof Foda; label: string; signo: string; icon: typeof TrendingUp
-  bar: string; chip: string; cell: string
-}
-const FODA_QUADS: FodaQuad[] = [
-  { key: "fortalezas", label: "Fortalezas", signo: "A favor", icon: TrendingUp,
-    bar: "bg-green-500", chip: "text-green-700 bg-green-50", cell: "border-b border-gray-100 lg:border-r" },
-  { key: "oportunidades", label: "Oportunidades", signo: "A favor", icon: Compass,
-    bar: "bg-[var(--gob-navy)]", chip: "text-[var(--gob-navy)] bg-blue-50", cell: "border-b border-gray-100" },
-  { key: "debilidades", label: "Debilidades", signo: "En contra", icon: AlertTriangle,
-    bar: "bg-amber-500", chip: "text-amber-700 bg-amber-50", cell: "border-b border-gray-100 lg:border-r lg:border-b-0" },
-  { key: "amenazas", label: "Amenazas", signo: "En contra", icon: ShieldAlert,
-    bar: "bg-red-500", chip: "text-red-700 bg-red-50", cell: "" },
+// --- FODA 2×2: el protagonista ---------------------------------------------
+// Arriba Fortalezas | Oportunidades, abajo Debilidades | Amenazas.
+// Cada cuadrante con su color al ~8% de fondo, acento sólido, y "ver más" propio.
+type QuadDef = { key: keyof Foda; label: string; sub: string; color: string; Icon: typeof TrendingUp }
+const FODA_QUADS: QuadDef[] = [
+  { key: "fortalezas", label: "Fortalezas", sub: "Interno · a favor", color: GREEN, Icon: TrendingUp },
+  { key: "oportunidades", label: "Oportunidades", sub: "Externo · a favor", color: NAVY, Icon: Compass },
+  { key: "debilidades", label: "Debilidades", sub: "Interno · en contra", color: AMBER, Icon: AlertTriangle },
+  { key: "amenazas", label: "Amenazas", sub: "Externo · en contra", color: RED, Icon: ShieldAlert },
 ]
+
+function FodaQuadrant({ def, items }: { def: QuadDef; items: string[] }) {
+  const [open, setOpen] = useState(false)
+  const CAP = 4
+  const shown = open ? items : items.slice(0, CAP)
+  const more = items.length - CAP
+  const { color, Icon } = def
+  return (
+    <div className="rounded-2xl p-5 flex flex-col" style={{ backgroundColor: `${color}14`, border: `1px solid ${color}22` }}>
+      <div className="flex items-center gap-2.5 mb-3">
+        <span className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: color }}>
+          <Icon className="h-4 w-4 text-white" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold tracking-tight" style={{ color }}>{def.label}</h3>
+          <p className="text-[10px] font-medium uppercase tracking-[0.14em]" style={{ color, opacity: 0.6 }}>{def.sub}</p>
+        </div>
+        <span className="ml-auto text-xs font-bold tabular-nums" style={{ color, opacity: 0.5 }}>{items.length}</span>
+      </div>
+      {items.length > 0 ? (
+        <ul className="space-y-2 flex-1">
+          {shown.map((t, i) => (
+            <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
+              <span className="mt-2 h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
+              <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>{t}</span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="text-xs text-gray-400 italic flex-1">Sin elementos.</p>}
+      {more > 0 && <VerMas open={open} onClick={() => setOpen(o => !o)} more={more} color={color} />}
+    </div>
+  )
+}
 
 function FodaSection({ foda }: { foda: Foda }) {
   return (
@@ -135,47 +221,15 @@ function FodaSection({ foda }: { foda: Foda }) {
         <LayoutGrid className="h-4 w-4 text-[var(--gob-navy)]" />
         <h2 className="text-base font-bold text-black tracking-tight">Matriz FODA</h2>
       </div>
-
-      {/* Ejes: origen del factor */}
-      <div className="hidden lg:grid grid-cols-2">
-        <p className="pl-7 text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--gob-stone)]">Origen interno</p>
-        <p className="pl-7 text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--gob-stone)]">Origen externo</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {FODA_QUADS.map(def => (
+          <FodaQuadrant key={def.key} def={def} items={(foda[def.key] as string[]) || []} />
+        ))}
       </div>
-
-      <div className="grid rounded-2xl border border-gray-200 overflow-hidden lg:grid-cols-2">
-        {FODA_QUADS.map(q => {
-          const Icon = q.icon
-          const items = (foda[q.key] as string[]) || []
-          return (
-            <div key={q.key} className={`p-5 lg:p-6 ${q.cell}`}>
-              <div className="flex items-center gap-2.5 mb-3">
-                <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${q.chip}`}>
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <h3 className="text-base font-bold tracking-tight text-black">{q.label}</h3>
-                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-gray-400">{q.signo}</p>
-                </div>
-              </div>
-              <div className={`h-1 w-12 rounded-full mb-3 ${q.bar}`} />
-              {items.length > 0 ? (
-                <ul className="space-y-2">
-                  {items.map((t, j) => (
-                    <li key={j} className="text-sm text-gray-700 leading-snug flex gap-2.5">
-                      <span className="text-gray-300 shrink-0">•</span><span>{t}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : <p className="text-xs text-gray-300 italic">Sin elementos.</p>}
-            </div>
-          )
-        })}
-      </div>
-
       {foda.sintesis && (
-        <div className="bg-[var(--gob-navy)] text-[var(--gob-bone)] rounded-2xl p-5">
-          <p className="text-[10px] font-medium tracking-[0.18em] uppercase opacity-70 mb-1.5">Síntesis</p>
-          <Prose><p className="text-sm leading-relaxed">{foda.sintesis}</p></Prose>
+        <div className="rounded-2xl p-5 text-white" style={{ background: NAVY }}>
+          <p className="mb-1.5 text-[10px] font-medium tracking-[0.18em] uppercase text-white/60">Síntesis</p>
+          <Prose><p className="text-sm leading-relaxed text-white/90">{foda.sintesis}</p></Prose>
         </div>
       )}
     </section>
@@ -329,9 +383,12 @@ export default function DiagnosticoPage() {
   const riesgos = [...(diag?.riesgos ?? [])].sort(
     (a, b) => (SEV_ORDER[a.severidad] ?? 1) - (SEV_ORDER[b.severidad] ?? 1))
   const sources = diag?.sources ?? []
-  const sections = (diag?.sections ?? []).filter(s => s.body)
+  const allSections = (diag?.sections ?? []).filter(s => s.body)
+  const resumen = allSections.find(s => s.key === RESUMEN_KEY)
+  const contextSections = allSections.filter(s => s.key !== RESUMEN_KEY)
   const sinInterno = fortalezas.length === 0 && debilidades.length === 0 && riesgos.length === 0
   const hayCifras = fortalezas.length > 0 || debilidades.length > 0 || riesgos.length > 0
+  const fodaActivo = foda?.status === "active" && !!foda.foda
 
   return (
     <div className="min-h-dvh bg-white text-black antialiased">
@@ -356,121 +413,100 @@ export default function DiagnosticoPage() {
       />
 
       <main>
-        <PageShell className="py-8 space-y-6">
+        <PageShell className="py-8">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE }}
+            className="space-y-6"
+          >
 
-          {/* Resumen: qué encontró el diagnóstico, de un vistazo */}
-          {hayCifras && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label="Fortalezas" value={fortalezas.length} accent="text-green-600" />
-              <Stat label="Debilidades" value={debilidades.length} accent="text-red-500" />
-              <Stat label="Riesgos" value={riesgos.length} accent="text-amber-500" />
-              <Stat label="Fuentes consultadas" value={sources.length} accent="text-[var(--gob-navy)]" />
-            </div>
-          )}
+            {/* 1 · Resumen ejecutivo: lo primero que lee el dueño */}
+            {resumen && <ResumenEjecutivo body={resumen.body} />}
 
-          {/* Lienzo ancho: la lectura a la izquierda, lo accionable a la derecha */}
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 lg:items-start">
-
-            {/* Columna de lectura ------------------------------------------------ */}
-            <div className="min-w-0 space-y-4">
-              {/* Hallazgos internos: dos columnas en pantallas grandes */}
-              <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
-                <InternalBlock title="Fortalezas internas" Icon={TrendingUp} iconColor="text-green-600"
-                  accent="border-t-green-500" items={fortalezas} />
-                <InternalBlock title="Debilidades internas" Icon={TrendingDown} iconColor="text-red-500"
-                  accent="border-t-red-500" items={debilidades} />
+            {/* 2 · Cifras de un vistazo — una línea */}
+            {hayCifras && (
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] px-5 py-3 text-sm">
+                <Cifra value={fortalezas.length} label="Fortalezas" color={GREEN} />
+                <Cifra value={debilidades.length} label="Debilidades" color={RED} />
+                <Cifra value={riesgos.length} label="Riesgos" color={AMBER} />
+                <Cifra value={sources.length} label="Fuentes" color={NAVY} />
               </div>
+            )}
 
-              {sinInterno && (
-                <p className="text-sm text-gray-400 py-2">
-                  Aún no hay hallazgos internos. Complétalos platicando con Todd — aquí tienes el contexto de mercado.
-                </p>
-              )}
+            {/* 3 · FODA 2×2 — el protagonista */}
+            {fodaActivo && <FodaSection foda={foda!.foda!} />}
 
-              {/* FODA: unido al Diagnóstico (antes era una sección aparte) */}
-              {foda?.status === "active" && foda.foda && (
-                <FodaSection foda={foda.foda} />
-              )}
+            {/* 4 · Hallazgos internos + Riesgos, compactos */}
+            {sinInterno ? (
+              <p className="text-sm text-gray-400">
+                Aún no hay hallazgos internos. Complétalos platicando con Todd — abajo tienes el contexto de mercado.
+              </p>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+                <InternalBlock title="Fortalezas internas" Icon={TrendingUp} color={GREEN} items={fortalezas} />
+                <InternalBlock title="Debilidades internas" Icon={TrendingDown} color={RED} items={debilidades} />
+                <RiesgosBlock riesgos={riesgos} />
+              </div>
+            )}
 
-              {/* Contexto de mercado (investigación web) — acordeón */}
-              {sections.length > 0 && (
-                <Accordion title="Contexto de mercado" defaultOpen={sinInterno} badge={
-                  <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
-                    <Globe className="h-3 w-3" /> investigación web
-                  </span>
-                }>
-                  <div className="space-y-6">
-                    {sections.map(s => (
-                      <div key={s.key} className="space-y-1.5">
-                        <h3 className="text-sm font-bold text-black">{s.title}</h3>
-                        <Prose className="space-y-2">
-                          {s.body.split("\n").filter(p => p.trim()).map((p, j) => (
-                            <p key={j} className="text-[14px] text-gray-600 leading-relaxed">{p.trim()}</p>
-                          ))}
-                        </Prose>
-                      </div>
-                    ))}
-                  </div>
-                </Accordion>
-              )}
+            {/* 5 · Respaldo: contexto de mercado y fuentes, colapsados al final */}
+            {(contextSections.length > 0 || sources.length > 0) && (
+              <div className="space-y-3 pt-2">
+                {contextSections.length > 0 && (
+                  <Accordion title="Contexto de mercado" defaultOpen={sinInterno} badge={
+                    <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
+                      <Globe className="h-3 w-3" /> investigación web
+                    </span>
+                  }>
+                    <div className="space-y-6">
+                      {contextSections.map(s => (
+                        <div key={s.key} className="space-y-1.5">
+                          <h3 className="text-sm font-bold text-black">{s.title}</h3>
+                          <Prose className="space-y-2">
+                            {s.body.split("\n").filter(p => p.trim()).map((p, j) => (
+                              <p key={j} className="text-[14px] text-gray-600 leading-relaxed">{p.trim()}</p>
+                            ))}
+                          </Prose>
+                        </div>
+                      ))}
+                    </div>
+                  </Accordion>
+                )}
+
+                {sources.length > 0 && (
+                  <Accordion title="Fuentes" badge={
+                    <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{sources.length}</span>
+                  }>
+                    <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                      {sources.map((src, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
+                          <Link2 className="h-3.5 w-3.5 text-gray-300 mt-0.5 shrink-0" />
+                          <a href={src.url} target="_blank" rel="noopener noreferrer"
+                            className="hover:text-[var(--gob-navy)] underline decoration-gray-200 break-words focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+                            {src.title}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </Accordion>
+                )}
+              </div>
+            )}
+
+            {/* Pie: regenerar + continuar */}
+            <div className="pt-4 flex items-center justify-between gap-4 flex-wrap border-t border-gray-100">
+              <button onClick={onGenerate}
+                className="text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)] rounded">
+                Regenerar diagnóstico
+              </button>
+              <a href="/onboarding/todd/externo"
+                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+                Continuar al análisis del entorno <ArrowRight className="h-4 w-4" />
+              </a>
             </div>
 
-            {/* Columna de apoyo: lo accionable primero ---------------------------- */}
-            <aside className="space-y-4 lg:sticky lg:top-24">
-              {riesgos.length > 0 && (
-                <section className="rounded-2xl border border-gray-100 border-t-4 border-t-amber-500 p-5 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert className="h-4 w-4 text-amber-500" />
-                    <h2 className="text-base font-bold text-black tracking-tight">Riesgos</h2>
-                    <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{riesgos.length}</span>
-                  </div>
-                  <ul className="space-y-3">
-                    {riesgos.map((r, i) => {
-                      const m = sevMeta(r.severidad)
-                      return (
-                        <li key={i} className="space-y-1.5">
-                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full ${m.chip}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} /> {m.label}
-                          </span>
-                          <p className="text-sm text-gray-700 leading-snug">{r.riesgo}</p>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </section>
-              )}
-
-              {sources.length > 0 && (
-                <Accordion title="Fuentes" badge={
-                  <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{sources.length}</span>
-                }>
-                  <ul className="space-y-1.5">
-                    {sources.map((src, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
-                        <Link2 className="h-3.5 w-3.5 text-gray-300 mt-0.5 shrink-0" />
-                        <a href={src.url} target="_blank" rel="noopener noreferrer"
-                          className="hover:text-[var(--gob-navy)] underline decoration-gray-200 break-words focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
-                          {src.title}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </Accordion>
-              )}
-            </aside>
-          </div>
-
-          {/* Pie: regenerar + continuar */}
-          <div className="pt-4 flex items-center justify-between gap-4 flex-wrap border-t border-gray-100">
-            <button onClick={onGenerate}
-              className="text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)] rounded">
-              Regenerar diagnóstico
-            </button>
-            <a href="/onboarding/todd/externo"
-              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
-              Continuar al análisis del entorno <ArrowRight className="h-4 w-4" />
-            </a>
-          </div>
+          </motion.div>
         </PageShell>
       </main>
     </div>
