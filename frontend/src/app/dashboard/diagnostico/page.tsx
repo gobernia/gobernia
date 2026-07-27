@@ -5,13 +5,14 @@ import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Loader2, Sparkles, AlertCircle, Download, FileSearch, ChevronDown, ArrowRight,
-  TrendingUp, TrendingDown, Minus, Link2, ShieldAlert, Globe,
+  TrendingUp, TrendingDown, Minus, Link2, ShieldAlert, Globe, Compass, AlertTriangle, LayoutGrid,
 } from "lucide-react"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import {
   getDiagnostico, getDiagnosticoStatus, generateDiagnostico, downloadDiagnosticoPdf,
   type Diagnostico,
 } from "@/lib/diagnostico"
+import { getFoda, type Foda, type FodaOut } from "@/lib/foda"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -109,9 +110,82 @@ function InternalBlock({ title, Icon, iconColor, accent, items }: {
   )
 }
 
+// --- FODA: ahora vive dentro del Diagnóstico ------------------------------
+// La matriz se lee como matriz: columnas = origen (interno / externo),
+// filas = signo (a favor / en contra). Clases de borde literales (Tailwind v4).
+type FodaQuad = {
+  key: keyof Foda; label: string; signo: string; icon: typeof TrendingUp
+  bar: string; chip: string; cell: string
+}
+const FODA_QUADS: FodaQuad[] = [
+  { key: "fortalezas", label: "Fortalezas", signo: "A favor", icon: TrendingUp,
+    bar: "bg-green-500", chip: "text-green-700 bg-green-50", cell: "border-b border-gray-100 lg:border-r" },
+  { key: "oportunidades", label: "Oportunidades", signo: "A favor", icon: Compass,
+    bar: "bg-[var(--gob-navy)]", chip: "text-[var(--gob-navy)] bg-blue-50", cell: "border-b border-gray-100" },
+  { key: "debilidades", label: "Debilidades", signo: "En contra", icon: AlertTriangle,
+    bar: "bg-amber-500", chip: "text-amber-700 bg-amber-50", cell: "border-b border-gray-100 lg:border-r lg:border-b-0" },
+  { key: "amenazas", label: "Amenazas", signo: "En contra", icon: ShieldAlert,
+    bar: "bg-red-500", chip: "text-red-700 bg-red-50", cell: "" },
+]
+
+function FodaSection({ foda }: { foda: Foda }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <LayoutGrid className="h-4 w-4 text-[var(--gob-navy)]" />
+        <h2 className="text-base font-bold text-black tracking-tight">Matriz FODA</h2>
+      </div>
+
+      {/* Ejes: origen del factor */}
+      <div className="hidden lg:grid grid-cols-2">
+        <p className="pl-7 text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--gob-stone)]">Origen interno</p>
+        <p className="pl-7 text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--gob-stone)]">Origen externo</p>
+      </div>
+
+      <div className="grid rounded-2xl border border-gray-200 overflow-hidden lg:grid-cols-2">
+        {FODA_QUADS.map(q => {
+          const Icon = q.icon
+          const items = (foda[q.key] as string[]) || []
+          return (
+            <div key={q.key} className={`p-5 lg:p-6 ${q.cell}`}>
+              <div className="flex items-center gap-2.5 mb-3">
+                <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${q.chip}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold tracking-tight text-black">{q.label}</h3>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-gray-400">{q.signo}</p>
+                </div>
+              </div>
+              <div className={`h-1 w-12 rounded-full mb-3 ${q.bar}`} />
+              {items.length > 0 ? (
+                <ul className="space-y-2">
+                  {items.map((t, j) => (
+                    <li key={j} className="text-sm text-gray-700 leading-snug flex gap-2.5">
+                      <span className="text-gray-300 shrink-0">•</span><span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-xs text-gray-300 italic">Sin elementos.</p>}
+            </div>
+          )
+        })}
+      </div>
+
+      {foda.sintesis && (
+        <div className="bg-[var(--gob-navy)] text-[var(--gob-bone)] rounded-2xl p-5">
+          <p className="text-[10px] font-medium tracking-[0.18em] uppercase opacity-70 mb-1.5">Síntesis</p>
+          <Prose><p className="text-sm leading-relaxed">{foda.sintesis}</p></Prose>
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function DiagnosticoPage() {
   const [view, setView] = useState<View>("loading")
   const [diag, setDiag] = useState<Diagnostico | null>(null)
+  const [foda, setFoda] = useState<FodaOut | null>(null)
   const [failReason, setFailReason] = useState<"datos" | "general" | null>(null)
   const [failDetail, setFailDetail] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
@@ -153,6 +227,23 @@ export default function DiagnosticoPage() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { init(); return () => stopPolling() }, [init, stopPolling])
+
+  // El FODA ahora es una sección del Diagnóstico. Lo traemos con el mismo fetch
+  // que ya usa la app; si sigue generándose, reintentamos hasta que esté listo.
+  useEffect(() => {
+    let alive = true
+    let t: ReturnType<typeof setTimeout> | null = null
+    const tick = async () => {
+      try {
+        const d = await getFoda()
+        if (!alive) return
+        setFoda(d)
+        if (d.status === "generating") t = setTimeout(tick, 4000)
+      } catch { /* reintenta al recargar */ }
+    }
+    tick()
+    return () => { alive = false; if (t) clearTimeout(t) }
+  }, [])
 
   const onGenerate = async () => {
     setView("generating")
@@ -294,6 +385,11 @@ export default function DiagnosticoPage() {
                 <p className="text-sm text-gray-400 py-2">
                   Aún no hay hallazgos internos. Complétalos platicando con Todd — aquí tienes el contexto de mercado.
                 </p>
+              )}
+
+              {/* FODA: unido al Diagnóstico (antes era una sección aparte) */}
+              {foda?.status === "active" && foda.foda && (
+                <FodaSection foda={foda.foda} />
               )}
 
               {/* Contexto de mercado (investigación web) — acordeón */}
