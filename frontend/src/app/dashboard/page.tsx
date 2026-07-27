@@ -128,6 +128,13 @@ function RoadmapOnePager({ roadmap }: { roadmap: Roadmap }) {
   const n = pilares.length || 1
   // Mismas columnas para tarjetas (pilares) y columnas de tareas → quedan alineadas.
   const gridCols = { gridTemplateColumns: `repeat(${n}, minmax(190px,1fr))` }
+  // Tareas desplegables: se muestran recortadas ("…") y al tocarlas se abren completas.
+  const [tareasAbiertas, setTareasAbiertas] = useState<Set<string>>(new Set())
+  const toggleTarea = (k: string) => setTareasAbiertas(prev => {
+    const s = new Set(prev)
+    if (s.has(k)) s.delete(k); else s.add(k)
+    return s
+  })
 
   return (
     <motion.div
@@ -223,12 +230,20 @@ function RoadmapOnePager({ roadmap }: { roadmap: Roadmap }) {
                 <div key={i} className="rounded-2xl p-4" style={{ background: LIGHT, color: NAVY }}>
                   {estrategias.length > 0 ? (
                     <ol className="space-y-2">
-                      {estrategias.map((s, j) => (
-                        <li key={j} className="flex gap-2 text-xs leading-relaxed">
-                          <span className="shrink-0 font-bold tabular-nums">{j + 1}.</span>
-                          <span className="line-clamp-2">{s}</span>
-                        </li>
-                      ))}
+                      {estrategias.map((s, j) => {
+                        const k = `${i}-${j}`
+                        const abierta = tareasAbiertas.has(k)
+                        return (
+                          <li key={j}>
+                            <button type="button" onClick={() => toggleTarea(k)}
+                              className="flex w-full gap-2 text-left text-xs leading-relaxed rounded-md -mx-1 px-1 py-0.5 hover:bg-black/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#142849]/40"
+                              title={abierta ? "Contraer" : "Leer completa"}>
+                              <span className="shrink-0 font-bold tabular-nums">{j + 1}.</span>
+                              <span className={abierta ? "" : "line-clamp-2"}>{s}</span>
+                            </button>
+                          </li>
+                        )
+                      })}
                     </ol>
                   ) : (
                     <p className="text-center text-xs text-[#142849]/40">—</p>
@@ -363,7 +378,6 @@ export default function DashboardPage() {
   const hasRoadmap         = !!roadmap && !roadmapIsEmpty(roadmap)
   const nextEtapa          = ETAPAS.find(e => !completedStages.includes(e.n))
   const companyName        = summary?.company_name ?? null
-  const governanceScore    = summary?.governance_score ?? null
 
   const tryCreateSession = () => {
     if (onboardingComplete) openModal()
@@ -632,13 +646,6 @@ export default function DashboardPage() {
               <span className="inline-flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-[var(--gob-navy)]" />
                 Onboarding: <span className="font-medium text-black">Completado</span>
-              </span>
-              <span className="text-gray-300">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                Gobernanza:{" "}
-                <span className="font-medium text-black tabular-nums">
-                  {governanceScore !== null ? `${governanceScore}/100` : "—"}
-                </span>
               </span>
             </motion.div>
           )}
