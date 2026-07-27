@@ -12,17 +12,17 @@ import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
-// Orden = flujo real: Diagnóstico → FODA → Plan (último).
+// Orden pedido por el cliente: Inicio · Diagnóstico · FODA · Roadmap · Board IA · Equipo · Biblioteca (al final).
 const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
   { href: "/dashboard/foda", label: "FODA", exact: false, icon: LayoutGrid },
-  { href: "/dashboard/perspectivas", label: "Perspectivas", exact: false, icon: MessagesSquare },
-  { href: "/dashboard/plan", label: "Plan", exact: false, icon: ClipboardList },
-  { href: "/dashboard/biblioteca", label: "Biblioteca", exact: false, icon: Library },
+  { href: "/dashboard/plan", label: "Roadmap", exact: false, icon: ClipboardList },
+  { href: "/dashboard/consejo", label: "Board IA", exact: false, icon: Users },
+  { href: "/dashboard/perspectivas", label: "Equipo", exact: false, icon: MessagesSquare },
   // Oculto por ahora (no se borra; la página /dashboard/compromisos sigue existiendo):
   // { href: "/dashboard/compromisos", label: "Compromisos", exact: false, icon: CheckSquare },
-  { href: "/dashboard/consejo", label: "Tu consejo", exact: false, icon: Users },
+  { href: "/dashboard/biblioteca", label: "Biblioteca", exact: false, icon: Library },
 ]
 
 export default function Sidebar() {

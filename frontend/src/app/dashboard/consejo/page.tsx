@@ -26,7 +26,7 @@ const AGENTS = [
 
 const ETAPAS = [
   { n: 1, label: "Empresa" }, { n: 2, label: "Equipo" }, { n: 3, label: "Prioridades" },
-  { n: 4, label: "Diagnóstico" }, { n: 5, label: "KPIs" }, { n: 6, label: "Gobierno" },
+  { n: 4, label: "Diagnóstico" }, { n: 5, label: "Indicadores" }, { n: 6, label: "Gobierno" },
   { n: 7, label: "Documentos" }, { n: 8, label: "Visión" },
 ]
 
@@ -135,7 +135,7 @@ export default function ConsejoPage() {
               <div className="space-y-2">
                 <h2 className="text-lg font-bold text-black">Configura tu empresa primero</h2>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Para que el consejo de IA te entregue análisis útiles, necesitamos conocer tu empresa: industria, equipo, prioridades, KPIs y gobierno. Toma unos minutos y solo se hace una vez. Después podrás iniciar sesiones cuando quieras.
+                  Para que el Consejo de IA te entregue análisis útiles, necesitamos conocer tu empresa: industria, equipo, prioridades, Indicadores y gobierno. Toma unos minutos y solo se hace una vez. Después podrás iniciar sesiones cuando quieras.
                 </p>
               </div>
               {!onboardingComplete && completedStages.length > 0 && (
@@ -174,7 +174,7 @@ export default function ConsejoPage() {
               className="fixed z-50 inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8 space-y-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-black">Nueva sesión de consejo</h2>
+                  <h2 className="text-lg font-bold text-black">Nueva sesión de Consejo</h2>
                   <p className="text-xs text-gray-400 mt-0.5">Selecciona el periodo a analizar</p>
                 </div>
                 <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-[var(--gob-navy)] transition-colors">
@@ -246,7 +246,7 @@ export default function ConsejoPage() {
 
       <PageHeader
         eyebrow="Centro de operaciones"
-        title="Tu consejo"
+        title="Board IA"
         actions={
           <button onClick={tryCreateSession}
             className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
@@ -280,7 +280,7 @@ export default function ConsejoPage() {
           {/* ── Tu consejo de administración ─────────────── */}
           <section className="space-y-5">
             <div>
-              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Tu consejo de administración</p>
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Tu Consejo de administración</p>
               <h2 className="text-2xl font-bold text-black tracking-tight">Cinco consejeros con IA</h2>
               <p className="text-sm text-gray-500 leading-relaxed mt-2 max-w-[68ch]">
                 Cada consejero analiza tu empresa desde su especialidad y deja por escrito sus
@@ -317,7 +317,7 @@ export default function ConsejoPage() {
           <section className="space-y-5">
             <div>
               <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Historial</p>
-              <h2 className="text-2xl font-bold text-black tracking-tight">Sesiones de consejo</h2>
+              <h2 className="text-2xl font-bold text-black tracking-tight">Sesiones de Consejo</h2>
             </div>
 
             {sessions.length > 0 ? (

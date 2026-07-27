@@ -28,14 +28,14 @@ export default function MinutaView() {
   if (!data.generada) {
     return (
       <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center">
-        <p className="text-sm text-gray-500 mb-4">Aún no has sesionado al consejo este mes.</p>
+        <p className="text-sm text-gray-500 mb-4">Aún no has sesionado al Consejo este mes.</p>
         <button
           type="button"
           onClick={onSesionar}
           disabled={busy}
           className="px-4 py-2 rounded-lg bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium disabled:opacity-50"
         >
-          {busy ? "El consejo está sesionando…" : "Sesionar el Consejo"}
+          {busy ? "El Consejo está sesionando…" : "Sesionar el Consejo"}
         </button>
       </div>
     )

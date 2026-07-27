@@ -32,7 +32,7 @@ export default function SeccionMapa({ roadmap, editing, setEditing, saving, vali
 
   return (
     <DocSection id="mapa" orden="04 · La ejecución" titulo="Mapa de ejecución"
-      nota="Qué mueve cada pilar, año por año. Es el plan puesto en el tiempo."
+      nota="Qué mueve cada prioridad estratégica, año por año. Es el plan puesto en el tiempo."
       actions={<EditControls editing={editTemas} onEdit={abrirTemas} onSave={guardarTemas}
         onCancel={() => setEditing(null)} saving={saving} hide={validado} />}>
 

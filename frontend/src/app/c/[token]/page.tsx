@@ -48,7 +48,7 @@ export default function CompromisoPublicoPage() {
     <main className="min-h-screen bg-[var(--gob-bone)] p-6 flex justify-center">
       <div className="w-full max-w-lg space-y-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Compromiso del consejo</p>
+          <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Compromiso del Consejo</p>
           <h1 className="text-lg font-bold text-black">{data.descripcion}</h1>
           {data.fecha_compromiso && (
             <p className="text-xs text-gray-500 mt-1">Vence: {data.fecha_compromiso}</p>

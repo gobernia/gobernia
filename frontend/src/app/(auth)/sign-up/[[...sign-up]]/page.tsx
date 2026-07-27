@@ -84,9 +84,16 @@ export default function SignUpPage() {
       transition={{ duration: 0.5, ease: EASE }}
       className="w-full max-w-sm"
     >
-      <div className="space-y-1 mb-8 text-center">
+      <div className="space-y-1 mb-6 text-center">
         <h1 className="text-2xl font-bold text-black tracking-tight">Crea tu cuenta</h1>
         <p className="text-sm text-gray-400 italic font-light">Empieza a gobernar tu empresa con inteligencia</p>
+      </div>
+
+      <div className="mb-8 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+        <p className="text-xs text-gray-500 leading-relaxed">
+          Completar tu diagnóstico y roadmap toma alrededor de 3 horas. Puedes hacerlo
+          por partes: tu avance se guarda solo.
+        </p>
       </div>
 
       <GoogleSignInButton label="Registrarme con Google" />

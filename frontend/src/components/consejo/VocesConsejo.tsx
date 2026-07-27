@@ -81,7 +81,7 @@ export default function VocesConsejo({
             {analysis._documentos_omitidos && (
               <p className="text-xs text-gray-400 leading-relaxed">
                 El consejero no pudo leer los documentos de esta sesión: su análisis se apoya
-                solo en el contexto y los KPIs.
+                solo en el contexto y los Indicadores.
               </p>
             )}
 

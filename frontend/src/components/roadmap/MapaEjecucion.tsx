@@ -84,7 +84,7 @@ export default function MapaEjecucion({ pilares, temas, anioObjetivo }: {
                     <span className="mt-[5px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c }} />
                     <span className="min-w-0">
                       <span className={`block text-[13px] leading-tight ${activo ? "font-bold text-[var(--gob-ink)]" : "font-semibold text-[var(--gob-charcoal)]"}`}>
-                        {p.nombre || `Pilar ${i + 1}`}
+                        {p.nombre || `Prioridad estratégica ${i + 1}`}
                       </span>
                       <span className="mt-0.5 block text-[10px] text-[var(--gob-stone)] opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none">
                         {activo ? "ver todos" : "aislar"}
@@ -118,12 +118,12 @@ export default function MapaEjecucion({ pilares, temas, anioObjetivo }: {
             )
           })}
           {pilares.length === 0 && (
-            <p className="border-t border-[var(--gob-rule)] py-6 text-xs italic text-[var(--gob-stone)]">Sin pilares aún.</p>
+            <p className="border-t border-[var(--gob-rule)] py-6 text-xs italic text-[var(--gob-stone)]">Sin prioridades estratégicas aún.</p>
           )}
         </div>
       </div>
       <p className="mt-3 text-xs text-[var(--gob-stone)]">
-        Haz clic en un pilar para aislar su fila. La línea punteada marca dónde estás hoy.
+        Haz clic en una prioridad estratégica para aislar su fila. La línea punteada marca dónde estás hoy.
       </p>
     </div>
   )

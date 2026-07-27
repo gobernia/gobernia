@@ -132,7 +132,7 @@ export default function ConclusionConsejo({
               Acuerdos del Consejo
             </h3>
             <p className="mt-1 text-xs text-[var(--gob-muted)] max-w-[60ch] leading-relaxed">
-              Lo que la empresa se compromete a hacer, y a qué pilar del Roadmap sirve. Ponle
+              Lo que la empresa se compromete a hacer, y a qué prioridad estratégica del Roadmap sirve. Ponle
               nombre y fecha a cada acuerdo: sin dueño, no se ejecuta.
             </p>
           </div>

@@ -126,7 +126,7 @@ export default function PerspectivasPage() {
     <div className="min-h-dvh bg-white text-black">
       <PageHeader
         eyebrow="Escucha externa"
-        title="Perspectivas"
+        title="Equipo"
         actions={hasInvites ? (
           <button onClick={onConsolidar} disabled={generating}
             className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50 shrink-0">

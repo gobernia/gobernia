@@ -159,14 +159,14 @@ export default function TaskDrawer({
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-medium tracking-widest text-gray-400 uppercase flex items-center gap-1.5">
-              <Target className="h-3 w-3" /> Impacto KPI <InfoHint text="El indicador clave (KPI) al que ayuda esta tarea cuando se completa." />
+              <Target className="h-3 w-3" /> Impacto Indicador <InfoHint text="El indicador clave al que ayuda esta tarea cuando se completa." />
             </label>
             <select
               value={local.kpi_ref ?? ""}
               onChange={e => save({ kpi_ref: e.target.value || null })}
               className="w-full text-sm text-black bg-gray-50 rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[var(--gob-navy)]"
             >
-              <option value="">Sin KPI</option>
+              <option value="">Sin Indicador</option>
               {kpiOptions.map(k => <option key={k} value={k}>{k}</option>)}
               {local.kpi_ref && !kpiOptions.includes(local.kpi_ref) && (
                 <option value={local.kpi_ref}>{local.kpi_ref}</option>

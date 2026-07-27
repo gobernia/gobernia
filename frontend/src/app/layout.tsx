@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "GOBERNIA — Tu consejo de administración con IA",
+    title: "GOBERNIA — Tu Consejo de administración con IA",
     description:
       "Cinco consejeros con IA sesionan sobre tu empresa cada mes.",
   },

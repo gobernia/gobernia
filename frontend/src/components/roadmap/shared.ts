@@ -49,7 +49,7 @@ export interface SeccionProps {
 export const DOC_SECCIONES = [
   { id: "vision", label: "Visión y propuesta" },
   { id: "metas", label: "Metas a 3 años" },
-  { id: "pilares", label: "Pilares" },
+  { id: "pilares", label: "Prioridades estratégicas" },
   { id: "mapa", label: "Mapa de ejecución" },
   { id: "contexto", label: "Contexto" },
 ] as const

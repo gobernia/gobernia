@@ -12,7 +12,7 @@ export default function CompromisosPage() {
           <h1 className="text-3xl font-bold text-black tracking-tight">Compromisos</h1>
           <Prose>
             <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
-              Acuerdos del consejo con responsable y seguimiento. Copia el link para que el
+              Acuerdos del Consejo con responsable y seguimiento. Copia el link para que el
               responsable reporte avance sin necesidad de cuenta.
             </p>
           </Prose>

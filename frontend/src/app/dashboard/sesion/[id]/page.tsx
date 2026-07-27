@@ -336,7 +336,7 @@ export default function SessionPage() {
 
                     <div className="space-y-2">
                       <p className="text-base font-medium text-black">
-                        Tu consejo está listo para analizar
+                        Tu Consejo está listo para analizar
                       </p>
                       <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
                         Los cinco consejeros con IA revisarán tu perfil y los documentos que hayas

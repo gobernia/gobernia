@@ -39,7 +39,7 @@ export default function CloseMonthModal({
       >
         {running ? (
           <div className="p-10 flex flex-col items-center gap-8">
-            <p className="text-sm font-medium text-black">El consejo está revisando tu mes…</p>
+            <p className="text-sm font-medium text-black">El Consejo está revisando tu mes…</p>
             <AgentsCollaboration caption="Los agentes evalúan tu avance y el Challenger cuestiona el resultado antes de darte el veredicto." />
           </div>
         ) : (
@@ -49,10 +49,10 @@ export default function CloseMonthModal({
               <button onClick={onClose} className="text-gray-400 hover:text-[var(--gob-navy)]"><X className="h-4 w-4" /></button>
             </div>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Ingresa los valores actuales de tus KPIs. El consejo calificará el mes y propondrá ajustes al siguiente.
+              Ingresa los valores actuales de tus Indicadores. El Consejo calificará el mes y propondrá ajustes al siguiente.
             </p>
             {kpiLabels.length === 0 ? (
-              <p className="text-sm text-gray-400 italic">Este mes no tiene KPIs asociados; el consejo evaluará por el avance de tareas.</p>
+              <p className="text-sm text-gray-400 italic">Este mes no tiene Indicadores asociados; el Consejo evaluará por el avance de tareas.</p>
             ) : (
               <div className="space-y-3">
                 {kpiLabels.map(label => (

@@ -7,7 +7,7 @@ const STEPS = [
   "Equipo",
   "Prioridades",
   "Diagnóstico",
-  "KPIs",
+  "Indicadores",
   "Gobierno",
   "Documentos",
   "Visión",
