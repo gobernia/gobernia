@@ -7,6 +7,7 @@ import DocSection from "./DocSection"
 import IndiceDoc from "./IndiceDoc"
 import PilarCard from "./PilarCard"
 import SeccionApertura from "./SeccionApertura"
+import SeccionCadena from "./SeccionCadena"
 import SeccionContexto from "./SeccionContexto"
 import SeccionMapa from "./SeccionMapa"
 import SeccionMetas from "./SeccionMetas"
@@ -92,6 +93,8 @@ export default function RoadmapDoc({ roadmap, validado, validando, fechaValidaci
             </div>
           ) : <p className="text-xs italic text-[var(--gob-stone)]">Sin prioridades estratégicas aún.</p>}
         </DocSection>
+
+        <SeccionCadena roadmap={roadmap} />
 
         <SeccionMapa roadmap={roadmap} {...comunes} />
         <SeccionContexto roadmap={roadmap} {...comunes} />
