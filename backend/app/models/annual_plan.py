@@ -30,6 +30,10 @@ class AnnualPlan(Base, UUIDMixin, TimestampMixin):
     horizon_years: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     milestones: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     roadmap: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Plan anual: las 3-5 prioridades APROBADAS para el año en curso, elegidas del roadmap.
+    # Shape: {"anio": int, "aprobado": bool, "aprobado_at": ISO|None,
+    #         "pilares": [ {indice, nombre, descripcion, objetivo, kpis, estrategias} ]}
+    plan_anual: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Ciclo del roadmap: "borrador" (editable) → "validado" (solo lectura, registrado para el consejo).
     roadmap_status: Mapped[str] = mapped_column(String(20), nullable=False, default="borrador")
     roadmap_validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
