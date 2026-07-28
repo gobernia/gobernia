@@ -50,6 +50,7 @@ from app.services.governance.coverage_board import coverage_rows
 from sqlalchemy.orm.attributes import flag_modified as _flag_modified
 from app.models.onboarding_session import OnboardingSession
 from app.services.pdf.orden_del_dia_pdf import build_orden_pdf
+from app.services.pdf.acta_pdf import build_acta_pdf
 from app.schemas.alerts import AlertItem
 from app.services.governance.alerts import compute_alerts, review_alert
 from app.schemas.agenda import AgendaItem, AgendaOut
@@ -682,15 +683,9 @@ async def reabrir_plan_anual(
 # de sus tareas) que la sustentan, deduplicados. Las tareas se agrupan por el
 # `pilar_index` de su Objective.
 
-@router.get("/annual-plan/orden-del-dia-cadena", response_model=OrdenCadenaOut)
-async def get_orden_del_dia_cadena(
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-):
-    plan = await _current_plan(user_id, db)
-    if plan is None:
-        raise HTTPException(status_code=404, detail="No hay plan generado.")
-
+async def build_orden_cadena(plan, user_id: str, db: AsyncSession) -> OrdenCadenaOut:
+    """Arma la cadena completa (puntos con análisis y acuerdos) desde un plan ya
+    cargado. Lógica reutilizable por el endpoint de orden y por el acta PDF."""
     pa = plan.plan_anual or {}
     anio = pa.get("anio") or date.today().year
     if not pa.get("aprobado"):
@@ -835,6 +830,55 @@ async def get_orden_del_dia_cadena(
         ))
 
     return OrdenCadenaOut(aprobado=True, anio=anio, puntos=puntos)
+
+
+@router.get("/annual-plan/orden-del-dia-cadena", response_model=OrdenCadenaOut)
+async def get_orden_del_dia_cadena(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    return await build_orden_cadena(plan, user_id, db)
+
+
+@router.get("/annual-plan/acta/pdf")
+async def get_acta_pdf(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+    cadena = await build_orden_cadena(plan, user_id, db)
+    if not cadena.aprobado:
+        raise HTTPException(
+            status_code=400,
+            detail="Aprueba tu Plan anual para generar el acta.",
+        )
+
+    company_name = None
+    try:
+        onb = await db.execute(
+            select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+            .order_by(OnboardingSession.created_at.desc()).limit(1)
+        )
+        onboarding = onb.scalar_one_or_none()
+        mb = (onboarding.memory_buffer if onboarding else {}) or {}
+        company_name = (mb.get("company") or {}).get("name")
+    except Exception:
+        company_name = None
+
+    logo = await get_logo_bytes(user_id, db)
+    hoy = date.today()
+    periodo_label = f"{_MONTH_NAMES[hoy.month]} {hoy.year}"
+    fecha_iso = hoy.isoformat()
+    pdf = build_acta_pdf(cadena.model_dump(), company_name, periodo_label, fecha_iso, logo)
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="acta-consejo.pdf"'},
+    )
 
 
 # ── CRUD de objetivos ─────────────────────────────────────────────────────────

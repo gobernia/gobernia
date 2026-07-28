@@ -214,3 +214,19 @@ export async function getOrdenCadena(): Promise<OrdenCadena> {
   const r = await api.get<Partial<OrdenCadena>>("/annual-plan/orden-del-dia-cadena")
   return normalizeCadena(r.data)
 }
+
+/**
+ * Descarga el ACTA de la sesión como PDF de 5 apartados (Datos, Orden del día,
+ * Análisis, Acuerdos, Resumen). Mismo patrón blob que `downloadOrdenPdf`.
+ */
+export async function downloadActaPdf(): Promise<void> {
+  const r = await api.get("/annual-plan/acta/pdf", { responseType: "blob" })
+  const url = URL.createObjectURL(r.data as Blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = "acta-consejo.pdf"
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
