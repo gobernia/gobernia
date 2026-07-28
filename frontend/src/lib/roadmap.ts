@@ -18,8 +18,10 @@ export interface Pilar {
   nombre: string; descripcion: string
   milestones: { anio1: string[]; anio2: string[]; anio3: string[] }
   // Campos opcionales (plantilla de presentación estratégica). Un roadmap viejo no los trae.
+  razon?: string
   objetivo?: string
   estrategias?: string[]
+  riesgos?: string[]
   kpis?: KpiPilar[]
   resultados_esperados?: ResultadoEsperado[]
   fases?: Fase

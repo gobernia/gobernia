@@ -18,9 +18,13 @@ export interface PilarAnual {
   indice: number
   nombre: string
   descripcion: string
+  /** Por qué esta prioridad importa (1 frase). Puede venir vacío en planes viejos. */
+  razon?: string
   objetivo: string
   kpis: KpiPilarAnual[]
   estrategias: string[]
+  /** Riesgos concretos de la prioridad (del Consejo). Vacío en planes viejos. */
+  riesgos?: string[]
 }
 
 export interface PlanAnual {

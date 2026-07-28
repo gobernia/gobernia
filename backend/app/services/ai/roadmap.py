@@ -53,9 +53,13 @@ ROADMAP_TOOL = {
             "pilares": {"type": "array", "items": {"type": "object", "properties": {
                 "nombre": {"type": "string"},
                 "descripcion": {"type": "string"},
+                "razon": {"type": "string",
+                          "description": "Por qué esta prioridad IMPORTA para la empresa, en 1 frase concreta (opcional)."},
                 "objetivo": {"type": "string", "description": "Objetivo estratégico del pilar (opcional)."},
                 "estrategias": {"type": "array", "items": {"type": "string"},
                                 "description": "0-4 estrategias principales del pilar (opcional)."},
+                "riesgos": {"type": "array", "items": {"type": "string"},
+                            "description": "0-3 riesgos CONCRETOS de esta prioridad, tomados de los que señaló el Consejo cuando apliquen (opcional)."},
                 "kpis": {"type": "array", "description": "0-3 KPIs del pilar (opcional).",
                          "items": {"type": "object", "properties": {
                              "label": {"type": "string"},
@@ -95,7 +99,9 @@ _SYSTEM = (
     "anio3 'Consolidar el liderazgo').\n"
     "- 'conclusion_diagnostico': conclusión ejecutiva del diagnóstico interno (qué nos dice, en una idea).\n"
     "- 'conclusion_entorno': conclusión estratégica de las tendencias externas (qué implican para nosotros).\n"
-    "- Por pilar: 'objetivo' (su objetivo estratégico), 'estrategias' (0-4), 'kpis' (0-3, con 'label' y "
+    "- Por pilar: 'razon' (por qué IMPORTA esa prioridad, 1 frase concreta), 'riesgos' (0-3 riesgos "
+    "concretos de esa prioridad, tomados de los que señaló el Consejo cuando apliquen), "
+    "'objetivo' (su objetivo estratégico), 'estrategias' (0-4), 'kpis' (0-3, con 'label' y "
     "'actual'; 'meta' SIEMPRE VACÍO — lo fija el dueño, NUNCA inventes el número), 'resultados_esperados' "
     "(0-3, con 'titulo' corto tipo '↑ Margen bruto' y 'descripcion'), y 'fases' (el título de la fase de "
     "cada año; los pasos concretos van en 'milestones').\n"
@@ -119,7 +125,7 @@ _SYSTEM_CONSEJO = (
     "- La tesis estratégica del Consejo es la apuesta que el roadmap debe hacer realidad: los "
     "'objetivos_estrategicos', los 'temas_por_anio' y los milestones deben servirla.\n"
     "- Los riesgos que el Consejo señaló deben verse atendidos en algún pilar o en los "
-    "'key_enablers'.\n"
+    "'key_enablers'; lista en el campo 'riesgos' de cada pilar los que le apliquen.\n"
     "- 'conclusion_diagnostico' debe ser fiel a la conclusión del Consejo, no una lectura distinta."
 )
 
@@ -303,8 +309,10 @@ def generate_roadmap(memory_buffer: dict, diagnostico_content: dict,
             mi = p.get("milestones") if isinstance(p.get("milestones"), dict) else {}
             pilares.append({"nombre": str(p["nombre"]).strip(),
                             "descripcion": str(p.get("descripcion") or "").strip(),
+                            "razon": str(p.get("razon") or "").strip(),
                             "objetivo": str(p.get("objetivo") or "").strip(),
                             "estrategias": _norm_lista(p.get("estrategias"))[:4],
+                            "riesgos": _norm_lista(p.get("riesgos"))[:3],
                             "kpis": _norm_kpis(p.get("kpis")),
                             "resultados_esperados": _norm_resultados(p.get("resultados_esperados")),
                             "fases": _norm_fases(p.get("fases")),
