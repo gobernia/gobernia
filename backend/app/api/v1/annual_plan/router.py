@@ -61,7 +61,9 @@ from app.models.compromiso import Compromiso
 from app.schemas.orden_cadena import (
     DocSolicitado, PuntoCadena, OrdenCadenaOut,
     AnalisisPunto, QueSeEsperaba, QueOcurrio, Evidencia, Desviacion,
+    AcuerdoPunto,
 )
+from app.services.governance.pilar_link import _norm
 
 router = APIRouter()
 
@@ -751,6 +753,37 @@ async def get_orden_del_dia_cadena(
             if pil is not None:
                 evidencia_por_pilar[pil] = evidencia_por_pilar.get(pil, 0) + cnt
 
+    # Acuerdos del Consejo (Compromiso) del usuario, agrupados por el nombre
+    # normalizado de su pilar. Un acuerdo se liga a un punto cuando
+    # `_norm(compromiso.pilar) == _norm(nombre del punto)`. Los transversales
+    # (pilar vacío) o los que no matcheen ninguna prioridad simplemente no aparecen.
+    cres = await db.execute(
+        select(Compromiso).where(Compromiso.user_id == user_id)
+    )
+    acuerdos_por_pilar: dict[str, list[AcuerdoPunto]] = {}
+    _cerrados = {"completado", "cerrado"}
+    for comp in cres.scalars().all():
+        clave = _norm(comp.pilar)
+        if not clave:
+            continue
+        fecha = comp.fecha_compromiso
+        fecha_iso = fecha.isoformat() if fecha is not None else None
+        acuerdos_por_pilar.setdefault(clave, []).append(AcuerdoPunto(
+            descripcion=comp.descripcion,
+            responsable=comp.responsable_nombre or comp.responsable_email,
+            fecha_compromiso=fecha_iso,
+            status=comp.status,
+            prioridad=comp.prioridad,
+        ))
+    # Orden dentro de cada punto: abiertos primero (status no cerrado/completado),
+    # luego por fecha_compromiso ascendente (None al final).
+    for lista in acuerdos_por_pilar.values():
+        lista.sort(key=lambda a: (
+            a.status in _cerrados,
+            a.fecha_compromiso is None,
+            a.fecha_compromiso or "",
+        ))
+
     puntos: list[PuntoCadena] = []
     for p in pilares:
         indice = p.get("indice")
@@ -798,6 +831,7 @@ async def get_orden_del_dia_cadena(
             documentos_solicitados=[DocSolicitado(**d) for d in docs],
             n_tareas=n_tareas,
             analisis=analisis,
+            acuerdos=acuerdos_por_pilar.get(_norm(p.get("nombre")), []),
         ))
 
     return OrdenCadenaOut(aprobado=True, anio=anio, puntos=puntos)

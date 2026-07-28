@@ -47,17 +47,33 @@ def _task(required_doc, status="pendiente", due_date=None, id=None):
     return t
 
 
-def _mock_db(plan, task_rows=None, evidence_rows=None):
+def _compromiso(descripcion, pilar, status="abierto", responsable_nombre=None,
+                responsable_email=None, fecha_compromiso=None, prioridad="media"):
+    c = MagicMock()
+    c.descripcion = descripcion
+    c.pilar = pilar
+    c.status = status
+    c.responsable_nombre = responsable_nombre
+    c.responsable_email = responsable_email
+    c.fecha_compromiso = fecha_compromiso
+    c.prioridad = prioridad
+    return c
+
+
+def _mock_db(plan, task_rows=None, evidence_rows=None, compromiso_rows=None):
     """execute #1 → _current_plan (scalar_one_or_none); #2 → tasks (.all());
-    #3 (solo si hay tareas) → conteo de evidencia por action_task_id (.all())."""
+    #3 (solo si hay tareas) → conteo de evidencia por action_task_id (.all());
+    #4 → compromisos del usuario (.scalars().all())."""
     plan_res = MagicMock()
     plan_res.scalar_one_or_none.return_value = plan
     tasks_res = MagicMock()
     tasks_res.all.return_value = task_rows or []
     ev_res = MagicMock()
     ev_res.all.return_value = evidence_rows or []
+    comp_res = MagicMock()
+    comp_res.scalars.return_value.all.return_value = compromiso_rows or []
     db = AsyncMock()
-    db.execute = AsyncMock(side_effect=[plan_res, tasks_res, ev_res])
+    db.execute = AsyncMock(side_effect=[plan_res, tasks_res, ev_res, comp_res])
     db.commit = AsyncMock()
     return db
 
@@ -215,3 +231,48 @@ async def test_analisis_sin_pendientes_mantiene_el_rumbo():
     assert a["desviacion"]["kpis_sin_dato"] == 0
     assert a["evidencia"]["documentos_subidos"] == 0
     assert a["decision_sugerida"] == "Mantener el rumbo: la prioridad avanza según lo previsto."
+
+
+# ── Acuerdos del Consejo ligados a su punto ───────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_acuerdo_se_liga_a_su_punto_por_pilar_normalizado():
+    """Un Compromiso cuyo `pilar` == nombre de una prioridad aprobada (matcheado
+    normalizado) aparece en `acuerdos` de ESE punto y no en los demás. Los
+    abiertos van antes que los cerrados; el pilar vacío no aparece en ninguno."""
+    plan = _plan(plan_anual={
+        "anio": 2026, "aprobado": True, "aprobado_at": "2026-01-01T00:00:00+00:00",
+        "pilares": [_pilar_aprobado(0, "Salud Financiera"),
+                    _pilar_aprobado(1, "B"), _pilar_aprobado(2, "C")],
+    })
+    rows = [(_task("Contrato", id="t1"), 0)]
+    compromisos = [
+        # Cerrado, fecha temprana → debe ir DESPUÉS del abierto.
+        _compromiso("Cerrar auditoría", pilar="salud financiera", status="cerrado",
+                    responsable_email="cfo@x.com", fecha_compromiso=date(2026, 1, 10),
+                    prioridad="alta"),
+        # Abierto, fecha posterior → debe ir PRIMERO pese a la fecha.
+        _compromiso("Renegociar deuda", pilar="Salud Financiera", status="abierto",
+                    responsable_nombre="Ana", fecha_compromiso=date(2026, 3, 15),
+                    prioridad="media"),
+        # Pilar transversal (vacío) → no aparece en ningún punto.
+        _compromiso("Acuerdo transversal", pilar="", status="abierto"),
+        # Pilar que no matchea ninguna prioridad → no aparece.
+        _compromiso("Huérfano", pilar="Marketing", status="abierto"),
+    ]
+    r = await _call(_mock_db(plan, rows, [], compromisos))
+    assert r.status_code == 200
+    puntos = r.json()["puntos"]
+
+    ac0 = puntos[0]["acuerdos"]
+    assert [a["descripcion"] for a in ac0] == ["Renegociar deuda", "Cerrar auditoría"]
+    assert ac0[0]["responsable"] == "Ana"
+    assert ac0[0]["fecha_compromiso"] == "2026-03-15"
+    assert ac0[0]["status"] == "abierto"
+    assert ac0[0]["prioridad"] == "media"
+    assert ac0[1]["responsable"] == "cfo@x.com"     # cae a email si no hay nombre
+    assert ac0[1]["fecha_compromiso"] == "2026-01-10"
+
+    # Los otros puntos no reciben acuerdos.
+    assert puntos[1]["acuerdos"] == []
+    assert puntos[2]["acuerdos"] == []

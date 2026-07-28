@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
-import { ClipboardList, ArrowRight, Gavel, Target, ListChecks, Gauge, FileText, Scale, CheckCircle2, AlertTriangle } from "lucide-react"
+import { ClipboardList, ArrowRight, Gavel, Target, ListChecks, Gauge, FileText, Scale, CheckCircle2, AlertTriangle, Handshake } from "lucide-react"
 import {
   getPlanAnual,
   getOrdenCadena,
@@ -10,6 +10,7 @@ import {
   type PilarAnual,
   type DocSolicitado,
   type AnalisisPunto,
+  type AcuerdoPunto,
 } from "@/lib/planAnual"
 
 /**
@@ -39,6 +40,8 @@ export default function OrdenDelDiaCadena() {
   const [docsPorIndice, setDocsPorIndice] = useState<Record<number, DocSolicitado[]>>({})
   // Análisis por prioridad (indice → analisis). Mismo fetch/empate por indice que los docs.
   const [analisisPorIndice, setAnalisisPorIndice] = useState<Record<number, AnalisisPunto>>({})
+  // Acuerdos del Consejo por prioridad (indice → acuerdos). Mismo empate por indice.
+  const [acuerdosPorIndice, setAcuerdosPorIndice] = useState<Record<number, AcuerdoPunto[]>>({})
   const aliveRef = useRef(true)
 
   useEffect(() => {
@@ -52,14 +55,17 @@ export default function OrdenDelDiaCadena() {
         if (!aliveRef.current) return
         const docs: Record<number, DocSolicitado[]> = {}
         const analisis: Record<number, AnalisisPunto> = {}
+        const acuerdos: Record<number, AcuerdoPunto[]> = {}
         for (const p of c.puntos) {
           docs[p.indice] = p.documentos_solicitados
           analisis[p.indice] = p.analisis
+          acuerdos[p.indice] = p.acuerdos ?? []
         }
         setDocsPorIndice(docs)
         setAnalisisPorIndice(analisis)
+        setAcuerdosPorIndice(acuerdos)
       })
-      .catch(() => { /* tolerante: sin documentos ni análisis */ })
+      .catch(() => { /* tolerante: sin documentos, análisis ni acuerdos */ })
     return () => { aliveRef.current = false }
   }, [])
 
@@ -112,6 +118,7 @@ export default function OrdenDelDiaCadena() {
               color={colorDe(i)}
               documentos={docsPorIndice[p.indice] ?? []}
               analisis={analisisPorIndice[p.indice]}
+              acuerdos={acuerdosPorIndice[p.indice] ?? []}
             />
           ))}
         </ol>
@@ -126,12 +133,14 @@ function PuntoOrden({
   color,
   documentos,
   analisis,
+  acuerdos,
 }: {
   pilar: PilarAnual
   orden: number
   color: string
   documentos: DocSolicitado[]
   analisis?: AnalisisPunto
+  acuerdos: AcuerdoPunto[]
 }) {
   const kpis = (pilar.kpis ?? []).filter(k => k.label)
   const tareas = (pilar.estrategias ?? []).filter(Boolean)
@@ -239,7 +248,71 @@ function PuntoOrden({
 
       {/* Análisis del punto — formato fijo (determinista, sin IA) */}
       <AnalisisDelPunto analisis={analisis} />
+
+      {/* Acuerdos del Consejo ligados a este punto */}
+      <AcuerdosDelPunto acuerdos={acuerdos} />
     </li>
+  )
+}
+
+// Un acuerdo se considera cerrado/cumplido con estos status (backend: Compromiso).
+const ACUERDO_CERRADO = new Set(["completado", "cerrado", "cumplido"])
+
+/** Fecha ISO (YYYY-MM-DD) → "15 mar 2026" en es-MX; "" si no viene o es inválida. */
+function formatFechaEsMX(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(`${iso}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })
+}
+
+/**
+ * Los acuerdos del Consejo para este punto. Se generan cuando el Consejo sesiona
+ * la prioridad; si aún no hay, un texto sutil lo explica. Tolerante a defaults.
+ */
+function AcuerdosDelPunto({ acuerdos }: { acuerdos: AcuerdoPunto[] }) {
+  const lista = (acuerdos ?? []).filter(a => a?.descripcion?.trim())
+
+  return (
+    <div className="border-t border-gray-100 p-4">
+      <p className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: NAVY }}>
+        <Handshake className="h-3.5 w-3.5" /> Acuerdos del Consejo
+      </p>
+      {lista.length > 0 ? (
+        <ul className="space-y-2">
+          {lista.map((a, j) => {
+            const cerrado = ACUERDO_CERRADO.has((a.status ?? "").toLowerCase())
+            const chipColor = cerrado ? TEAL : AMBER
+            const responsable = a.responsable?.trim() || ""
+            const fecha = formatFechaEsMX(a.fecha_compromiso)
+            return (
+              <li key={j} className="rounded-lg border border-gray-100 bg-white p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs leading-relaxed text-gray-700">{a.descripcion}</p>
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                    style={{ color: chipColor, background: `${chipColor}14` }}
+                  >
+                    {a.status || "abierto"}
+                  </span>
+                </div>
+                {(responsable || fecha) && (
+                  <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-gray-500">
+                    {responsable && <span className="font-medium text-gray-600">{responsable}</span>}
+                    {responsable && fecha && <span className="text-gray-300">·</span>}
+                    {fecha && <span className="tabular-nums">{fecha}</span>}
+                  </p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className="text-xs italic text-gray-400">
+          Los acuerdos se generan cuando el Consejo sesiona este punto.
+        </p>
+      )}
+    </div>
   )
 }
 

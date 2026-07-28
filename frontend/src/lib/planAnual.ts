@@ -118,6 +118,15 @@ export interface AnalisisPunto {
   decision_sugerida: string
 }
 
+/** Un acuerdo del Consejo (Compromiso) ligado a un punto por su pilar. */
+export interface AcuerdoPunto {
+  descripcion: string
+  responsable: string | null
+  fecha_compromiso: string | null
+  status: string
+  prioridad: string | null
+}
+
 /** Un punto de la cadena = una prioridad aprobada + sus documentos solicitados. */
 export interface PuntoCadena {
   indice: number
@@ -128,6 +137,7 @@ export interface PuntoCadena {
   documentos_solicitados: DocSolicitado[]
   n_tareas: number
   analisis: AnalisisPunto
+  acuerdos: AcuerdoPunto[]
 }
 
 export interface OrdenCadena {
@@ -191,6 +201,7 @@ function normalizeCadena(data: Partial<OrdenCadena> | undefined): OrdenCadena {
       documentos_solicitados: p.documentos_solicitados ?? [],
       n_tareas: p.n_tareas ?? 0,
       analisis: normalizeAnalisis(p.analisis),
+      acuerdos: p.acuerdos ?? [],
     })),
   }
 }
