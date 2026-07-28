@@ -104,5 +104,8 @@ class Objective(Base, UUIDMixin, TimestampMixin):
     # Lista de labels de KPIs (provenientes del onboarding/kpi_engine) que toca el objetivo.
     kpi_refs:    Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
     order_index: Mapped[int]        = mapped_column(Integer, nullable=False, default=0)
+    # La prioridad (índice del pilar en roadmap["pilares"]) que este objetivo hace avanzar;
+    # None si no se pudo determinar.
+    pilar_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     monthly_plan: Mapped["MonthlyPlan"] = relationship(back_populates="objectives")

@@ -194,6 +194,7 @@ async def _run_generation(annual_plan_id: str, db) -> None:
             memory_buffer, kpi_labels, milestones, horizon)
 
         # Paso 4: persistir N×12 meses → objetivos → tareas (secuencial, rápido)
+        created_objectives: list[Objective] = []
         for months in quarter_results:
             for mspec in months:
                 mi = mspec["month_index"]
@@ -221,6 +222,7 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                     )
                     db.add(obj)
                     await db.flush()
+                    created_objectives.append(obj)
 
                     for ti, tspec in enumerate(ospec.get("tasks") or []):
                         db.add(ActionTask(
@@ -240,6 +242,18 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                 generate_roadmap, memory_buffer, dcont, postura_consejo)
         except Exception:
             plan.roadmap = None
+
+        # Paso 6: vincular cada objetivo a la prioridad estratégica (pilar) que hace
+        # avanzar, ahora que el roadmap ya existe. No bloquea si no hay pilares.
+        pilares = (plan.roadmap or {}).get("pilares") if isinstance(plan.roadmap, dict) else None
+        if pilares:
+            from app.services.governance.pilar_link import infer_pilar_index
+            for obj in created_objectives:
+                obj.pilar_index = infer_pilar_index(
+                    obj.kpi_refs,
+                    f"{obj.title} {obj.description or ''}",
+                    pilares,
+                )
 
         plan.status = "active"
         await db.commit()
