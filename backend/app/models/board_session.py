@@ -50,6 +50,9 @@ class BoardSession(Base, UUIDMixin, TimestampMixin):
     # Copia del perfil base en el momento de crear la sesión (para histórico)
     profile_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # Foto inmutable del acta (cadena + periodo + fecha), congelada al primer descargue.
+    acta_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     # Governance Score vigente en este periodo
     governance_score_snapshot: Mapped[float | None] = mapped_column(Float, nullable=True)
 

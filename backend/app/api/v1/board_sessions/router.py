@@ -15,11 +15,14 @@ import secrets
 import uuid
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
+from app.api.v1.company.service import get_logo_bytes
+from app.services.pdf.acta_pdf import build_acta_pdf
 from app.services.data_completeness import missing_company_profile
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.action_plan import ActionTask
@@ -250,6 +253,79 @@ async def _get_board_session_or_404(
     if not bs:
         raise HTTPException(status_code=404, detail="Sesión de consejo no encontrada.")
     return bs
+
+
+# ── GET /board-sessions/{id}/acta/pdf ─────────────────────────────────────────
+# Acta HISTÓRICA por sesión: foto inmutable del acta congelada al PRIMER descargue.
+# La cadena se construye una sola vez y se guarda en bs.acta_snapshot; los descargues
+# siguientes reutilizan esa foto (no recomputan), con el periodo/fecha de LA SESIÓN.
+
+@router.get("/{board_session_id}/acta/pdf")
+async def get_session_acta_pdf(
+    board_session_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    bs = await _get_board_session_or_404(board_session_id, user_id, db)
+
+    if bs.acta_snapshot is None:
+        # CONGELAR ahora: la cadena se arma desde el plan activo del usuario.
+        # build_orden_cadena vive en el router del annual_plan; se importa aquí dentro
+        # para evitar cualquier import circular entre routers.
+        from app.api.v1.annual_plan.router import build_orden_cadena
+
+        plan_result = await db.execute(
+            select(AnnualPlan)
+            .where(AnnualPlan.user_id == user_id, AnnualPlan.status == "active")
+            .order_by(AnnualPlan.created_at.desc())
+            .limit(1)
+        )
+        plan = plan_result.scalar_one_or_none()
+        if plan is None:
+            raise HTTPException(status_code=404, detail="No hay plan generado.")
+
+        cadena = await build_orden_cadena(plan, user_id, db)
+        if not cadena.aprobado:
+            raise HTTPException(
+                status_code=404,
+                detail="Aprueba tu Plan anual para generar el acta.",
+            )
+
+        periodo_label = f"{_MONTH_NAMES[bs.period_month]} {bs.period_year}"
+        fecha_iso = (bs.completed_at or datetime.now(timezone.utc)).date().isoformat()
+        bs.acta_snapshot = {
+            "cadena": cadena.model_dump(),
+            "periodo_label": periodo_label,
+            "fecha_iso": fecha_iso,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        flag_modified(bs, "acta_snapshot")
+        await db.commit()
+
+    company_name = None
+    try:
+        onb = await db.execute(
+            select(OnboardingSession).where(OnboardingSession.user_id == user_id)
+            .order_by(OnboardingSession.created_at.desc()).limit(1)
+        )
+        onboarding = onb.scalar_one_or_none()
+        mb = (onboarding.memory_buffer if onboarding else {}) or {}
+        company_name = (mb.get("company") or {}).get("name")
+    except Exception:
+        company_name = None
+
+    logo = await get_logo_bytes(user_id, db)
+    snap = bs.acta_snapshot
+    pdf = build_acta_pdf(
+        snap["cadena"], company_name, snap["periodo_label"], snap["fecha_iso"], logo
+    )
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="acta-{bs.period_year}-{bs.period_month:02d}.pdf"'
+        },
+    )
 
 
 # ── POST /board-sessions ──────────────────────────────────────────────────────

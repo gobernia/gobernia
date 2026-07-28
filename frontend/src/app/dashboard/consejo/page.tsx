@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
-  ArrowRight, ArrowUpRight, Play, X, Loader2, Sparkles, ChevronRight, MessageSquare,
+  ArrowRight, ArrowUpRight, Play, X, Loader2, Sparkles, ChevronRight, MessageSquare, FileText,
 } from "lucide-react"
 import { useOnboardingStore } from "@/lib/store"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
@@ -13,6 +13,7 @@ import TableroPlan from "@/components/consejo/TableroPlan"
 import ToddSecretario from "@/components/consejo/ToddSecretario"
 import OrdenDelDiaCadena from "@/components/consejo/OrdenDelDiaCadena"
 import api from "@/lib/api"
+import { downloadSesionActaPdf } from "@/lib/board"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -65,6 +66,23 @@ export default function ConsejoPage() {
   const [boardReload, setBoardReload] = useState(0)
   // Cajón lateral de Todd: cerrado por defecto para que el tablero se vea ancho.
   const [toddOpen, setToddOpen] = useState(false)
+  // Id de la sesión cuyo acta se está descargando (para el spinner del botón).
+  const [downloadingActa, setDownloadingActa] = useState<string | null>(null)
+
+  async function handleDownloadActa(e: React.MouseEvent, sessionId: string) {
+    // La tarjeta es un Link: evitamos que el click navegue a la sesión.
+    e.preventDefault()
+    e.stopPropagation()
+    if (downloadingActa) return
+    setDownloadingActa(sessionId)
+    try {
+      await downloadSesionActaPdf(sessionId)
+    } catch {
+      // Silencioso: si el acta no se puede generar aún, no rompemos la vista.
+    } finally {
+      setDownloadingActa(null)
+    }
+  }
 
   useEffect(() => {
     api.get("/onboarding/my-session")
@@ -328,9 +346,10 @@ export default function ConsejoPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
                 {sessions.map((s, i) => (
                   <motion.div key={s.board_session_id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, ease: EASE, delay: i * 0.04 }}>
+                    transition={{ duration: 0.35, ease: EASE, delay: i * 0.04 }}
+                    className="relative">
                     <Link href={`/dashboard/sesion/${s.board_session_id}`}
-                      className="group h-full flex items-center justify-between gap-4 px-5 py-4 border border-gray-100 hover:border-gray-300 rounded-2xl transition-all duration-200 hover:shadow-sm">
+                      className="group h-full flex items-center justify-between gap-4 pl-5 pr-24 py-4 border border-gray-100 hover:border-gray-300 rounded-2xl transition-all duration-200 hover:shadow-sm">
                       <div className="flex items-center gap-4 min-w-0">
                         <span className="w-10 h-10 rounded-xl border-2 border-gray-100 flex items-center justify-center shrink-0 group-hover:border-gray-300 transition-colors">
                           <span className="text-xs font-bold text-gray-400">
@@ -349,6 +368,18 @@ export default function ConsejoPage() {
                       </div>
                       <ArrowUpRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" />
                     </Link>
+                    {/* Acta histórica: foto inmutable de la sesión. Fuera del <Link> para no
+                        anidar botón en <a>; el handler igual frena la navegación. */}
+                    <button type="button"
+                      onClick={(e) => handleDownloadActa(e, s.board_session_id)}
+                      disabled={downloadingActa === s.board_session_id}
+                      title="Descargar acta (PDF)"
+                      className="absolute right-11 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 border border-gray-200 text-[11px] font-medium text-gray-500 px-2.5 py-1.5 rounded-lg hover:border-gray-400 hover:text-[var(--gob-navy)] transition-all duration-150 bg-white disabled:opacity-60">
+                      {downloadingActa === s.board_session_id
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <FileText className="h-3.5 w-3.5" />}
+                      Acta
+                    </button>
                   </motion.div>
                 ))}
               </div>

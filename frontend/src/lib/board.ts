@@ -102,3 +102,19 @@ export async function abrirSesionMes(year: number, month: number): Promise<strin
     throw e
   }
 }
+
+/**
+ * Descarga el acta HISTÓRICA (PDF) de una sesión de consejo: la foto inmutable
+ * congelada al primer descargue de esa sesión. Mismo patrón blob que `downloadOrdenPdf`.
+ */
+export async function downloadSesionActaPdf(sessionId: string): Promise<void> {
+  const r = await api.get(`/board-sessions/${sessionId}/acta/pdf`, { responseType: "blob" })
+  const url = URL.createObjectURL(r.data as Blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = "acta-sesion.pdf"
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
