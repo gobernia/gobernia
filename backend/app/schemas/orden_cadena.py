@@ -44,6 +44,14 @@ class AnalisisPunto(BaseModel):
     decision_sugerida: str
 
 
+class AcuerdoPunto(BaseModel):
+    descripcion: str
+    responsable: str | None
+    fecha_compromiso: str | None
+    status: str
+    prioridad: str | None
+
+
 class PuntoCadena(BaseModel):
     indice: int
     nombre: str
@@ -53,6 +61,7 @@ class PuntoCadena(BaseModel):
     documentos_solicitados: list[DocSolicitado]
     n_tareas: int
     analisis: AnalisisPunto
+    acuerdos: list[AcuerdoPunto] = []
 
 
 class OrdenCadenaOut(BaseModel):
