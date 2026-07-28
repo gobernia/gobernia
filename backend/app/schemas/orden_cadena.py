@@ -11,6 +11,39 @@ class DocSolicitado(BaseModel):
     n_tareas: int
 
 
+# ── Análisis del punto (formato fijo del PDF, calculado de forma determinista) ──
+
+
+class QueSeEsperaba(BaseModel):
+    meta: str
+    tareas_planeadas: int
+
+
+class QueOcurrio(BaseModel):
+    hechas: int
+    en_proceso: int
+    pendientes: int
+    kpis: list[dict]
+
+
+class Evidencia(BaseModel):
+    documentos_subidos: int
+
+
+class Desviacion(BaseModel):
+    tareas_vencidas: int
+    kpis_sin_dato: int
+
+
+class AnalisisPunto(BaseModel):
+    que_se_esperaba: QueSeEsperaba
+    que_ocurrio: QueOcurrio
+    evidencia: Evidencia
+    desviacion: Desviacion
+    explicacion: str | None
+    decision_sugerida: str
+
+
 class PuntoCadena(BaseModel):
     indice: int
     nombre: str
@@ -19,6 +52,7 @@ class PuntoCadena(BaseModel):
     estrategias: list[str]
     documentos_solicitados: list[DocSolicitado]
     n_tareas: int
+    analisis: AnalisisPunto
 
 
 class OrdenCadenaOut(BaseModel):

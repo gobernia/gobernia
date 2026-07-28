@@ -2,6 +2,8 @@
 Cada punto = una prioridad aprobada del Plan anual; sus documentos son los
 `required_doc` de las tareas cuyo Objective apunta a ese pilar (dedup).
 Tests con mocks (patrón de test_plan_anual_api)."""
+from datetime import date, timedelta
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient, ASGITransport
@@ -35,20 +37,27 @@ def _plan(plan_anual=None):
     return p
 
 
-def _task(required_doc):
+def _task(required_doc, status="pendiente", due_date=None, id=None):
     t = MagicMock()
     t.required_doc = required_doc
+    t.status = status
+    t.due_date = due_date
+    if id is not None:
+        t.id = id
     return t
 
 
-def _mock_db(plan, task_rows=None):
-    """Primer execute → _current_plan (scalar_one_or_none); segundo → tasks (.all())."""
+def _mock_db(plan, task_rows=None, evidence_rows=None):
+    """execute #1 → _current_plan (scalar_one_or_none); #2 → tasks (.all());
+    #3 (solo si hay tareas) → conteo de evidencia por action_task_id (.all())."""
     plan_res = MagicMock()
     plan_res.scalar_one_or_none.return_value = plan
     tasks_res = MagicMock()
     tasks_res.all.return_value = task_rows or []
+    ev_res = MagicMock()
+    ev_res.all.return_value = evidence_rows or []
     db = AsyncMock()
-    db.execute = AsyncMock(side_effect=[plan_res, tasks_res])
+    db.execute = AsyncMock(side_effect=[plan_res, tasks_res, ev_res])
     db.commit = AsyncMock()
     return db
 
@@ -135,3 +144,74 @@ async def test_sin_plan_anual_devuelve_no_aprobado():
 async def test_sin_plan_404():
     r = await _call(_mock_db(None, []))
     assert r.status_code == 404
+
+
+# ── Análisis del punto (determinista) ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_analisis_1_completada_1_vencida_corrige_el_rumbo():
+    """Prioridad con 1 tarea completada (con 2 evidencias) y 1 vencida:
+    hechas=1, pendientes=1, tareas_vencidas=1, documentos_subidos=2,
+    kpis_sin_dato=1, meta une solo las metas no vacías, y decisión = corregir."""
+    pilar = {
+        "indice": 0, "nombre": "A", "descripcion": "d", "objetivo": "obj A",
+        "kpis": [
+            {"label": "Ventas", "actual": "10", "meta": "100"},   # con dato
+            {"label": "Clientes", "actual": "", "meta": ""},       # sin dato ni meta
+        ],
+        "estrategias": ["e1"],
+    }
+    plan = _plan(plan_anual={
+        "anio": 2026, "aprobado": True, "aprobado_at": "2026-01-01T00:00:00+00:00",
+        "pilares": [pilar],
+    })
+    ayer = date.today() - timedelta(days=1)
+    hecha = _task("Contrato", status="completada", id="t-hecha")
+    vencida = _task(None, status="pendiente", due_date=ayer, id="t-vencida")
+    rows = [(hecha, 0), (vencida, 0)]
+    # 2 filas de evidencia para la tarea completada.
+    evidence = [("t-hecha", 2)]
+
+    r = await _call(_mock_db(plan, rows, evidence))
+    assert r.status_code == 200
+    punto = r.json()["puntos"][0]
+    a = punto["analisis"]
+
+    assert a["que_se_esperaba"] == {"meta": "100", "tareas_planeadas": 2}
+    assert a["que_ocurrio"]["hechas"] == 1
+    assert a["que_ocurrio"]["en_proceso"] == 0
+    assert a["que_ocurrio"]["pendientes"] == 1
+    assert len(a["que_ocurrio"]["kpis"]) == 2
+    assert a["evidencia"]["documentos_subidos"] == 2
+    assert a["desviacion"]["tareas_vencidas"] == 1
+    assert a["desviacion"]["kpis_sin_dato"] == 1
+    assert a["explicacion"] is None
+    assert a["decision_sugerida"] == "Corregir el rumbo: hay retraso material."
+
+
+@pytest.mark.asyncio
+async def test_analisis_sin_pendientes_mantiene_el_rumbo():
+    """Todas las tareas hechas, ninguna vencida, ninguna pendiente →
+    'Mantener el rumbo'."""
+    pilar = {
+        "indice": 0, "nombre": "A", "descripcion": "d", "objetivo": "obj A",
+        "kpis": [{"label": "Ventas", "actual": "100", "meta": "100"}],
+        "estrategias": ["e1"],
+    }
+    plan = _plan(plan_anual={
+        "anio": 2026, "aprobado": True, "aprobado_at": "2026-01-01T00:00:00+00:00",
+        "pilares": [pilar],
+    })
+    rows = [
+        (_task("Contrato", status="completada", id="t1"), 0),
+        (_task(None, status="completada", id="t2"), 0),
+    ]
+    r = await _call(_mock_db(plan, rows, []))
+    assert r.status_code == 200
+    a = r.json()["puntos"][0]["analisis"]
+    assert a["que_ocurrio"]["hechas"] == 2
+    assert a["que_ocurrio"]["pendientes"] == 0
+    assert a["desviacion"]["tareas_vencidas"] == 0
+    assert a["desviacion"]["kpis_sin_dato"] == 0
+    assert a["evidencia"]["documentos_subidos"] == 0
+    assert a["decision_sugerida"] == "Mantener el rumbo: la prioridad avanza según lo previsto."
