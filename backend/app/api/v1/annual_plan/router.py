@@ -58,6 +58,7 @@ from app.services.ai.agenda_chair import chair_curate_agenda
 from app.schemas.minuta import MinutaOut, DecisionIn
 from app.services.ai.minuta import generate_minuta
 from app.models.compromiso import Compromiso
+from app.schemas.orden_cadena import DocSolicitado, PuntoCadena, OrdenCadenaOut
 
 router = APIRouter()
 
@@ -669,6 +670,77 @@ async def reabrir_plan_anual(
     _flag_modified(plan, "plan_anual")
     await db.commit()
     return _plan_anual_out(plan)
+
+
+# ── Orden del día (cadena): documentos solicitados por prioridad ─────────────
+# Por cada prioridad aprobada del Plan anual, la lista de documentos (`required_doc`
+# de sus tareas) que la sustentan, deduplicados. Las tareas se agrupan por el
+# `pilar_index` de su Objective.
+
+@router.get("/annual-plan/orden-del-dia-cadena", response_model=OrdenCadenaOut)
+async def get_orden_del_dia_cadena(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    plan = await _current_plan(user_id, db)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No hay plan generado.")
+
+    pa = plan.plan_anual or {}
+    anio = pa.get("anio") or date.today().year
+    if not pa.get("aprobado"):
+        return OrdenCadenaOut(aprobado=False, anio=anio, puntos=[])
+
+    pilares = [p for p in (pa.get("pilares") or []) if isinstance(p, dict)]
+
+    # TODAS las tareas del plan + el pilar_index de su Objective, en una sola query
+    # (join ActionTask→Objective→MonthlyPlan filtrando por el plan). Mismo patrón de
+    # joins que `_owned_objective`, extendido a ActionTask.
+    tres = await db.execute(
+        select(ActionTask, Objective.pilar_index)
+        .join(Objective, ActionTask.objective_id == Objective.id)
+        .join(MonthlyPlan, Objective.monthly_plan_id == MonthlyPlan.id)
+        .where(MonthlyPlan.annual_plan_id == plan.id)
+    )
+    rows = tres.all()
+
+    # Agrupa docs (dedup por texto normalizado) y cuenta tareas por pilar_index.
+    docs_por_pilar: dict[int, dict[str, dict]] = {}
+    n_tareas_por_pilar: dict[int, int] = {}
+    for task, pilar_index in rows:
+        if pilar_index is None:
+            continue
+        n_tareas_por_pilar[pilar_index] = n_tareas_por_pilar.get(pilar_index, 0) + 1
+        doc = (task.required_doc or "").strip()
+        if not doc:
+            continue
+        clave = doc.casefold()
+        bucket = docs_por_pilar.setdefault(pilar_index, {})
+        if clave in bucket:
+            bucket[clave]["n_tareas"] += 1
+        else:
+            bucket[clave] = {"doc": doc, "n_tareas": 1}
+
+    puntos: list[PuntoCadena] = []
+    for p in pilares:
+        indice = p.get("indice")
+        bucket = docs_por_pilar.get(indice, {})
+        # Orden: más pedidos primero, luego alfabético.
+        docs = sorted(
+            bucket.values(),
+            key=lambda d: (-d["n_tareas"], d["doc"].casefold()),
+        )
+        puntos.append(PuntoCadena(
+            indice=indice,
+            nombre=p.get("nombre") or "",
+            objetivo=p.get("objetivo") or "",
+            kpis=list(p.get("kpis") or []),
+            estrategias=list(p.get("estrategias") or []),
+            documentos_solicitados=[DocSolicitado(**d) for d in docs],
+            n_tareas=n_tareas_por_pilar.get(indice, 0),
+        ))
+
+    return OrdenCadenaOut(aprobado=True, anio=anio, puntos=puntos)
 
 
 # ── CRUD de objetivos ─────────────────────────────────────────────────────────

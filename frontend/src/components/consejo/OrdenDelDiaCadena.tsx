@@ -2,8 +2,14 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ClipboardList, ArrowRight, Gavel, Target, ListChecks, Gauge } from "lucide-react"
-import { getPlanAnual, type PlanAnual, type PilarAnual } from "@/lib/planAnual"
+import { ClipboardList, ArrowRight, Gavel, Target, ListChecks, Gauge, FileText } from "lucide-react"
+import {
+  getPlanAnual,
+  getOrdenCadena,
+  type PlanAnual,
+  type PilarAnual,
+  type DocSolicitado,
+} from "@/lib/planAnual"
 
 /**
  * La orden del día, armada DESDE el Plan anual — la cadena que pide el cliente:
@@ -26,6 +32,9 @@ const colorDe = (i: number) => PILAR_COLORS[i % PILAR_COLORS.length]
 export default function OrdenDelDiaCadena() {
   const [plan, setPlan] = useState<PlanAnual | null>(null)
   const [loaded, setLoaded] = useState(false)
+  // Documentos solicitados por prioridad (indice → docs). Fetch adicional y tolerante
+  // a fallo: si no llega, simplemente no mostramos documentos.
+  const [docsPorIndice, setDocsPorIndice] = useState<Record<number, DocSolicitado[]>>({})
   const aliveRef = useRef(true)
 
   useEffect(() => {
@@ -34,6 +43,14 @@ export default function OrdenDelDiaCadena() {
       .then(p => { if (aliveRef.current) setPlan(p) })
       .catch(() => { if (aliveRef.current) setPlan(null) })
       .finally(() => { if (aliveRef.current) setLoaded(true) })
+    getOrdenCadena()
+      .then(c => {
+        if (!aliveRef.current) return
+        const map: Record<number, DocSolicitado[]> = {}
+        for (const p of c.puntos) map[p.indice] = p.documentos_solicitados
+        setDocsPorIndice(map)
+      })
+      .catch(() => { /* tolerante: sin documentos */ })
     return () => { aliveRef.current = false }
   }, [])
 
@@ -79,7 +96,13 @@ export default function OrdenDelDiaCadena() {
       ) : (
         <ol className="space-y-4">
           {aprobados.map((p, i) => (
-            <PuntoOrden key={p.indice} pilar={p} orden={i + 1} color={colorDe(i)} />
+            <PuntoOrden
+              key={p.indice}
+              pilar={p}
+              orden={i + 1}
+              color={colorDe(i)}
+              documentos={docsPorIndice[p.indice] ?? []}
+            />
           ))}
         </ol>
       )}
@@ -87,10 +110,21 @@ export default function OrdenDelDiaCadena() {
   )
 }
 
-function PuntoOrden({ pilar, orden, color }: { pilar: PilarAnual; orden: number; color: string }) {
+function PuntoOrden({
+  pilar,
+  orden,
+  color,
+  documentos,
+}: {
+  pilar: PilarAnual
+  orden: number
+  color: string
+  documentos: DocSolicitado[]
+}) {
   const kpis = (pilar.kpis ?? []).filter(k => k.label)
   const tareas = (pilar.estrategias ?? []).filter(Boolean)
   const meta = pilar.objetivo?.trim() || ""
+  const docs = (documentos ?? []).filter(d => d.doc?.trim())
 
   return (
     <li className="overflow-hidden rounded-2xl border border-gray-100">
@@ -160,6 +194,35 @@ function PuntoOrden({ pilar, orden, color }: { pilar: PilarAnual; orden: number;
             <p className="text-xs italic text-gray-400">Sin tareas aún.</p>
           )}
         </div>
+      </div>
+
+      {/* Documentos solicitados por el punto */}
+      <div className="border-t border-gray-100 p-4">
+        <p className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">
+          <FileText className="h-3.5 w-3.5" /> Documentos solicitados
+        </p>
+        {docs.length > 0 ? (
+          <ul className="flex flex-wrap gap-1.5">
+            {docs.map((d, j) => (
+              <li
+                key={j}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 text-xs leading-snug text-gray-700"
+              >
+                <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: NAVY }} />
+                <span>{d.doc}</span>
+                {d.n_tareas > 1 && (
+                  <span className="ml-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-gray-500">
+                    {d.n_tareas}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs italic text-gray-400">
+            Todd te dirá qué subir cuando haya tareas con evidencia.
+          </p>
+        )}
       </div>
 
       {/* Qué decide el Consejo */}

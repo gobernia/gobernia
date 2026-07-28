@@ -69,3 +69,61 @@ export async function reabrirPlanAnual(): Promise<PlanAnual> {
   const r = await api.post<Partial<PlanAnual>>("/annual-plan/plan-anual/reabrir")
   return normalize(r.data)
 }
+
+// ── Orden del día (cadena): documentos solicitados por prioridad ──────────────
+// Por cada prioridad aprobada, los documentos (`required_doc` de sus tareas) que
+// la sustentan, deduplicados y contados. Empata con cada punto por `indice`.
+
+/** Un documento pedido por una prioridad, con cuántas tareas lo solicitan. */
+export interface DocSolicitado {
+  doc: string
+  n_tareas: number
+}
+
+/** Un punto de la cadena = una prioridad aprobada + sus documentos solicitados. */
+export interface PuntoCadena {
+  indice: number
+  nombre: string
+  objetivo: string
+  kpis: Array<Record<string, unknown>>
+  estrategias: string[]
+  documentos_solicitados: DocSolicitado[]
+  n_tareas: number
+}
+
+export interface OrdenCadena {
+  aprobado: boolean
+  anio: number
+  puntos: PuntoCadena[]
+}
+
+const EMPTY_CADENA: OrdenCadena = {
+  aprobado: false,
+  anio: new Date().getFullYear(),
+  puntos: [],
+}
+
+function normalizeCadena(data: Partial<OrdenCadena> | undefined): OrdenCadena {
+  return {
+    ...EMPTY_CADENA,
+    ...(data || {}),
+    puntos: (data?.puntos ?? []).map(p => ({
+      indice: p.indice,
+      nombre: p.nombre ?? "",
+      objetivo: p.objetivo ?? "",
+      kpis: p.kpis ?? [],
+      estrategias: p.estrategias ?? [],
+      documentos_solicitados: p.documentos_solicitados ?? [],
+      n_tareas: p.n_tareas ?? 0,
+    })),
+  }
+}
+
+/**
+ * Los documentos solicitados por cada prioridad aprobada. Empata por `indice`
+ * con los puntos de la orden del día.
+ */
+export async function getOrdenCadena(): Promise<OrdenCadena> {
+  const r = await api.get<Partial<OrdenCadena>>("/annual-plan/orden-del-dia-cadena")
+  return normalizeCadena(r.data)
+}
