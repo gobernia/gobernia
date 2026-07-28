@@ -321,10 +321,19 @@ function PlanAprobado({
               )}
             </div>
             <div className="space-y-4 p-5">
-              {/* Indicadores hoy → meta */}
+              {/* Razón: por qué esta prioridad importa */}
+              {p.razon && (
+                <div className="rounded-xl border-l-2 pl-3" style={{ borderColor: NAVY }}>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Por qué importa</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-gray-700">{p.razon}</p>
+                </div>
+              )}
+              {/* Indicadores: línea base → meta */}
               {(p.kpis ?? []).filter(k => k.label).length > 0 && (
                 <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Indicadores</p>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">
+                    Indicadores <span className="text-gray-300">· línea base → meta</span>
+                  </p>
                   <ul className="space-y-2">
                     {(p.kpis ?? []).filter(k => k.label).map((k, j) => (
                       <li key={j} className="flex items-baseline justify-between gap-3 text-xs">
@@ -351,6 +360,20 @@ function PlanAprobado({
                       </li>
                     ))}
                   </ol>
+                </div>
+              )}
+              {/* Riesgos de la prioridad */}
+              {(p.riesgos ?? []).length > 0 && (
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: AMBER }}>Riesgos</p>
+                  <ul className="space-y-1.5">
+                    {(p.riesgos ?? []).map((r, j) => (
+                      <li key={j} className="flex gap-2 text-xs leading-relaxed text-gray-600">
+                        <span className="mt-1 h-1 w-1 shrink-0 rounded-full" style={{ background: AMBER }} />
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

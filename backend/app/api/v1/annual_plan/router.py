@@ -580,9 +580,11 @@ def _pilar_view(p: dict, indice: int) -> dict:
         "indice": indice,
         "nombre": p.get("nombre"),
         "descripcion": p.get("descripcion"),
+        "razon": p.get("razon"),
         "objetivo": p.get("objetivo"),
         "kpis": copy.deepcopy(list(p.get("kpis") or [])),
         "estrategias": copy.deepcopy(list(p.get("estrategias") or [])),
+        "riesgos": copy.deepcopy(list(p.get("riesgos") or [])),
     }
 
 

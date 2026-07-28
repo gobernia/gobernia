@@ -94,9 +94,11 @@ class PilarAnualOut(BaseModel):
     indice:      int
     nombre:      str | None = None
     descripcion: str | None = None
+    razon:       str | None = None
     objetivo:    str | None = None
     kpis:        list[dict] = Field(default_factory=list)
     estrategias: list = Field(default_factory=list)
+    riesgos:     list = Field(default_factory=list)
 
 
 class PlanAnualOut(BaseModel):
