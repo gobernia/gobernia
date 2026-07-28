@@ -58,7 +58,10 @@ from app.services.ai.agenda_chair import chair_curate_agenda
 from app.schemas.minuta import MinutaOut, DecisionIn
 from app.services.ai.minuta import generate_minuta
 from app.models.compromiso import Compromiso
-from app.schemas.orden_cadena import DocSolicitado, PuntoCadena, OrdenCadenaOut
+from app.schemas.orden_cadena import (
+    DocSolicitado, PuntoCadena, OrdenCadenaOut,
+    AnalisisPunto, QueSeEsperaba, QueOcurrio, Evidencia, Desviacion,
+)
 
 router = APIRouter()
 
@@ -703,14 +706,26 @@ async def get_orden_del_dia_cadena(
         .where(MonthlyPlan.annual_plan_id == plan.id)
     )
     rows = tres.all()
+    hoy = date.today()
 
     # Agrupa docs (dedup por texto normalizado) y cuenta tareas por pilar_index.
+    # Además, para el análisis determinista, acumula por pilar el conteo de status
+    # y de tareas vencidas, y guarda el pilar de cada tarea (para sumar evidencia).
     docs_por_pilar: dict[int, dict[str, dict]] = {}
     n_tareas_por_pilar: dict[int, int] = {}
+    status_por_pilar: dict[int, dict[str, int]] = {}
+    vencidas_por_pilar: dict[int, int] = {}
+    pilar_de_tarea: dict = {}
     for task, pilar_index in rows:
         if pilar_index is None:
             continue
         n_tareas_por_pilar[pilar_index] = n_tareas_por_pilar.get(pilar_index, 0) + 1
+        pilar_de_tarea[task.id] = pilar_index
+        st = status_por_pilar.setdefault(pilar_index, {})
+        st[task.status] = st.get(task.status, 0) + 1
+        due = task.due_date
+        if due is not None and due < hoy and task.status != "completada":
+            vencidas_por_pilar[pilar_index] = vencidas_por_pilar.get(pilar_index, 0) + 1
         doc = (task.required_doc or "").strip()
         if not doc:
             continue
@@ -721,6 +736,21 @@ async def get_orden_del_dia_cadena(
         else:
             bucket[clave] = {"doc": doc, "n_tareas": 1}
 
+    # Evidencia por pilar: cuenta filas Evidence por tarea (mismo patrón que /board)
+    # y súmalas al pilar de cada tarea.
+    evidencia_por_pilar: dict[int, int] = {}
+    task_ids = list(pilar_de_tarea.keys())
+    if task_ids:
+        eres = await db.execute(
+            select(Evidence.action_task_id, func.count())
+            .where(Evidence.action_task_id.in_(task_ids))
+            .group_by(Evidence.action_task_id)
+        )
+        for tid, cnt in eres.all():
+            pil = pilar_de_tarea.get(tid)
+            if pil is not None:
+                evidencia_por_pilar[pil] = evidencia_por_pilar.get(pil, 0) + cnt
+
     puntos: list[PuntoCadena] = []
     for p in pilares:
         indice = p.get("indice")
@@ -730,14 +760,44 @@ async def get_orden_del_dia_cadena(
             bucket.values(),
             key=lambda d: (-d["n_tareas"], d["doc"].casefold()),
         )
+        kpis = list(p.get("kpis") or [])
+        n_tareas = n_tareas_por_pilar.get(indice, 0)
+        st = status_por_pilar.get(indice, {})
+        hechas = st.get("completada", 0)
+        en_proceso = st.get("en_progreso", 0)
+        pendientes = st.get("pendiente", 0)
+        tareas_vencidas = vencidas_por_pilar.get(indice, 0)
+        metas = [str(k.get("meta") or "").strip() for k in kpis]
+        metas = [m for m in metas if m]
+        kpis_sin_dato = sum(1 for k in kpis if not str(k.get("actual") or "").strip())
+
+        if tareas_vencidas > 0 or (hechas == 0 and n_tareas > 0):
+            decision = "Corregir el rumbo: hay retraso material."
+        elif pendientes == 0 and n_tareas > 0:
+            decision = "Mantener el rumbo: la prioridad avanza según lo previsto."
+        else:
+            decision = "Revisar el avance y decidir si se ajusta la meta o el plan."
+
+        analisis = AnalisisPunto(
+            que_se_esperaba=QueSeEsperaba(meta=" · ".join(metas), tareas_planeadas=n_tareas),
+            que_ocurrio=QueOcurrio(
+                hechas=hechas, en_proceso=en_proceso, pendientes=pendientes, kpis=kpis,
+            ),
+            evidencia=Evidencia(documentos_subidos=evidencia_por_pilar.get(indice, 0)),
+            desviacion=Desviacion(tareas_vencidas=tareas_vencidas, kpis_sin_dato=kpis_sin_dato),
+            explicacion=None,
+            decision_sugerida=decision,
+        )
+
         puntos.append(PuntoCadena(
             indice=indice,
             nombre=p.get("nombre") or "",
             objetivo=p.get("objetivo") or "",
-            kpis=list(p.get("kpis") or []),
+            kpis=kpis,
             estrategias=list(p.get("estrategias") or []),
             documentos_solicitados=[DocSolicitado(**d) for d in docs],
-            n_tareas=n_tareas_por_pilar.get(indice, 0),
+            n_tareas=n_tareas,
+            analisis=analisis,
         ))
 
     return OrdenCadenaOut(aprobado=True, anio=anio, puntos=puntos)

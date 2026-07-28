@@ -1,14 +1,15 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
-import { ClipboardList, ArrowRight, Gavel, Target, ListChecks, Gauge, FileText } from "lucide-react"
+import { ClipboardList, ArrowRight, Gavel, Target, ListChecks, Gauge, FileText, Scale, CheckCircle2, AlertTriangle } from "lucide-react"
 import {
   getPlanAnual,
   getOrdenCadena,
   type PlanAnual,
   type PilarAnual,
   type DocSolicitado,
+  type AnalisisPunto,
 } from "@/lib/planAnual"
 
 /**
@@ -24,6 +25,7 @@ import {
 // Colores por hex — Tailwind v4 no ve clases dinámicas.
 const NAVY = "#142849"
 const TEAL = "#0f766e"
+const AMBER = "#b45309"
 
 // Acentos por prioridad, on-brand (mismos que el roadmap).
 const PILAR_COLORS = ["#1e3a5f", "#0f766e", "#b45309", "#6d28d9", "#b91c1c", "#334155"]
@@ -35,6 +37,8 @@ export default function OrdenDelDiaCadena() {
   // Documentos solicitados por prioridad (indice → docs). Fetch adicional y tolerante
   // a fallo: si no llega, simplemente no mostramos documentos.
   const [docsPorIndice, setDocsPorIndice] = useState<Record<number, DocSolicitado[]>>({})
+  // Análisis por prioridad (indice → analisis). Mismo fetch/empate por indice que los docs.
+  const [analisisPorIndice, setAnalisisPorIndice] = useState<Record<number, AnalisisPunto>>({})
   const aliveRef = useRef(true)
 
   useEffect(() => {
@@ -46,11 +50,16 @@ export default function OrdenDelDiaCadena() {
     getOrdenCadena()
       .then(c => {
         if (!aliveRef.current) return
-        const map: Record<number, DocSolicitado[]> = {}
-        for (const p of c.puntos) map[p.indice] = p.documentos_solicitados
-        setDocsPorIndice(map)
+        const docs: Record<number, DocSolicitado[]> = {}
+        const analisis: Record<number, AnalisisPunto> = {}
+        for (const p of c.puntos) {
+          docs[p.indice] = p.documentos_solicitados
+          analisis[p.indice] = p.analisis
+        }
+        setDocsPorIndice(docs)
+        setAnalisisPorIndice(analisis)
       })
-      .catch(() => { /* tolerante: sin documentos */ })
+      .catch(() => { /* tolerante: sin documentos ni análisis */ })
     return () => { aliveRef.current = false }
   }, [])
 
@@ -102,6 +111,7 @@ export default function OrdenDelDiaCadena() {
               orden={i + 1}
               color={colorDe(i)}
               documentos={docsPorIndice[p.indice] ?? []}
+              analisis={analisisPorIndice[p.indice]}
             />
           ))}
         </ol>
@@ -115,11 +125,13 @@ function PuntoOrden({
   orden,
   color,
   documentos,
+  analisis,
 }: {
   pilar: PilarAnual
   orden: number
   color: string
   documentos: DocSolicitado[]
+  analisis?: AnalisisPunto
 }) {
   const kpis = (pilar.kpis ?? []).filter(k => k.label)
   const tareas = (pilar.estrategias ?? []).filter(Boolean)
@@ -225,17 +237,133 @@ function PuntoOrden({
         )}
       </div>
 
-      {/* Qué decide el Consejo */}
-      <div className="flex items-start gap-2.5 border-t border-gray-100 p-4" style={{ background: "#f7f8fa" }}>
-        <Gavel className="mt-0.5 h-4 w-4 shrink-0" style={{ color: NAVY }} />
+      {/* Análisis del punto — formato fijo (determinista, sin IA) */}
+      <AnalisisDelPunto analisis={analisis} />
+    </li>
+  )
+}
+
+/**
+ * El análisis del punto en el formato fijo del PDF: 6 filas. Tolerante a que
+ * `analisis` venga en default (todo en 0 / ""): en ese caso la decisión cae al
+ * texto genérico de siempre.
+ */
+function AnalisisDelPunto({ analisis }: { analisis?: AnalisisPunto }) {
+  const esperaba = analisis?.que_se_esperaba
+  const ocurrio = analisis?.que_ocurrio
+  const evidencia = analisis?.evidencia
+  const desviacion = analisis?.desviacion
+
+  const metaEsperada = esperaba?.meta?.trim() || ""
+  const tareasPlaneadas = esperaba?.tareas_planeadas ?? 0
+  const hechas = ocurrio?.hechas ?? 0
+  const enProceso = ocurrio?.en_proceso ?? 0
+  const pendientes = ocurrio?.pendientes ?? 0
+  const kpis = (ocurrio?.kpis ?? []) as Array<Record<string, unknown>>
+  const documentosSubidos = evidencia?.documentos_subidos ?? 0
+  const tareasVencidas = desviacion?.tareas_vencidas ?? 0
+  const kpisSinDato = desviacion?.kpis_sin_dato ?? 0
+  const hayDesviacion = tareasVencidas > 0 || kpisSinDato > 0
+  const desviacionColor = hayDesviacion ? AMBER : TEAL
+
+  const decision = analisis?.decision_sugerida?.trim()
+    || "Revisar el avance del periodo y decidir si la prioridad continúa, se ajusta la meta o se corrige el rumbo."
+
+  const filaLabel = (icon: ReactNode, text: string) => (
+    <p className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">
+      {icon} {text}
+    </p>
+  )
+
+  return (
+    <div className="border-t border-gray-100 p-4" style={{ background: "#fbfcfe" }}>
+      <p className="mb-3 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: NAVY }}>
+        <Scale className="h-3.5 w-3.5" /> Análisis del punto
+      </p>
+
+      <dl className="space-y-3">
+        {/* 1 · Qué se esperaba */}
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Qué decide el Consejo</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-gray-600">
-            Revisar el avance del periodo con la evidencia cargada y decidir si la prioridad continúa,
-            se ajusta la meta o se corrige el rumbo.
+          {filaLabel(<Target className="h-3.5 w-3.5" />, "Qué se esperaba")}
+          <p className="mt-1 text-xs leading-relaxed text-gray-700">
+            {metaEsperada ? <>Meta: <span className="font-medium">{metaEsperada}</span> · </> : null}
+            <span className="tabular-nums">{tareasPlaneadas}</span> tarea{tareasPlaneadas === 1 ? "" : "s"} planeada{tareasPlaneadas === 1 ? "" : "s"}
           </p>
         </div>
-      </div>
-    </li>
+
+        {/* 2 · Qué ocurrió */}
+        <div>
+          {filaLabel(<ListChecks className="h-3.5 w-3.5" />, "Qué ocurrió")}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Chip color={TEAL}>{hechas} hechas</Chip>
+            <Chip color={NAVY}>{enProceso} en proceso</Chip>
+            <Chip color={pendientes > 0 ? AMBER : "#64748b"}>{pendientes} pendientes</Chip>
+          </div>
+          {kpis.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {kpis.map((k, j) => {
+                const label = String(k.label ?? "")
+                const actual = String(k.actual ?? "").trim()
+                const kmeta = String(k.meta ?? "").trim()
+                if (!label) return null
+                return (
+                  <li key={j} className="text-xs leading-snug text-gray-600">
+                    {label}:{" "}
+                    <span className="text-gray-500">{actual || "—"}</span>
+                    <span className="mx-1 text-gray-300">→</span>
+                    <span className="font-semibold" style={{ color: TEAL }}>{kmeta || "por definir"}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* 3 · Evidencia */}
+        <div>
+          {filaLabel(<FileText className="h-3.5 w-3.5" />, "Evidencia")}
+          <p className="mt-1 text-xs leading-relaxed text-gray-700">
+            <span className="font-medium tabular-nums">{documentosSubidos}</span> documento{documentosSubidos === 1 ? "" : "s"} subido{documentosSubidos === 1 ? "" : "s"}
+          </p>
+        </div>
+
+        {/* 4 · Desviación */}
+        <div>
+          {filaLabel(<AlertTriangle className="h-3.5 w-3.5" />, "Desviación")}
+          <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium leading-relaxed" style={{ color: desviacionColor }}>
+            {hayDesviacion ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            <span className="tabular-nums">{tareasVencidas}</span> tarea{tareasVencidas === 1 ? "" : "s"} vencida{tareasVencidas === 1 ? "" : "s"}
+            <span className="text-gray-300">·</span>
+            <span className="tabular-nums">{kpisSinDato}</span> indicador{kpisSinDato === 1 ? "" : "es"} sin dato
+          </p>
+        </div>
+
+        {/* 5 · Explicación de la administración (placeholder) */}
+        <div>
+          {filaLabel(<ClipboardList className="h-3.5 w-3.5" />, "Explicación de la administración")}
+          <p className="mt-1 text-xs italic leading-relaxed text-gray-400">Se documenta durante la sesión.</p>
+        </div>
+
+        {/* 6 · Qué decide el Consejo */}
+        <div className="flex items-start gap-2.5 rounded-lg border border-gray-100 bg-white p-3">
+          <Gavel className="mt-0.5 h-4 w-4 shrink-0" style={{ color: NAVY }} />
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Qué decide el Consejo</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-gray-700">{decision}</p>
+          </div>
+        </div>
+      </dl>
+    </div>
+  )
+}
+
+function Chip({ color, children }: { color: string; children: ReactNode }) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+      style={{ color, background: `${color}14` }}
+    >
+      {children}
+    </span>
   )
 }

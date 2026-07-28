@@ -80,6 +80,44 @@ export interface DocSolicitado {
   n_tareas: number
 }
 
+// ── Análisis del punto (formato fijo, calculado en el backend de forma determinista) ──
+
+/** Qué se esperaba: la meta (metas de los KPIs unidas) y cuántas tareas se planearon. */
+export interface QueSeEsperaba {
+  meta: string
+  tareas_planeadas: number
+}
+
+/** Qué ocurrió: avance de tareas por status + los KPIs (actual→meta). */
+export interface QueOcurrio {
+  hechas: number
+  en_proceso: number
+  pendientes: number
+  kpis: Array<Record<string, unknown>>
+}
+
+/** Evidencia: cuántos documentos (filas Evidence) se subieron para esta prioridad. */
+export interface Evidencia {
+  documentos_subidos: number
+}
+
+/** Desviación: tareas vencidas e indicadores sin dato. */
+export interface Desviacion {
+  tareas_vencidas: number
+  kpis_sin_dato: number
+}
+
+/** El análisis fijo de un punto (formato del PDF), sin IA. */
+export interface AnalisisPunto {
+  que_se_esperaba: QueSeEsperaba
+  que_ocurrio: QueOcurrio
+  evidencia: Evidencia
+  desviacion: Desviacion
+  /** Lo que documenta la administración en la sesión; null por ahora (placeholder). */
+  explicacion: string | null
+  decision_sugerida: string
+}
+
 /** Un punto de la cadena = una prioridad aprobada + sus documentos solicitados. */
 export interface PuntoCadena {
   indice: number
@@ -89,6 +127,7 @@ export interface PuntoCadena {
   estrategias: string[]
   documentos_solicitados: DocSolicitado[]
   n_tareas: number
+  analisis: AnalisisPunto
 }
 
 export interface OrdenCadena {
@@ -103,6 +142,42 @@ const EMPTY_CADENA: OrdenCadena = {
   puntos: [],
 }
 
+/** Análisis por defecto: todo en 0 / "" cuando el backend aún no lo manda. */
+function defaultAnalisis(): AnalisisPunto {
+  return {
+    que_se_esperaba: { meta: "", tareas_planeadas: 0 },
+    que_ocurrio: { hechas: 0, en_proceso: 0, pendientes: 0, kpis: [] },
+    evidencia: { documentos_subidos: 0 },
+    desviacion: { tareas_vencidas: 0, kpis_sin_dato: 0 },
+    explicacion: null,
+    decision_sugerida: "",
+  }
+}
+
+function normalizeAnalisis(a: Partial<AnalisisPunto> | undefined): AnalisisPunto {
+  const d = defaultAnalisis()
+  if (!a) return d
+  return {
+    que_se_esperaba: {
+      meta: a.que_se_esperaba?.meta ?? d.que_se_esperaba.meta,
+      tareas_planeadas: a.que_se_esperaba?.tareas_planeadas ?? d.que_se_esperaba.tareas_planeadas,
+    },
+    que_ocurrio: {
+      hechas: a.que_ocurrio?.hechas ?? d.que_ocurrio.hechas,
+      en_proceso: a.que_ocurrio?.en_proceso ?? d.que_ocurrio.en_proceso,
+      pendientes: a.que_ocurrio?.pendientes ?? d.que_ocurrio.pendientes,
+      kpis: a.que_ocurrio?.kpis ?? d.que_ocurrio.kpis,
+    },
+    evidencia: { documentos_subidos: a.evidencia?.documentos_subidos ?? d.evidencia.documentos_subidos },
+    desviacion: {
+      tareas_vencidas: a.desviacion?.tareas_vencidas ?? d.desviacion.tareas_vencidas,
+      kpis_sin_dato: a.desviacion?.kpis_sin_dato ?? d.desviacion.kpis_sin_dato,
+    },
+    explicacion: a.explicacion ?? null,
+    decision_sugerida: a.decision_sugerida ?? d.decision_sugerida,
+  }
+}
+
 function normalizeCadena(data: Partial<OrdenCadena> | undefined): OrdenCadena {
   return {
     ...EMPTY_CADENA,
@@ -115,6 +190,7 @@ function normalizeCadena(data: Partial<OrdenCadena> | undefined): OrdenCadena {
       estrategias: p.estrategias ?? [],
       documentos_solicitados: p.documentos_solicitados ?? [],
       n_tareas: p.n_tareas ?? 0,
+      analisis: normalizeAnalisis(p.analisis),
     })),
   }
 }
