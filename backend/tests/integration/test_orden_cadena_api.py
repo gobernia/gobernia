@@ -276,3 +276,69 @@ async def test_acuerdo_se_liga_a_su_punto_por_pilar_normalizado():
     # Los otros puntos no reciben acuerdos.
     assert puntos[1]["acuerdos"] == []
     assert puntos[2]["acuerdos"] == []
+
+
+# ── Acta de la sesión (PDF de 5 apartados) ────────────────────────────────────
+
+def _mock_db_acta(plan, task_rows=None, evidence_rows=None, compromiso_rows=None,
+                  company_name=None, logo_row=None):
+    """Como _mock_db pero añade las dos queries extra del endpoint del acta:
+    #5 OnboardingSession (memory_buffer con company) y #6 CompanyLogo (logo)."""
+    plan_res = MagicMock()
+    plan_res.scalar_one_or_none.return_value = plan
+    tasks_res = MagicMock()
+    tasks_res.all.return_value = task_rows or []
+    ev_res = MagicMock()
+    ev_res.all.return_value = evidence_rows or []
+    comp_res = MagicMock()
+    comp_res.scalars.return_value.all.return_value = compromiso_rows or []
+    onb = MagicMock()
+    onb.memory_buffer = {"company": {"name": company_name}} if company_name else {}
+    onb_res = MagicMock()
+    onb_res.scalar_one_or_none.return_value = onb
+    logo_res = MagicMock()
+    logo_res.scalar_one_or_none.return_value = logo_row
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=[plan_res, tasks_res, ev_res, comp_res, onb_res, logo_res])
+    db.commit = AsyncMock()
+    return db
+
+
+async def _call_acta(db):
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            return await c.get("/api/v1/annual-plan/acta/pdf")
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_acta_pdf_plan_aprobado_devuelve_pdf():
+    plan = _plan(plan_anual={
+        "anio": 2026, "aprobado": True, "aprobado_at": "2026-01-01T00:00:00+00:00",
+        "pilares": [_pilar_aprobado(0, "Salud Financiera"), _pilar_aprobado(1, "B")],
+    })
+    rows = [(_task("Contrato", status="completada", id="t1"), 0)]
+    compromisos = [
+        _compromiso("Renegociar deuda", pilar="Salud Financiera", status="abierto",
+                    responsable_nombre="Ana", fecha_compromiso=date(2026, 3, 15)),
+    ]
+    r = await _call_acta(_mock_db_acta(plan, rows, [], compromisos, company_name="ACME"))
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:4] == b"%PDF"
+
+
+@pytest.mark.asyncio
+async def test_acta_pdf_plan_no_aprobado_400():
+    plan = _plan(plan_anual={"anio": 2026, "aprobado": False, "pilares": []})
+    # No aprobado: build_orden_cadena sale temprano, solo se consulta el plan.
+    plan_res = MagicMock()
+    plan_res.scalar_one_or_none.return_value = plan
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=[plan_res])
+    db.commit = AsyncMock()
+    r = await _call_acta(db)
+    assert r.status_code == 400

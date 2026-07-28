@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
-import { ClipboardList, ArrowRight, Gavel, Target, ListChecks, Gauge, FileText, Scale, CheckCircle2, AlertTriangle, Handshake } from "lucide-react"
+import { ClipboardList, ArrowRight, Gavel, Target, ListChecks, Gauge, FileText, Scale, CheckCircle2, AlertTriangle, Handshake, Download, Loader2 } from "lucide-react"
 import {
   getPlanAnual,
   getOrdenCadena,
+  downloadActaPdf,
   type PlanAnual,
   type PilarAnual,
   type DocSolicitado,
@@ -42,6 +43,7 @@ export default function OrdenDelDiaCadena() {
   const [analisisPorIndice, setAnalisisPorIndice] = useState<Record<number, AnalisisPunto>>({})
   // Acuerdos del Consejo por prioridad (indice → acuerdos). Mismo empate por indice.
   const [acuerdosPorIndice, setAcuerdosPorIndice] = useState<Record<number, AcuerdoPunto[]>>({})
+  const [descargando, setDescargando] = useState(false)
   const aliveRef = useRef(true)
 
   useEffect(() => {
@@ -74,11 +76,38 @@ export default function OrdenDelDiaCadena() {
   const aprobados = plan?.pilares_aprobados ?? []
   const listo = !!plan?.aprobado && aprobados.length > 0
 
+  async function handleDescargarActa() {
+    if (descargando) return
+    setDescargando(true)
+    try {
+      await downloadActaPdf()
+    } catch {
+      /* tolerante: si falla la descarga, no rompemos la vista */
+    } finally {
+      if (aliveRef.current) setDescargando(false)
+    }
+  }
+
   return (
     <section className="space-y-5">
       <div>
-        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-400">Antes de sesionar</p>
-        <h2 className="text-2xl font-bold tracking-tight text-black">Orden del día</h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-400">Antes de sesionar</p>
+            <h2 className="text-2xl font-bold tracking-tight text-black">Orden del día</h2>
+          </div>
+          {listo && (
+            <button
+              type="button"
+              onClick={handleDescargarActa}
+              disabled={descargando}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]"
+            >
+              {descargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Descargar acta (PDF)
+            </button>
+          )}
+        </div>
         <p className="mt-2 max-w-[68ch] text-sm leading-relaxed text-gray-500">
           Lo que el Consejo revisará este mes. Cada punto sale de tu Plan anual y va conectado:
           la <span className="font-medium text-gray-700">prioridad</span>, su{" "}
