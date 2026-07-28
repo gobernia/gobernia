@@ -11,6 +11,7 @@ import { useOnboardingStore } from "@/lib/store"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import TableroPlan from "@/components/consejo/TableroPlan"
 import ToddSecretario from "@/components/consejo/ToddSecretario"
+import OrdenDelDiaCadena from "@/components/consejo/OrdenDelDiaCadena"
 import api from "@/lib/api"
 
 type CubicBezier = [number, number, number, number]
@@ -276,6 +277,9 @@ export default function ConsejoPage() {
             </div>
             <TableroPlan reloadSignal={boardReload} />
           </section>
+
+          {/* ── Orden del día: la cadena, armada desde el Plan anual ──────── */}
+          <OrdenDelDiaCadena />
 
           {/* ── Tu consejo de administración ─────────────── */}
           <section className="space-y-5">
