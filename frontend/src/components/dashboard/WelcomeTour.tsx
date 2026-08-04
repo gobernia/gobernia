@@ -18,6 +18,15 @@ const STEPS = [
   { icon: ClipboardList, title: "Obtienes tu plan a 3 años", desc: "Un plan mes a mes con tareas explicadas. ¿Una no te encaja? Gobernia te propone más de una alternativa." },
 ]
 
+// La promesa en clave FODA — mismo color por cuadrante que el Diagnóstico
+// (Fortalezas verde · Oportunidades navy · Debilidades ámbar · Amenazas rojo).
+const FODA = [
+  { verbo: "Analizamos tus", label: "fortalezas", color: "#0f766e" },
+  { verbo: "Detectamos", label: "oportunidades", color: "#142849" },
+  { verbo: "Conocemos tus", label: "debilidades", color: "#b45309" },
+  { verbo: "Cuidamos tus", label: "amenazas", color: "#b91c1c" },
+]
+
 export default function WelcomeTour() {
   const [open, setOpen] = useState(false)
 
@@ -88,6 +97,21 @@ export default function WelcomeTour() {
                   )
                 })}
               </ol>
+
+              {/* Cierre: la promesa en clave FODA, con el color de cada cuadrante. */}
+              <div className="rounded-2xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] p-4 sm:p-5">
+                <p className="text-sm font-bold text-[var(--gob-ink)]">Entendemos tu contexto</p>
+                <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                  {FODA.map(f => (
+                    <div key={f.label} className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: f.color }} />
+                      <p className="text-sm leading-snug text-gray-600">
+                        {f.verbo} <span className="font-semibold" style={{ color: f.color }}>{f.label}</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               <div className="flex items-center justify-between gap-4 pt-1">
                 <button onClick={close} className="text-sm font-medium text-gray-500 hover:text-[var(--gob-navy)] transition-colors">
