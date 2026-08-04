@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Loader2, ChevronDown, Check, ArrowRight, Gavel, CornerDownRight, UserPlus, X,
-  Upload, Paperclip, Download, Trash2, ShieldCheck, AlertTriangle, Clock, Info,
+  Upload, Paperclip, Download, Trash2, ShieldCheck, AlertTriangle, Clock, Info, Link2,
 } from "lucide-react"
 import {
   BoardMes, BoardTask, TaskStatus, Validacion, ValidacionEstado,
@@ -15,6 +15,7 @@ import {
 import {
   Evidence, getEvidence, uploadEvidence, deleteEvidence, downloadEvidenceUrl,
 } from "@/lib/evidence"
+import { getColaboradorLink } from "@/lib/colaborador"
 
 /**
  * El tablero tipo Monday del plan mensual, en la paleta sobria de Gobernia.
@@ -184,7 +185,22 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
   const [open, setOpen] = useState(false)
   const [valor, setValor] = useState(owner ?? "")
   const [correo, setCorreo] = useState(ownerEmail ?? "")
+  const [copiado, setCopiado] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
+
+  const copiarEnlace = async () => {
+    const email = correo.trim()
+    if (!email) return
+    try {
+      const { token } = await getColaboradorLink(email, valor.trim() || owner)
+      const url = `${window.location.origin}/t/${token}`
+      await navigator.clipboard.writeText(url)
+      setCopiado(true)
+      window.setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      /* noop */
+    }
+  }
 
   const abrir = () => { setValor(owner ?? ""); setCorreo(ownerEmail ?? ""); setOpen(true) }
   const cerrar = () => setOpen(false)
@@ -252,6 +268,13 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
               <p className="text-[10px] leading-snug text-[var(--gob-stone)]">
                 Con su correo podrás enviarle un enlace a sus tareas.
               </p>
+              {correo.trim() && (
+                <button type="button" onClick={copiarEnlace}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--gob-rule)] bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--gob-navy)] hover:border-[var(--gob-navy)] transition-colors">
+                  {copiado ? <Check className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+                  {copiado ? "¡Copiado!" : "Copiar enlace de sus tareas"}
+                </button>
+              )}
             </div>
 
             {chips.length > 0 && (
