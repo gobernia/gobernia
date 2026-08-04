@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Home, Users,
-  FileSearch, MessagesSquare, Library,
+  FileSearch, Library,
   Settings, LogOut, Menu, X,
   Map, CalendarCheck,
 } from "lucide-react"
@@ -27,7 +27,8 @@ const LINKS = [
   { href: "/dashboard/roadmap-beta", label: "Roadmap", exact: false, icon: Map },
   { href: "/dashboard/plan-anual", label: "Plan anual", exact: false, icon: CalendarCheck },
   { href: "/dashboard/consejo", label: "Board IA", exact: false, icon: Users },
-  { href: "/dashboard/perspectivas", label: "Equipo", exact: false, icon: MessagesSquare },
+  // Oculto por ahora (no se usa; la página /dashboard/perspectivas sigue existiendo):
+  // { href: "/dashboard/perspectivas", label: "Equipo", exact: false, icon: MessagesSquare },
   // Oculto por ahora (no se borra; la página /dashboard/compromisos sigue existiendo):
   // { href: "/dashboard/compromisos", label: "Compromisos", exact: false, icon: CheckSquare },
   { href: "/dashboard/biblioteca", label: "Biblioteca", exact: false, icon: Library },
