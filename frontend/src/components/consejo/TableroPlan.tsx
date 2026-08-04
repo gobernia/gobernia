@@ -175,21 +175,27 @@ function MenuFlotante({ anchorRef, open, onClose, ancho, altoEstimado = 240, chi
 }
 
 // ── Celda de Responsable, editable con popover ──
-function ResponsableCelda({ owner, sugerencias, onChange }: {
+function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
   owner: string | null
+  ownerEmail: string | null
   sugerencias: string[]
-  onChange: (owner: string) => void
+  onChange: (owner: string, email: string | null) => void
 }) {
   const [open, setOpen] = useState(false)
   const [valor, setValor] = useState(owner ?? "")
+  const [correo, setCorreo] = useState(ownerEmail ?? "")
   const btnRef = useRef<HTMLButtonElement>(null)
 
-  const abrir = () => { setValor(owner ?? ""); setOpen(true) }
+  const abrir = () => { setValor(owner ?? ""); setCorreo(ownerEmail ?? ""); setOpen(true) }
   const cerrar = () => setOpen(false)
-  const confirmar = (v: string) => {
+  // Asigna si cambió el nombre O el correo. Con el correo prellenado a "" cuando no había.
+  const confirmar = (v: string, email: string | null) => {
     const nuevo = v.trim()
+    const nuevoEmail = email?.trim() || null
     setOpen(false)
-    if (nuevo && nuevo !== (owner ?? "")) onChange(nuevo)
+    if (nuevo && (nuevo !== (owner ?? "") || nuevoEmail !== (ownerEmail ?? null))) {
+      onChange(nuevo, nuevoEmail)
+    }
   }
 
   // Chips de acceso rápido: responsables ya usados, sin el actual.
@@ -224,19 +230,36 @@ function ResponsableCelda({ owner, sugerencias, onChange }: {
               value={valor}
               onChange={e => setValor(e.target.value)}
               onKeyDown={e => {
-                if (e.key === "Enter") { e.preventDefault(); confirmar(valor) }
+                if (e.key === "Enter") { e.preventDefault(); confirmar(valor, correo) }
                 else if (e.key === "Escape") { e.preventDefault(); cerrar() }
               }}
               placeholder="Nombre del responsable"
               className="w-full rounded-lg border border-[var(--gob-rule)] bg-white px-2.5 py-2 text-sm text-[var(--gob-ink)] placeholder:text-[var(--gob-stone)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]"
             />
 
+            <div className="space-y-1">
+              <input
+                type="email"
+                value={correo}
+                onChange={e => setCorreo(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { e.preventDefault(); confirmar(valor, correo) }
+                  else if (e.key === "Escape") { e.preventDefault(); cerrar() }
+                }}
+                placeholder="Correo (opcional, para enviarle sus tareas)"
+                className="w-full rounded-lg border border-[var(--gob-rule)] bg-white px-2.5 py-2 text-sm text-[var(--gob-ink)] placeholder:text-[var(--gob-stone)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]"
+              />
+              <p className="text-[10px] leading-snug text-[var(--gob-stone)]">
+                Con su correo podrás enviarle un enlace a sus tareas.
+              </p>
+            </div>
+
             {chips.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Del tablero</p>
                 <div className="flex flex-wrap gap-1.5">
                   {chips.map(c => (
-                    <button key={c} type="button" onClick={() => confirmar(c)}
+                    <button key={c} type="button" onClick={() => confirmar(c, ownerEmail)}
                       className="inline-flex items-center gap-1 rounded-full border border-[var(--gob-rule)] bg-white px-2 py-1 text-xs text-[var(--gob-charcoal)] hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors">
                       <span className="h-4 w-4 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] text-[8px] font-bold flex items-center justify-center shrink-0">
                         {iniciales(c)}
@@ -249,7 +272,7 @@ function ResponsableCelda({ owner, sugerencias, onChange }: {
             )}
 
             <div className="flex items-center gap-2 pt-0.5">
-              <button type="button" onClick={() => confirmar(valor)}
+              <button type="button" onClick={() => confirmar(valor, correo)}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--gob-navy)] text-[var(--gob-bone)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--gob-ink)] transition-colors">
                 <Check className="h-3.5 w-3.5" />
                 Asignar
@@ -490,7 +513,7 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
   tarea: BoardTask
   sugerencias: string[]
   onEstado: (s: TaskStatus) => void
-  onOwner: (owner: string) => void
+  onOwner: (owner: string, email: string | null) => void
   onRefresh: () => void
 }) {
   const celdaBase = "px-4 py-2.5 flex items-center gap-2"
@@ -515,7 +538,7 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
       {/* Responsable (editable) */}
       <div className={`${celdaBase} ${BG_ALT}`}>
         <EtiquetaMovil>Responsable</EtiquetaMovil>
-        <ResponsableCelda owner={tarea.owner} sugerencias={sugerencias} onChange={onOwner} />
+        <ResponsableCelda owner={tarea.owner} ownerEmail={tarea.owner_email} sugerencias={sugerencias} onChange={onOwner} />
       </div>
 
       {/* Estado (celda rellena tipo Monday) */}
@@ -585,7 +608,7 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSes
   index: number
   sugerencias: string[]
   onEstado: (taskId: string, s: TaskStatus) => void
-  onOwner: (taskId: string, owner: string) => void
+  onOwner: (taskId: string, owner: string, email: string | null) => void
   onRefresh: () => void
   onSesionar: () => void
   sesionando: boolean
@@ -624,7 +647,7 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSes
               <div>
                 {arrastradas.map(t => (
                   <TareaRow key={t.id} tarea={t} sugerencias={sugerencias}
-                    onEstado={s => onEstado(t.id, s)} onOwner={o => onOwner(t.id, o)}
+                    onEstado={s => onEstado(t.id, s)} onOwner={(o, email) => onOwner(t.id, o, email)}
                     onRefresh={onRefresh} />
                 ))}
               </div>
@@ -638,7 +661,7 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSes
           <div>
             {mes.tareas.map(t => (
               <TareaRow key={t.id} tarea={t} sugerencias={sugerencias}
-                onEstado={s => onEstado(t.id, s)} onOwner={o => onOwner(t.id, o)}
+                onEstado={s => onEstado(t.id, s)} onOwner={(o, email) => onOwner(t.id, o, email)}
                 onRefresh={onRefresh} />
             ))}
           </div>
@@ -733,12 +756,13 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
     })
   }
 
-  // Cambio optimista de responsable: aplica ya, revierte si el PATCH falla.
-  const cambiarOwner = (taskId: string, owner: string) => {
-    const previo = valorActual(taskId, "owner") ?? null
-    parcharTarea(taskId, { owner })
-    setTaskOwner(taskId, owner).catch(() => {
-      if (aliveRef.current) parcharTarea(taskId, { owner: previo })
+  // Cambio optimista de responsable (y su correo): aplica ya, revierte si el PATCH falla.
+  const cambiarOwner = (taskId: string, owner: string, email: string | null) => {
+    const previoOwner = valorActual(taskId, "owner") ?? null
+    const previoEmail = valorActual(taskId, "owner_email") ?? null
+    parcharTarea(taskId, { owner, owner_email: email })
+    setTaskOwner(taskId, owner, email).catch(() => {
+      if (aliveRef.current) parcharTarea(taskId, { owner: previoOwner, owner_email: previoEmail })
     })
   }
 

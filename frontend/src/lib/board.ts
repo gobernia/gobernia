@@ -21,6 +21,7 @@ export interface BoardTask {
   id: string
   title: string
   owner: string | null
+  owner_email: string | null
   status: TaskStatus
   priority: TaskPriority
   due_date: string | null
@@ -60,9 +61,9 @@ export async function setTaskEstado(taskId: string, status: TaskStatus): Promise
   return r.data
 }
 
-/** Cambia el responsable de una tarea. Devuelve la tarea actualizada. */
-export async function setTaskOwner(taskId: string, owner: string): Promise<BoardTask> {
-  const r = await api.patch<BoardTask>(`/tasks/${taskId}`, { owner })
+/** Cambia el responsable de una tarea (y opcionalmente su correo). Devuelve la tarea actualizada. */
+export async function setTaskOwner(taskId: string, owner: string, ownerEmail?: string | null): Promise<BoardTask> {
+  const r = await api.patch<BoardTask>(`/tasks/${taskId}`, { owner, owner_email: ownerEmail ?? null })
   return r.data
 }
 

@@ -338,6 +338,7 @@ async def get_board(
     def _board_task(t: ActionTask, viene_de: str | None = None) -> BoardTaskOut:
         return BoardTaskOut(
             id=str(t.id), title=t.title, owner=t.owner,
+            owner_email=t.owner_email,
             status=t.status, priority=t.priority, due_date=t.due_date,
             objetivo=obj_title.get(t.objective_id),
             viene_de=viene_de,

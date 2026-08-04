@@ -53,6 +53,7 @@ class ActionTaskUpdate(BaseModel):
     status:       TaskStatus | None = None
     priority:     TaskPriority | None = None
     owner:        str | None = None
+    owner_email:  str | None = None
     due_date:     date | None = None
     tags:         list[str] | None = None
     order_index:  int | None = None
