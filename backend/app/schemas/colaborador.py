@@ -25,3 +25,16 @@ class EscritorioOut(BaseModel):
     nombre: str | None
     empresa: str | None
     tareas: list[TareaColabOut]
+
+
+class ToddMsgIn(BaseModel):
+    mensaje: str
+
+
+class ToddChatOut(BaseModel):
+    mensajes: list[dict]
+
+
+class ToddReplyOut(BaseModel):
+    reply: str
+    mensajes: list[dict]

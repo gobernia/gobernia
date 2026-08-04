@@ -19,8 +19,15 @@ from app.schemas.colaborador import (
     ColaboradorLinkOut,
     EscritorioOut,
     TareaColabOut,
+    ToddChatOut,
+    ToddMsgIn,
+    ToddReplyOut,
 )
 from app.services.ai.task_explainer import generate_explicacion
+from app.services.ai.todd_responsable import run_todd_responsable
+
+# Máximo de mensajes que guardamos en el historial (para no crecer sin fin).
+_MAX_CHAT = 40
 
 router = APIRouter()
 
@@ -140,3 +147,48 @@ async def explicar_tarea_colaborador(
     flag_modified(task, "explicacion")
     await db.commit()
     return data
+
+
+# ── GET /t/{token}/todd (público) — historial del chat ───────────────────────
+@router.get("/t/{token}/todd", response_model=ToddChatOut)
+async def get_todd_chat(token: str, db: AsyncSession = Depends(get_db)):
+    col = await _colaborador_por_token(token, db)
+    return ToddChatOut(mensajes=col.chat or [])
+
+
+# ── POST /t/{token}/todd (público) — un turno del chat ───────────────────────
+@router.post("/t/{token}/todd", response_model=ToddReplyOut)
+async def post_todd_chat(
+    token: str,
+    body: ToddMsgIn,
+    db: AsyncSession = Depends(get_db),
+):
+    col = await _colaborador_por_token(token, db)
+    mensaje = (body.mensaje or "").strip()
+    if not mensaje:
+        raise HTTPException(status_code=400, detail="El mensaje es obligatorio.")
+
+    empresa = await _empresa_nombre(col.user_id, db)
+    filas = await _tareas_del_colaborador(col, db)
+    tareas = [
+        {
+            "title": t.title,
+            "description": t.description,
+            "status": t.status,
+            "objetivo": obj_title,
+            "explicacion": t.explicacion,
+        }
+        for (t, obj_title) in filas
+    ]
+
+    historial = list(col.chat or [])
+    mensajes = historial + [{"role": "user", "content": mensaje}]
+    reply = await anyio.to_thread.run_sync(
+        lambda: run_todd_responsable(mensajes, col.nombre, empresa, tareas)
+    )
+
+    nuevo = (mensajes + [{"role": "todd", "content": reply}])[-_MAX_CHAT:]
+    col.chat = nuevo
+    flag_modified(col, "chat")
+    await db.commit()
+    return ToddReplyOut(reply=reply, mensajes=nuevo)
