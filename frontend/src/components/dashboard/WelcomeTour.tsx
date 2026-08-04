@@ -13,9 +13,9 @@ const SEEN_KEY = "gobernia_tour_v1"
 
 const STEPS = [
   { icon: MessagesSquare, title: "Todd te entrevista", desc: "Responde unas preguntas sobre tu empresa. Todd arma tu perfil, sin formularios largos." },
-  { icon: FileSearch, title: "Recibes tu diagnóstico", desc: "Board IA analiza tu empresa —incluida investigación web— y te entrega un diagnóstico con fuentes." },
+  { icon: FileSearch, title: "Recibes tu diagnóstico", desc: "Gobernia analiza tu empresa —incluida investigación web— y te entrega un diagnóstico con fuentes." },
   { icon: LayoutGrid, title: "Se arma tu matriz FODA", desc: "Cruzamos lo interno con el entorno y tus prioridades para construir tu FODA." },
-  { icon: ClipboardList, title: "Obtienes tu plan a 3 años", desc: "Un plan mes a mes con tareas explicadas. ¿Una no te encaja? La IA te propone una alternativa." },
+  { icon: ClipboardList, title: "Obtienes tu plan a 3 años", desc: "Un plan mes a mes con tareas explicadas. ¿Una no te encaja? Gobernia te propone más de una alternativa." },
 ]
 
 export default function WelcomeTour() {
@@ -62,7 +62,7 @@ export default function WelcomeTour() {
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                   <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Bienvenido</p>
-                  <h2 className="text-xl font-bold text-black tracking-tight">Así funciona Board IA</h2>
+                  <h2 className="text-xl font-bold text-black tracking-tight">Así funciona Gobernia</h2>
                 </div>
                 <button onClick={close} aria-label="Cerrar" className="text-gray-400 hover:text-black transition-colors">
                   <X className="h-5 w-5" />
