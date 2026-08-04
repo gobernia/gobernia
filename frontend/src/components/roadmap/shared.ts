@@ -51,5 +51,4 @@ export const DOC_SECCIONES = [
   { id: "metas", label: "Metas a 3 años" },
   { id: "pilares", label: "Prioridades estratégicas" },
   { id: "mapa", label: "Mapa de ejecución" },
-  { id: "contexto", label: "Contexto" },
 ] as const

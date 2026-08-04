@@ -8,7 +8,6 @@ import IndiceDoc from "./IndiceDoc"
 import PilarCard from "./PilarCard"
 import SeccionApertura from "./SeccionApertura"
 import SeccionCadena from "./SeccionCadena"
-import SeccionContexto from "./SeccionContexto"
 import SeccionMapa from "./SeccionMapa"
 import SeccionMetas from "./SeccionMetas"
 import { DOC_SECCIONES, SeccionProps, pilarColor } from "./shared"
@@ -97,7 +96,6 @@ export default function RoadmapDoc({ roadmap, validado, validando, fechaValidaci
         <SeccionCadena roadmap={roadmap} />
 
         <SeccionMapa roadmap={roadmap} {...comunes} />
-        <SeccionContexto roadmap={roadmap} {...comunes} />
 
         {/* Cierre: validar el roadmap */}
         {!validado && (
