@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  Home, ClipboardList, Users,
+  Home, Users,
   FileSearch, MessagesSquare, Library,
   Settings, LogOut, Menu, X,
   Map, CalendarCheck,
@@ -19,8 +19,12 @@ import GoberniaLogo from "@/components/ui/GoberniaLogo"
 const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
-  { href: "/dashboard/plan", label: "Roadmap", exact: false, icon: ClipboardList },
-  { href: "/dashboard/roadmap-beta", label: "Roadmap Beta", exact: false, icon: Map },
+  // Roadmap v1 (documento editable/validable): OCULTO del menú para no consumir tokens.
+  // No se borra: sigue en /dashboard/plan, y ahí vive generar/validar/descargar el PDF
+  // del roadmap (se llega vía el botón "Generar mi plan").
+  // { href: "/dashboard/plan", label: "Roadmap v1", exact: false, icon: ClipboardList },
+  // El Roadmap que ve el cliente es el "beta" (vista sencilla, solo lectura, sin tokens).
+  { href: "/dashboard/roadmap-beta", label: "Roadmap", exact: false, icon: Map },
   { href: "/dashboard/plan-anual", label: "Plan anual", exact: false, icon: CalendarCheck },
   { href: "/dashboard/consejo", label: "Board IA", exact: false, icon: Users },
   { href: "/dashboard/perspectivas", label: "Equipo", exact: false, icon: MessagesSquare },

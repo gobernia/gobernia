@@ -1,5 +1,12 @@
 "use client"
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ROADMAP v1 — el documento editable/validable, con generación y PDF.
+// OCULTO del menú (ver Sidebar): el "Roadmap" que ve el cliente es /dashboard/roadmap-beta
+// (vista sencilla, solo lectura, sin consumo de tokens). Esta v1 se conserva y se
+// llega vía el botón "Generar mi plan"; aquí vive generar/editar/validar/descargar.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useCallback, useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, ChevronDown, Clock, Gauge, Wand2, RefreshCw, Trash2, X } from "lucide-react"
