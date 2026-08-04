@@ -159,7 +159,9 @@ export default function PlanPage() {
   const [plan, setPlan] = useState<AnnualPlan | null>(null)
   const [active, setActive] = useState<number | null>(null)
   const [status, setStatus] = useState<string>("loading")
-  const [view, setView] = useState<"roadmap" | "camino" | "timeline">("roadmap")
+  // Solo la vista Roadmap. Las vistas Camino/Timeline quedaron retiradas de la UI
+  // (su render se conserva más abajo, inaccesible, por si se quisiera reactivar).
+  const [view] = useState<"roadmap" | "camino" | "timeline">("roadmap")
   const [fodaReady, setFodaReady] = useState<boolean | null>(null)
   const [generating, setGenerating] = useState(false)
   const [genErr, setGenErr] = useState<string | null>(null)
@@ -354,17 +356,6 @@ export default function PlanPage() {
     )
   }
 
-  const viewToggle = (
-    <div className="flex gap-2 justify-center">
-      {(["roadmap", "camino", "timeline"] as const).map(v => (
-        <button key={v} onClick={() => setView(v)}
-          className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${view === v ? "bg-[var(--gob-navy)] text-[var(--gob-bone)] border-[var(--gob-navy)]" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
-          {v === "roadmap" ? "Roadmap" : v === "camino" ? "Vista Camino" : "Vista Timeline"}
-        </button>
-      ))}
-    </div>
-  )
-
   const roadmapListo = !!roadmap && !roadmapIsEmpty(roadmap)
 
   // ── Vista Roadmap: el expediente del consejo, a todo el ancho ──
@@ -383,8 +374,6 @@ export default function PlanPage() {
         />
 
         <main className="max-w-[1440px] mx-auto px-[var(--px-fluid)] py-8 space-y-8">
-          {viewToggle}
-
           {roadmapErr && <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{roadmapErr}</p>}
 
           {(loadingRoadmap || (!roadmap && !roadmapErr)) && (
@@ -429,8 +418,6 @@ export default function PlanPage() {
           <div className="mt-4 h-2 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-white rounded-full" style={{ width: `${pct}%` }} /></div>
           <p className="text-xs opacity-90 mt-1.5">Mes {active ?? 1} de {total} · {pct}% completado</p>
         </div>
-
-        {viewToggle}
 
         {view === "camino" ? (
           <>
