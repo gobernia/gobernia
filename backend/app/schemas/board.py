@@ -10,6 +10,7 @@ class BoardTaskOut(BaseModel):
     id:        str
     title:     str
     owner:     str | None = None
+    owner_email: str | None = None
     status:    TaskStatus
     priority:  TaskPriority
     due_date:  date | None = None

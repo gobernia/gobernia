@@ -279,6 +279,10 @@ export default function ConsejoPage() {
 
           {/* ── Tablero del plan (protagonista, a todo lo ancho) ──────────── */}
           <section className="space-y-5">
+            <div>
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Centro de operaciones</p>
+              <h2 className="text-2xl font-bold text-black tracking-tight">Tareas</h2>
+            </div>
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <Prose>
                 <p className="text-sm text-gray-500 leading-relaxed">

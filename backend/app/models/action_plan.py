@@ -52,6 +52,8 @@ class ActionTask(Base, UUIDMixin, TimestampMixin):
     status:       Mapped[str]               = mapped_column(String, nullable=False, default="pendiente")
     priority:     Mapped[str]               = mapped_column(String, nullable=False, default="media")
     owner:        Mapped[str | None]        = mapped_column(String, nullable=True)
+    # Correo del responsable, para enviarle el enlace a sus tareas.
+    owner_email:  Mapped[str | None]        = mapped_column(String, nullable=True)
     due_date:     Mapped[date | None]       = mapped_column(Date, nullable=True)
     tags:         Mapped[list | None]       = mapped_column(JSONB, nullable=True, default=list)
     order_index:  Mapped[int]               = mapped_column(Integer, nullable=False, default=0)
