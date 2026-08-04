@@ -1,13 +1,12 @@
 """Deck ejecutivo del Roadmap Estratégico (láminas apaisadas 16:9-ish, A4 landscape).
 
-Estructura de láminas (las que no tienen datos NO se renderizan):
+El Contexto (FODA + entorno) NO va aquí: es contenido de Diagnóstico y vive en su
+propio PDF. Estructura de láminas (las que no tienen datos NO se renderizan):
   1. Portada (siempre)
-  2. Panorama de retos y oportunidades  (resumen_foda + conclusion_diagnostico)
-  3. Tendencias externas que impactan    (resumen_entorno + conclusion_entorno)
-  4. Lámina maestra                      (misión/visión/propuesta, objetivos, pilares, estrategias, enablers)
-  5. Metas a 3 años                      (metas_3anios)
-  6. Una lámina por pilar                (objetivo, estrategias, plan de implementación, KPIs, resultados)
-  7. Plan de ejecución                   (pilares × 3 años, con los temas del año)
+  2. Lámina maestra                      (misión/visión/propuesta, objetivos, pilares, estrategias, enablers)
+  3. Metas a 3 años                      (metas_3anios)
+  4. Una lámina por pilar                (objetivo, estrategias, plan de implementación, KPIs, resultados)
+  5. Plan de ejecución                   (pilares × 3 años, con los temas del año)
 
 Todos los campos son opcionales: un roadmap del esquema viejo (o `{}`) produce un PDF válido.
 """
@@ -708,9 +707,10 @@ def build_roadmap_pdf(roadmap: dict, company_name: str | None,
     # 1. Portada (todo se dibuja en el canvas; el frame solo fuerza la página).
     story: list = [NextPageTemplate("lamina"), Spacer(1, 1)]
 
+    # El Contexto (FODA + entorno) NO va en el Roadmap: es contenido de Diagnóstico
+    # y vive en el PDF del Diagnóstico. Por eso ya no se incluyen _slide_panorama
+    # ni _slide_tendencias aquí (las funciones se conservan, sin uso).
     laminas = [
-        _slide_panorama(roadmap, st),
-        _slide_tendencias(roadmap, st),
         _slide_maestra(roadmap, pilares, st),
         _slide_metas(roadmap, st),
     ]
