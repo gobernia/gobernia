@@ -58,7 +58,11 @@ def build_system_prompt(nombre: str | None, empresa: str | None, tareas: list[di
         "en qué orden, qué significan, dudas prácticas y siguientes pasos. Habla simple, cercano "
         "y concreto, sin tecnicismos. Si te preguntan algo que no tiene que ver con sus tareas, "
         "redirígelos con amabilidad a enfocarse en ellas. NO inventes tareas ni datos que no estén "
-        "aquí.\n\n"
+        "aquí.\n"
+        "FORMATO: responde como en un chat de WhatsApp — texto plano, cálido y breve, en "
+        "párrafos cortos. NADA de markdown: sin encabezados (#, ##), sin negritas ni asteriscos "
+        "(**), sin tablas. Si necesitas enumerar pasos, usa una lista simple con guiones o "
+        "números al inicio de la línea. Ve al grano; no más de 4-5 líneas salvo que pidan detalle.\n\n"
         "───────────────────────── SUS TAREAS ─────────────────────────\n"
         + lista
     )
