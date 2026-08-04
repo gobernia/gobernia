@@ -6,8 +6,11 @@ import {
   Escritorio,
   ExplicacionTarea,
   TareaColab,
+  ToddMensaje,
+  enviarToddResponsable,
   explicarTarea,
   getEscritorio,
+  getToddChat,
 } from "@/lib/colaborador"
 
 const NAVY = "#142849"
@@ -138,6 +141,166 @@ function TarjetaTarea({ token, tarea }: { token: string; tarea: TareaColab }) {
   )
 }
 
+function ToddChat({ token }: { token: string }) {
+  const [abierto, setAbierto] = useState(false)
+  const [mensajes, setMensajes] = useState<ToddMensaje[]>([])
+  const [texto, setTexto] = useState("")
+  const [enviando, setEnviando] = useState(false)
+  const aliveRef = useRef(true)
+  const cargadoRef = useRef(false)
+  const finRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    aliveRef.current = true
+    return () => {
+      aliveRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!abierto || cargadoRef.current) return
+    cargadoRef.current = true
+    getToddChat(token)
+      .then(d => {
+        if (aliveRef.current) setMensajes(d.mensajes)
+      })
+      .catch(() => {
+        /* tolerante a fallo: arrancamos con historial vacío */
+      })
+  }, [abierto, token])
+
+  useEffect(() => {
+    if (abierto) finRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [mensajes, enviando, abierto])
+
+  const enviar = async () => {
+    const msg = texto.trim()
+    if (!msg || enviando) return
+    setTexto("")
+    setMensajes(prev => [...prev, { role: "user", content: msg }])
+    setEnviando(true)
+    try {
+      const d = await enviarToddResponsable(token, msg)
+      if (aliveRef.current) setMensajes(d.mensajes)
+    } catch {
+      if (aliveRef.current) {
+        setMensajes(prev => [
+          ...prev,
+          {
+            role: "todd",
+            content:
+              "Ahorita no pude responder. Intenta de nuevo en un momento, por favor.",
+          },
+        ])
+      }
+    } finally {
+      if (aliveRef.current) setEnviando(false)
+    }
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      void enviar()
+    }
+  }
+
+  return (
+    <>
+      {!abierto && (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="fixed bottom-5 right-5 z-40 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105"
+          style={{ backgroundColor: NAVY }}
+        >
+          Pregúntale a Todd
+        </button>
+      )}
+
+      {abierto && (
+        <div
+          className="fixed bottom-5 right-5 z-50 flex h-[32rem] max-h-[80vh] w-[22rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
+        >
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ backgroundColor: NAVY }}
+          >
+            <div>
+              <p className="text-sm font-semibold text-white">Todd — tu asistente</p>
+              <p className="text-xs text-white/70">Dudas sobre tus tareas</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              aria-label="Cerrar"
+              className="rounded-full p-1 text-white/80 transition-colors hover:text-white"
+            >
+              <span className="text-lg leading-none">×</span>
+            </button>
+          </div>
+
+          <div className="flex-1 space-y-3 overflow-y-auto p-4" style={{ backgroundColor: BONE }}>
+            {mensajes.length === 0 && !enviando && (
+              <p className="text-sm text-gray-500">
+                Hola, soy Todd. Pregúntame lo que necesites sobre tus tareas: cómo hacerlas,
+                por dónde empezar o qué significan.
+              </p>
+            )}
+            {mensajes.map((m, i) => {
+              const esUsuario = m.role === "user"
+              return (
+                <div key={i} className={esUsuario ? "flex justify-end" : "flex justify-start"}>
+                  <div
+                    className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm"
+                    style={
+                      esUsuario
+                        ? { backgroundColor: NAVY, color: "#ffffff" }
+                        : { backgroundColor: "#ffffff", color: "#374151", border: "1px solid rgba(0,0,0,0.06)" }
+                    }
+                  >
+                    {m.content}
+                  </div>
+                </div>
+              )
+            })}
+            {enviando && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl bg-white px-3 py-2 text-sm text-gray-500 border border-black/5">
+                  Todd está escribiendo…
+                </div>
+              </div>
+            )}
+            <div ref={finRef} />
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-black/5 bg-white p-3">
+            <input
+              type="text"
+              value={texto}
+              onChange={e => setTexto(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Escribe tu pregunta…"
+              disabled={enviando}
+              className="flex-1 rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60"
+              style={{ borderColor: "#dfe3ea", color: NAVY }}
+            />
+            <button
+              type="button"
+              onClick={() => void enviar()}
+              disabled={enviando || !texto.trim()}
+              className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+              style={{ backgroundColor: NAVY }}
+            >
+              Enviar
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function EscritorioPage() {
   const params = useParams<{ token: string }>()
   const token = params.token
@@ -204,6 +367,7 @@ export default function EscritorioPage() {
           </div>
         )}
       </div>
+      <ToddChat token={token} />
     </main>
   )
 }

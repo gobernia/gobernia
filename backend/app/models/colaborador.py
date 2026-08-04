@@ -3,6 +3,7 @@ El dueño del plan comparte un enlace /t/{token}; el responsable ve SOLO sus tar
 import uuid
 
 from sqlalchemy import String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -18,6 +19,8 @@ class Colaborador(Base, UUIDMixin, TimestampMixin):
     nombre: Mapped[str | None] = mapped_column(String, nullable=True)
     # Enlace mágico: acceso público sin auth a /t/{token}.
     token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    # Historial del chat de Todd (responsable): lista de {role, content}.
+    chat: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
 
     def __init__(self, **kwargs):
         if "id" not in kwargs:

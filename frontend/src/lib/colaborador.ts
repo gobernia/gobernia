@@ -47,3 +47,28 @@ export async function explicarTarea(
   const r = await publicApi.post<ExplicacionTarea>(`/t/${token}/tareas/${taskId}/explicar`)
   return r.data
 }
+
+export interface ToddMensaje {
+  role: string
+  content: string
+}
+
+// Público por token: historial del chat de Todd para el responsable.
+export async function getToddChat(
+  token: string,
+): Promise<{ mensajes: ToddMensaje[] }> {
+  const r = await publicApi.get<{ mensajes: ToddMensaje[] }>(`/t/${token}/todd`)
+  return r.data
+}
+
+// Público por token: envía un mensaje a Todd y recibe su respuesta + historial.
+export async function enviarToddResponsable(
+  token: string,
+  mensaje: string,
+): Promise<{ reply: string; mensajes: ToddMensaje[] }> {
+  const r = await publicApi.post<{ reply: string; mensajes: ToddMensaje[] }>(
+    `/t/${token}/todd`,
+    { mensaje },
+  )
+  return r.data
+}
