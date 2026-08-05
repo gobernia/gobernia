@@ -1,15 +1,55 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
-  ArrowRight, Play, ChevronRight,
+  ArrowRight, Play, ChevronRight, ChevronDown,
   CheckCircle2, ArrowUpRight, X, Loader2, Pencil,
   Sparkles, FileSearch, LayoutGrid, MessagesSquare, ClipboardList, Library, Users,
 } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
+
+// Una tarea del one-pager del Inicio: se muestra recortada y, SI no cabe, ofrece un
+// "Ver más" con chevron para que quede claro que se puede desplegar (no un "…" mudo).
+function TareaItem({ n, texto }: { n: number; texto: string }) {
+  const [abierta, setAbierta] = useState(false)
+  const [truncada, setTruncada] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    setTruncada(el.scrollHeight > el.clientHeight + 1)
+  }, [texto])
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => setAbierta(o => !o)}
+        aria-expanded={abierta}
+        className="flex w-full gap-2 text-left text-xs leading-relaxed rounded-md -mx-1 px-1 py-0.5 hover:bg-black/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#142849]/40"
+        title={abierta ? "Contraer" : "Leer completa"}
+      >
+        <span className="shrink-0 font-bold tabular-nums">{n}.</span>
+        <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+          <span ref={ref} className={abierta ? "" : "line-clamp-2"}>{texto}</span>
+          {(truncada || abierta) && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: "#142849", opacity: 0.55 }}
+            >
+              {abierta ? "Ver menos" : "Ver más"}
+              <ChevronDown className={`h-3 w-3 transition-transform ${abierta ? "rotate-180" : ""}`} />
+            </span>
+          )}
+        </span>
+      </button>
+    </li>
+  )
+}
 import SecretarioWelcome from "@/components/dashboard/SecretarioWelcome"
 import { PageShell } from "@/components/ui/PageShell"
 import { supabase } from "@/lib/supabase"
@@ -128,14 +168,6 @@ function RoadmapOnePager({ roadmap }: { roadmap: Roadmap }) {
   const n = pilares.length || 1
   // Mismas columnas para tarjetas (pilares) y columnas de tareas → quedan alineadas.
   const gridCols = { gridTemplateColumns: `repeat(${n}, minmax(190px,1fr))` }
-  // Tareas desplegables: se muestran recortadas ("…") y al tocarlas se abren completas.
-  const [tareasAbiertas, setTareasAbiertas] = useState<Set<string>>(new Set())
-  const toggleTarea = (k: string) => setTareasAbiertas(prev => {
-    const s = new Set(prev)
-    if (s.has(k)) s.delete(k); else s.add(k)
-    return s
-  })
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -230,20 +262,9 @@ function RoadmapOnePager({ roadmap }: { roadmap: Roadmap }) {
                 <div key={i} className="rounded-2xl p-4" style={{ background: LIGHT, color: NAVY }}>
                   {estrategias.length > 0 ? (
                     <ol className="space-y-2">
-                      {estrategias.map((s, j) => {
-                        const k = `${i}-${j}`
-                        const abierta = tareasAbiertas.has(k)
-                        return (
-                          <li key={j}>
-                            <button type="button" onClick={() => toggleTarea(k)}
-                              className="flex w-full gap-2 text-left text-xs leading-relaxed rounded-md -mx-1 px-1 py-0.5 hover:bg-black/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#142849]/40"
-                              title={abierta ? "Contraer" : "Leer completa"}>
-                              <span className="shrink-0 font-bold tabular-nums">{j + 1}.</span>
-                              <span className={abierta ? "" : "line-clamp-2"}>{s}</span>
-                            </button>
-                          </li>
-                        )
-                      })}
+                      {estrategias.map((s, j) => (
+                        <TareaItem key={j} n={j + 1} texto={s} />
+                      ))}
                     </ol>
                   ) : (
                     <p className="text-center text-xs text-[#142849]/40">—</p>
