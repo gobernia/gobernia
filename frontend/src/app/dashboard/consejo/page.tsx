@@ -265,7 +265,7 @@ export default function ConsejoPage() {
 
       <PageHeader
         eyebrow="Centro de operaciones"
-        title="Board IA"
+        title="Tareas"
         actions={
           <button onClick={tryCreateSession}
             className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors">
@@ -279,10 +279,6 @@ export default function ConsejoPage() {
 
           {/* ── Tablero del plan (protagonista, a todo lo ancho) ──────────── */}
           <section className="space-y-5">
-            <div>
-              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Centro de operaciones</p>
-              <h2 className="text-2xl font-bold text-black tracking-tight">Tareas</h2>
-            </div>
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <Prose>
                 <p className="text-sm text-gray-500 leading-relaxed">

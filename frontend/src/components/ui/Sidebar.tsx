@@ -26,7 +26,7 @@ const LINKS = [
   // El Roadmap que ve el cliente es el "beta" (vista sencilla, solo lectura, sin tokens).
   { href: "/dashboard/roadmap-beta", label: "Roadmap", exact: false, icon: Map },
   { href: "/dashboard/plan-anual", label: "Plan anual", exact: false, icon: CalendarCheck },
-  { href: "/dashboard/consejo", label: "Board IA", exact: false, icon: Users },
+  { href: "/dashboard/consejo", label: "Tareas", exact: false, icon: Users },
   // Oculto por ahora (no se usa; la página /dashboard/perspectivas sigue existiendo):
   // { href: "/dashboard/perspectivas", label: "Equipo", exact: false, icon: MessagesSquare },
   // Oculto por ahora (no se borra; la página /dashboard/compromisos sigue existiendo):
