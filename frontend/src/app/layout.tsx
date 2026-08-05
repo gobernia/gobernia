@@ -1,10 +1,13 @@
 import type { Metadata } from "next"
+import { Inter, Newsreader } from "next/font/google"
 import AuthSync from "@/components/AuthSync"
 import CookieBanner from "@/components/CookieBanner"
 import "./globals.css"
 
-// Gabriel Sans se carga vía @font-face en globals.css (self-hosted).
-// Una sola familia para todo el sistema — la jerarquía se construye con pesos.
+// Sistema de 2 roles: Inter para interfaz y cuerpo (máxima legibilidad, incluso en
+// datos densos), Newsreader (serif) para los títulos (gravedad institucional).
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" })
+const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-news", display: "swap" })
 
 export const metadata: Metadata = {
   title: "GOBERNIA — La evolución del Consejo de Administración",
@@ -41,8 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className="h-full antialiased"
-      style={{ ["--font-sans" as string]: '"Gabriel Sans", system-ui, sans-serif' }}
+      className={`h-full antialiased ${inter.variable} ${newsreader.variable}`}
     >
       <body className="min-h-full flex flex-col" style={{ fontFamily: "var(--font-sans)" }}>
         <AuthSync />
