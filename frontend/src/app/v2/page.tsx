@@ -1,112 +1,22 @@
 "use client"
 
-// Landing V2 — hero editorial estilo "kettal" + sistema bento del Inicio:
-//   · Logo GOBERNIA normal en la barra del menú.
-//   · Headline gigante FIJO (Inter, como el Inicio): no se mueve con el
-//     scroll — el video, en el flujo del documento, sube y lo va tapando.
-//   · Pie del hero: ubicación + hora en vivo | tagline con subrayado naranja.
-//   · Tipografía y variantes del dashboard (Inter en todo, eyebrows 10.5px,
-//     títulos bold tracking apretado) y paleta bento (PAPER/INK/SAND/BNAVY).
-//   · Botones en azul BNAVY — el naranja ACCENT solo en detalles (squiggle,
-//     tags, subrayados).
-
-import { useState, useEffect, useRef, useContext, createContext, type CSSProperties, type ReactNode } from "react"
+import { useState, useEffect, useRef, useContext, createContext } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { motion, useScroll, useTransform, useMotionValue, type MotionValue } from "framer-motion"
 import { ArrowRight, Lock, ShieldCheck, KeyRound, EyeOff } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
+// ── Seguridad (claims ciertos para el stack: Vercel HTTPS + Supabase) ──
+const SECURITY = [
+  { icon: Lock, title: "Cifrado en tránsito", desc: "Toda la comunicación viaja sobre HTTPS/TLS." },
+  { icon: ShieldCheck, title: "Cifrado en reposo", desc: "Tu información se almacena cifrada en la base de datos." },
+  { icon: KeyRound, title: "Acceso autenticado", desc: "Solo tú entras a tu cuenta, con inicio de sesión seguro." },
+  { icon: EyeOff, title: "Privado y confidencial", desc: "Tu información es solo para tu consejo y sus análisis." },
+]
+
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
-
-// ── Paleta bento — mismos tokens del Inicio ───────────────
-const PAPER = "#F2F2F0"
-const INK   = "#0E1626"
-const INK2  = "#39435A"
-const MUTED = "#6E7686"
-const CARD  = "#FFFFFF"
-const SAND  = "#E8E3D8"
-const BNAVY = "#152742"
-const ACCENT = "#FF5C1A"
-const LINE  = "#E2E2DC"
-// El CSS global pone h1/h2 en serif (Newsreader). En el bento NO queremos serif:
-// forzamos sans en cada título, igual que en el Inicio.
-const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
-
-// ── Geometría del hero ────────────────────────────────────
-const HERO_ALTO = "74svh"  // alto del área del hero; el video asoma debajo
-
-// ── Video que se ensancha con el scroll ───────────────────
-// Arranca con los márgenes de la página y esquinas bento (26px); al hacer
-// scroll los márgenes se cierran hasta quedar a sangre completa.
-function VideoExpand() {
-  const { scrollY } = useScroll()
-  const [m, setM] = useState({ pad: 48, dist: 400 })
-  useEffect(() => {
-    const calc = () => setM({
-      // Mismo cálculo que --px-fluid: clamp(1.25rem, 4vw, 5rem)
-      pad: Math.min(Math.max(20, window.innerWidth * 0.04), 80),
-      dist: window.innerHeight * 0.5,
-    })
-    calc()
-    window.addEventListener("resize", calc)
-    return () => window.removeEventListener("resize", calc)
-  }, [])
-  const inset = useTransform(scrollY, [0, m.dist], [m.pad, 0])
-  const radius = useTransform(scrollY, [0, m.dist], [26, 0])
-  return (
-    <section className="relative">
-      <motion.div className="overflow-hidden" style={{ marginInline: inset, borderRadius: radius }}>
-        <video
-          src="/video/Fertodd.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          className="block w-full h-[100svh] object-cover"
-        />
-      </motion.div>
-    </section>
-  )
-}
-
-// ── Reloj en vivo ("Ciudad de México 16:12") ──────────────
-function useHora() {
-  const [hora, setHora] = useState("")
-  useEffect(() => {
-    const tick = () =>
-      setHora(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false }))
-    tick()
-    const id = setInterval(tick, 15_000)
-    return () => clearInterval(id)
-  }, [])
-  return hora
-}
-
-// ── Eyebrow bento (igual que el Inicio) ───────────────────
-function Eyebrow({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return (
-    <p
-      className={`text-[10.5px] font-extrabold uppercase tracking-[0.17em] ${className}`}
-      style={{ ...SANS, color: MUTED }}
-    >
-      {children}
-    </p>
-  )
-}
-
-// ── Hero stagger ──────────────────────────────────────────
-const heroContainer = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.13, delayChildren: 0.05 } },
-}
-const heroItem = {
-  hidden: { opacity: 0, y: 40 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE } },
-}
 
 // ── Fade-up on scroll ─────────────────────────────────────
 function FadeUp({
@@ -114,7 +24,7 @@ function FadeUp({
   delay = 0,
   className = "",
 }: {
-  children: ReactNode
+  children: React.ReactNode
   delay?: number
   className?: string
 }) {
@@ -131,21 +41,44 @@ function FadeUp({
   )
 }
 
-// ── Scroll-driven reveal (palabras que se oscurecen) ──────
+// ── Hero stagger ──────────────────────────────────────────
+const heroContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.13, delayChildren: 0.05 } },
+}
+const heroItem = {
+  hidden: { opacity: 0, y: 40 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE } },
+}
+
+// ── Scroll-driven reveal ──────────────────────────────────
+// Las palabras "Heavy" (negro intenso) inician en gris (opacity 0.4) igual que
+// los conectores. Conforme el usuario scrollea, cada palabra se va oscureciendo
+// de izquierda a derecha en función de cuánto ha avanzado el scroll dentro de
+// la sección que las contiene.
+
 const ScrollProgressContext = createContext<MotionValue<number> | null>(null)
 
+// Disponible en Framer Motion como una de las cadenas válidas del tipo Edge
 type ScrollOffset = [string, string]
 
+/**
+ * Envuelve un título: registra la progresión del scroll mientras la sección
+ * cruza el viewport y la expone vía context a los <Heavy>.
+ *  - default offset = secciones que entran desde abajo
+ *  - hero: pasar offset={["start start", "end start"]}
+ */
 function ScrollReveal({
   children,
   offset,
   className = "",
 }: {
-  children: ReactNode
+  children: React.ReactNode
   offset?: ScrollOffset
   className?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  // Si no se pasa offset → comportamiento por defecto para secciones (rise into viewport)
   const { scrollYProgress } = useScroll({
     target: ref,
     // @ts-expect-error framer accepts string-array offsets at runtime
@@ -158,11 +91,18 @@ function ScrollReveal({
   )
 }
 
+/**
+ * Palabra resaltada. Su opacidad se interpola entre 0.4 (gris muted) y 1 (ink full)
+ * a lo largo del rango [start, end] del progreso de scroll del padre.
+ *   range=[0, 0.4]   → empieza a oscurecer desde el primer instante de scroll,
+ *                      completa a 40% del progreso (palabras más a la izquierda)
+ *   range=[0.5, 0.9] → empieza más tarde, completa cerca del final (palabras a la derecha)
+ */
 function Heavy({
   children,
   range = [0, 0.6],
 }: {
-  children: ReactNode
+  children: React.ReactNode
   range?: [number, number]
 }) {
   const ctx = useContext(ScrollProgressContext)
@@ -177,13 +117,6 @@ function Heavy({
 }
 
 // ── Data ──────────────────────────────────────────────────
-const SECURITY = [
-  { icon: Lock, title: "Cifrado en tránsito", desc: "Toda la comunicación viaja sobre HTTPS/TLS." },
-  { icon: ShieldCheck, title: "Cifrado en reposo", desc: "Tu información se almacena cifrada en la base de datos." },
-  { icon: KeyRound, title: "Acceso autenticado", desc: "Solo tú entras a tu cuenta, con inicio de sesión seguro." },
-  { icon: EyeOff, title: "Privado y confidencial", desc: "Tu información es solo para tu consejo y sus análisis." },
-]
-
 const CONSEJEROS = [
   { tag: "Consejero en", name: "Finanzas",     desc: "Tus números bajo la lupa: rentabilidad, flujo de caja y estructura de capital, antes de que el mes cierre." },
   { tag: "Consejero en", name: "Estrategia",   desc: "Define dónde ganar: posicionamiento, mercado y crecimiento alineados a tu visión de largo plazo." },
@@ -216,7 +149,7 @@ const FAQS = [
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
-    <div style={{ borderBottom: `1px solid ${LINE}` }}>
+    <div style={{ borderBottom: "1px solid var(--gob-rule)" }}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -232,10 +165,26 @@ function FAQItem({ q, a }: { q: string; a: string }) {
           textAlign: "left",
         }}
       >
-        <span style={{ ...SANS, fontSize: 16, color: INK, fontWeight: 600, letterSpacing: "-0.015em", flex: 1, paddingRight: 24 }}>
+        <span
+          style={{
+            fontSize: 16,
+            color: "var(--gob-ink)",
+            fontWeight: 400,
+            flex: 1,
+            paddingRight: 24,
+          }}
+        >
           {q}
         </span>
-        <span style={{ fontSize: 20, color: ACCENT, flexShrink: 0, width: 24, textAlign: "center" }}>
+        <span
+          style={{
+            fontSize: 20,
+            color: "var(--gob-muted)",
+            flexShrink: 0,
+            width: 24,
+            textAlign: "center",
+          }}
+        >
           {open ? "−" : "+"}
         </span>
       </button>
@@ -247,7 +196,16 @@ function FAQItem({ q, a }: { q: string; a: string }) {
           transition: "max-height 0.32s ease, opacity 0.32s ease",
         }}
       >
-        <p style={{ fontSize: "0.95rem", color: INK2, lineHeight: 1.6, maxWidth: "40em", paddingBottom: 24, margin: 0 }}>
+        <p
+          style={{
+            fontSize: "0.95rem",
+            color: "var(--gob-muted)",
+            lineHeight: 1.6,
+            maxWidth: "40em",
+            paddingBottom: 24,
+            margin: 0,
+          }}
+        >
           {a}
         </p>
       </div>
@@ -255,7 +213,10 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   )
 }
 
-// ── Barra que se esconde al bajar y reaparece al subir ────
+// ── Page ──────────────────────────────────────────────────
+// Hook: oculta el header al hacer scroll hacia abajo (después de un umbral),
+// lo muestra de nuevo al hacer scroll hacia arriba. En el top de la página
+// siempre está visible.
 function useAutoHideHeader(threshold = 80) {
   const [hidden, setHidden] = useState(false)
   const lastScroll = useRef(0)
@@ -270,9 +231,11 @@ function useAutoHideHeader(threshold = 80) {
         if (current <= threshold) {
           setHidden(false)
         } else if (current > lastScroll.current + 5) {
-          setHidden(true)   // bajando (tolerancia de 5px para evitar jitter)
+          // scroll down (con tolerancia de 5px para evitar jitter)
+          setHidden(true)
         } else if (current < lastScroll.current - 5) {
-          setHidden(false)  // subiendo
+          // scroll up
+          setHidden(false)
         }
         lastScroll.current = current
         ticking.current = false
@@ -285,41 +248,32 @@ function useAutoHideHeader(threshold = 80) {
   return hidden
 }
 
-// ── Page ──────────────────────────────────────────────────
-export default function LandingV2() {
-  const hora = useHora()
-  const headerHidden = useAutoHideHeader()
-
+export default function LandingPage() {
+  const hidden = useAutoHideHeader()
   return (
-    <div className="min-h-dvh font-sans antialiased" style={{ background: PAPER, color: INK }}>
+    <div className="min-h-dvh bg-white text-[var(--gob-ink)] font-sans antialiased">
 
-      {/* ── Barra de menú: se esconde al bajar, reaparece al subir ── */}
+      {/* ── Navbar ───────────────────────────────────────── */}
       <header
-        className="fixed top-0 inset-x-0 z-50 px-[var(--px-fluid)] transition-transform duration-500"
-        style={{
-          transform: headerHidden ? "translateY(-100%)" : "translateY(0)",
-          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
+        className="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md transition-transform duration-300 ease-out"
+        style={{ transform: hidden ? "translateY(-100%)" : "translateY(0)" }}
       >
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto h-16 flex items-center justify-between">
-          <GoberniaLogo size={26} />
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
+          <GoberniaLogo size={18} />
 
-          <div className="flex items-center gap-3">
-            {/* Píldora de navegación (como la referencia) */}
-            <nav
-              className="hidden md:flex items-center rounded-full px-2 py-1.5 text-sm font-medium"
-              style={{ ...SANS, background: SAND, color: INK2 }}
-            >
-              <a href="#producto"      className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">Producto</a>
-              <a href="#como-funciona" className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">Cómo funciona</a>
-              <a href="#faq"           className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">FAQ</a>
-              <Link href="/sign-in"    className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">Iniciar sesión</Link>
-            </nav>
+          <nav className="hidden md:flex items-center gap-8 text-sm text-[var(--gob-muted)]">
+            <a href="#producto"      className="hover:text-[var(--gob-navy)] transition-colors">Producto</a>
+            <a href="#como-funciona" className="hover:text-[var(--gob-navy)] transition-colors">Cómo funciona</a>
+            <a href="#faq"           className="hover:text-[var(--gob-navy)] transition-colors">FAQ</a>
+          </nav>
 
+          <div className="flex items-center gap-4">
+            <Link href="/sign-in" className="text-sm text-[var(--gob-muted)] hover:text-[var(--gob-navy)] transition-colors hidden sm:block">
+              Iniciar sesión
+            </Link>
             <Link
               href="/sign-up"
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold tracking-wide text-white transition-colors hover:brightness-90"
-              style={{ ...SANS, background: BNAVY }}
+              className="inline-flex items-center gap-1.5 text-sm font-medium bg-[var(--gob-navy)] text-[var(--gob-bone)] px-4 py-2 rounded-lg hover:bg-[var(--gob-ink)] transition-colors"
             >
               Empezar <ArrowRight className="h-3.5 w-3.5" />
             </Link>
@@ -327,49 +281,20 @@ export default function LandingV2() {
         </div>
       </header>
 
-      {/* ── Hero FIJO: no se mueve con el scroll; el video sube y lo tapa ──
-             El headline vive PEGADO al borde superior del video.
-             OJO: el padding va POR FUERA del contenedor centrado (igual que en
-             las secciones) para que el headline alinee con el resto de la página. */}
-      <div className="fixed inset-x-0 top-0 z-0 flex flex-col justify-end px-[var(--px-fluid)]" style={{ height: HERO_ALTO }}>
-        {/* Texto descriptivo arriba a la DERECHA (entre el menú y la mitad),
-            posicionado en absoluto sobre el hero */}
-        <div className="absolute inset-x-0 hidden lg:block px-[var(--px-fluid)]" style={{ top: "26%" }}>
-          <div className="w-full max-w-[var(--container-fluid)] mx-auto flex justify-end">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: EASE, delay: 0.4 }}
-              className="max-w-md"
-            >
-              <p className="text-[15.5px] leading-relaxed" style={{ color: INK2 }}>
-                Cinco consejeros con IA sesionan sobre tu empresa cada mes. Las mejores
-                prácticas corporativas, por una fracción del costo — sin contratar
-                consultores.
-              </p>
-              <Link
-                href="/sign-up"
-                className="mt-6 inline-flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[#152742]"
-                style={{ ...SANS, color: INK }}
-              >
-                <ArrowRight className="h-4 w-4" style={{ color: ACCENT }} /> Comenzar gratis
-              </Link>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* Headline grande a la IZQUIERDA, anclado abajo junto al video */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto">
+      {/* ── Hero ─────────────────────────────────────────── */}
+      <section className="relative overflow-hidden min-h-dvh flex flex-col">
+        <div className="relative z-10 flex-1 flex flex-col w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] pt-32 sm:pt-36 lg:pt-40 pb-8">
+          {/* Headline 3 líneas — el hero se muestra en estado final desde el inicio
+              (los Heavy heredan opacity 1 al no estar dentro de un ScrollReveal) */}
           <motion.h1
             variants={heroContainer}
             initial="hidden"
             animate="show"
+            className="font-sans text-[var(--gob-ink)]"
             style={{
-              ...SANS,
-              color: INK,
               fontWeight: 300,
-              fontSize: "clamp(38px, 4.8vw, 118px)",
-              lineHeight: 0.98,
+              fontSize: "clamp(40px, 7vw, 168px)",
+              lineHeight: 0.95,
               letterSpacing: "-0.03em",
               cursor: "default",
             }}
@@ -387,494 +312,372 @@ export default function LandingV2() {
             </motion.span>
           </motion.h1>
 
-          {/* En móvil (sin columna derecha) la descripción va bajo el headline */}
+          {/* Gap de 50px entre el texto y el "scroll down" + divider */}
+          <div style={{ height: 50 }} />
+
+          {/* "scroll down" a la derecha, justo antes del divider */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: EASE, delay: 0.4 }}
-            className="lg:hidden max-w-md mt-6"
+            variants={heroItem}
+            initial="hidden"
+            animate="show"
+            className="flex justify-end pb-4"
           >
-            <p className="text-[15.5px] leading-relaxed" style={{ color: INK2 }}>
+            <span
+              className="text-xs text-[var(--gob-stone)] tracking-wider lowercase"
+              style={{ animation: "hero-pulse 2.4s ease-in-out infinite" }}
+            >
+              scroll down
+            </span>
+          </motion.div>
+
+          {/* Línea divisoria horizontal — sube con el texto */}
+          <div className="h-px bg-[var(--gob-rule)]" />
+
+          {/* Descripción pegada a la línea, alineada a la derecha */}
+          <motion.div
+            variants={heroItem}
+            initial="hidden"
+            animate="show"
+            className="flex justify-end pt-5"
+          >
+            <p
+              className="text-sm text-[var(--gob-muted)] leading-relaxed sm:text-right"
+              style={{ maxWidth: "32em" }}
+            >
               Cinco consejeros con IA sesionan sobre tu empresa cada mes. Las mejores
               prácticas corporativas, por una fracción del costo — sin contratar
               consultores.
             </p>
+          </motion.div>
+
+          {/* Espacio flexible — empuja los CTAs al fondo del hero */}
+          <div className="flex-1" />
+
+          {/* CTAs discretos al pie, abajo a la izquierda */}
+          <motion.div
+            variants={heroItem}
+            initial="hidden"
+            animate="show"
+            className="flex items-center gap-8"
+          >
             <Link
               href="/sign-up"
-              className="mt-5 inline-flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[#152742]"
-              style={{ ...SANS, color: INK }}
+              className="inline-flex items-center text-sm text-[var(--gob-ink)] hover:text-[var(--gob-navy)] transition-colors"
+              style={{ borderBottom: "1px solid var(--gob-ink)", paddingBottom: 2 }}
             >
-              <ArrowRight className="h-4 w-4" style={{ color: ACCENT }} /> Comenzar gratis
+              Comenzar gratis
+            </Link>
+            <Link
+              href="/sign-in"
+              className="inline-flex items-center text-sm text-[var(--gob-muted)] hover:text-[var(--gob-navy)] transition-colors"
+            >
+              Ya tengo cuenta
             </Link>
           </motion.div>
         </div>
 
-        {/* Pie del hero, entre el headline y el borde del video */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto flex flex-wrap items-end justify-between gap-x-8 gap-y-2 pt-6 pb-3.5">
-          <span className="text-[10.5px] font-extrabold uppercase tracking-[0.17em]" style={{ ...SANS, color: INK2 }}>
-            Ciudad de México{hora ? ` · ${hora}` : ""}
-          </span>
-          <span
-            className="text-sm font-semibold"
-            style={{ ...SANS, color: INK, borderBottom: `2px solid ${ACCENT}`, paddingBottom: 3, letterSpacing: "-0.01em" }}
-          >
-            Tu consejo, sesión tras sesión
-          </span>
+        <style>{`
+          @keyframes hero-pulse {
+            0%, 100% { opacity: 0.5; }
+            50%      { opacity: 1; }
+          }
+        `}</style>
+      </section>
+
+      {/* ── Stats ────────────────────────────────────────── */}
+      <section className="py-12 sm:py-16 3xl:py-24 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
+          {[
+            { n: "5",    label: "Consejeros con IA" },
+            { n: "8",    label: "Etapas de diagnóstico" },
+            { n: "100%", label: "Cifrado y confidencial" },
+            { n: "30′",  label: "Para tu primer diagnóstico" },
+          ].map((s, i) => (
+            <FadeUp key={s.label} delay={i * 0.08}>
+              <p className="text-4xl font-bold text-[var(--gob-navy)] tracking-tight" style={{ letterSpacing: "-0.03em" }}>{s.n}</p>
+              <p className="italic font-light text-xs text-[var(--gob-stone)] mt-2 leading-snug">{s.label}</p>
+            </FadeUp>
+          ))}
         </div>
-      </div>
+      </section>
 
-      {/* ── Espaciador del hero: el video asoma al fondo ── */}
-      <div style={{ height: HERO_ALTO }} aria-hidden />
+      {/* ── Divider ──────────────────────────────────────── */}
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
 
-      {/* ── Todo lo que sigue viaja POR ENCIMA del hero fijo ── */}
-      <div className="relative z-10" style={{ background: PAPER }}>
-
-        {/* Video — arranca angosto y se ensancha con el scroll mientras sube
-            tapando el hero */}
-        <VideoExpand />
-
-        {/* ── Agents: justo después del video ──────────────── */}
-        <section id="producto" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
-          <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
-            <FadeUp>
-              <Eyebrow className="mb-4">Cinco consejeros</Eyebrow>
-              <ScrollReveal>
-                <h2
-                  style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.02, letterSpacing: "-0.03em", maxWidth: "13em" }}
-                >
-                  <span style={{ opacity: 0.4 }}>Cinco </span>
-                  <Heavy range={[0.1, 0.45]}>consejeros con IA</Heavy>
-                  <span style={{ opacity: 0.4 }}> en tu </span>
-                  <Heavy range={[0.4, 0.8]}>Sesión de Consejo.</Heavy>
-                </h2>
-              </ScrollReveal>
-            </FadeUp>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
-              {CONSEJEROS.map((a, i) => (
-                <FadeUp key={a.name} delay={i * 0.09}>
-                  <div className="h-full">
-                    <span className="text-[11px] font-extrabold uppercase tracking-[0.09em]" style={{ ...SANS, color: ACCENT }}>
-                      {a.tag}
-                    </span>
-                    <h3
-                      className="text-[23px] font-bold leading-tight tracking-[-.025em]"
-                      style={{ ...SANS, color: INK, marginTop: 12, marginBottom: 0 }}
-                    >
-                      {a.name}
-                    </h3>
-                    <div className="w-full" style={{ height: 1, backgroundColor: LINE, margin: "20px 0" }} />
-                    <p className="text-[14.5px] leading-relaxed" style={{ color: INK2, margin: 0 }}>
-                      {a.desc}
-                    </p>
-                  </div>
-                </FadeUp>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Empieza + números: un solo tile bento navy (como los tiles
-               oscuros del Inicio), en lugar de CTAs sueltos + stats genéricos ── */}
-        <section className="pb-16 sm:pb-24 3xl:pb-32 px-[var(--px-fluid)]">
-          <FadeUp className="w-full max-w-[var(--container-fluid)] mx-auto">
-            <div
-              className="rounded-[26px] p-[30px] sm:p-12 lg:p-14 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center overflow-hidden"
-              style={{ background: BNAVY, color: "#fff" }}
-            >
-              {/* Izquierda: el pitch + CTAs */}
-              <div>
-                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em]" style={{ ...SANS, color: "rgba(255,255,255,.55)" }}>
-                  Listo desde el primer día
-                </p>
-                <h3
-                  className="mt-4 font-bold leading-[1.08] tracking-[-.03em]"
-                  style={{ ...SANS, fontSize: "clamp(26px, 2.6vw, 44px)" }}
-                >
-                  Configuras hoy,<br />sesionas este mes.
-                </h3>
-                <p className="mt-4 text-[15.5px] leading-relaxed" style={{ color: "rgba(255,255,255,.72)", maxWidth: "30em" }}>
-                  Sin consultores ni implementaciones largas: entras, Todd conoce tu
-                  empresa y tu consejo queda listo para trabajar.
-                </p>
-                <div className="mt-8 flex items-center gap-6">
-                  <Link
-                    href="/sign-up"
-                    className="inline-flex items-center gap-2.5 rounded-full px-5 py-3 text-[13px] font-bold tracking-wide transition-all hover:brightness-95"
-                    style={{ ...SANS, background: "#fff", color: BNAVY }}
-                  >
-                    Comenzar gratis <ArrowRight className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    href="/sign-in"
-                    className="inline-flex items-center text-sm font-semibold transition-colors hover:text-white"
-                    style={{ ...SANS, color: "rgba(255,255,255,.65)" }}
-                  >
-                    Ya tengo cuenta
-                  </Link>
-                </div>
-              </div>
-
-              {/* Derecha: los números, en rejilla 2×2 con filetes finos */}
-              <div className="grid grid-cols-2">
-                {[
-                  { n: "5",    label: "consejeros con IA en cada sesión" },
-                  { n: "8",    label: "etapas de diagnóstico de tu empresa" },
-                  { n: "100%", label: "cifrado y confidencial" },
-                  { n: "30′",  label: "para tu primer diagnóstico" },
-                ].map((s, i) => (
-                  <div
-                    key={s.label}
-                    className="p-6 sm:p-7"
-                    style={{
-                      borderTop:  i >= 2      ? "1px solid rgba(255,255,255,.14)" : "none",
-                      borderLeft: i % 2 === 1 ? "1px solid rgba(255,255,255,.14)" : "none",
-                    }}
-                  >
-                    <span aria-hidden className="block h-1.5 w-1.5 mb-3.5" style={{ background: ACCENT }} />
-                    <p className="font-bold tracking-[-.05em] leading-[.88]" style={{ ...SANS, fontSize: "clamp(34px, 3vw, 52px)" }}>
-                      {s.n}
-                    </p>
-                    <p className="mt-2 text-[13px] font-semibold leading-snug" style={{ ...SANS, color: "rgba(255,255,255,.6)", maxWidth: "16ch" }}>
-                      {s.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </FadeUp>
-        </section>
-
-        {/* ── Divider ──────────────────────────────────────── */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px" style={{ background: LINE }} /></div>
-
-        {/* ── Cómo funciona ────────────────────────────────── */}
-        <section id="como-funciona" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
-          <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
-            <FadeUp>
-              <Eyebrow className="mb-4">El proceso</Eyebrow>
-              <ScrollReveal>
-                <h2
-                  style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.02, letterSpacing: "-0.03em", maxWidth: "13em" }}
-                >
-                  <span style={{ opacity: 0.4 }}>De cero a tu </span>
-                  <Heavy range={[0.1, 0.45]}>primer diagnóstico</Heavy>
-                  <span style={{ opacity: 0.4 }}> en </span>
-                  <Heavy range={[0.4, 0.8]}>tres pasos.</Heavy>
-                </h2>
-              </ScrollReveal>
-            </FadeUp>
-
-            <div>
-              {STEPS.map((s, i) => (
-                <FadeUp key={s.n} delay={i * 0.1}>
-                  <div
-                    className="grid items-start"
-                    style={{
-                      gridTemplateColumns: "120px 1fr",
-                      gap: 40,
-                      padding: "60px 0",
-                      borderTop: i === 0 ? `1px solid ${LINE}` : "none",
-                      borderBottom: `1px solid ${LINE}`,
-                    }}
-                  >
-                    <span className="font-bold leading-[.85] tracking-[-.04em]" style={{ ...SANS, fontSize: "clamp(42px, 5.5vw, 128px)", color: INK, opacity: 0.15 }}>
-                      {s.n}
-                    </span>
-                    <div>
-                      <h3 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={{ ...SANS, color: INK, margin: 0 }}>
-                        {s.title}
-                      </h3>
-                      <p className="text-[15.5px] leading-relaxed" style={{ color: INK2, maxWidth: "32em", marginTop: 16, marginBottom: 0 }}>
-                        {s.desc}
-                      </p>
-                    </div>
-                  </div>
-                </FadeUp>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Divider ──────────────────────────────────────── */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px" style={{ background: LINE }} /></div>
-
-        {/* ── Todd, tu secretario: te acompaña desde el inicio ── */}
-        <section className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
-          <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
-
-            {/* Título tamaño hero + intro */}
-            <FadeUp>
-              <Eyebrow className="mb-4">Tu secretario de consejo</Eyebrow>
-              <ScrollReveal>
-                <h2
-                  style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.0, letterSpacing: "-0.03em", maxWidth: "13em" }}
-                >
-                  <span style={{ opacity: 0.4 }}>Desde el inicio, </span>
-                  <Heavy range={[0.1, 0.45]}>Todd</Heavy>
-                  <br />
-                  <span style={{ opacity: 0.4 }}>te </span>
-                  <Heavy range={[0.4, 0.8]}>acompaña.</Heavy>
-                </h2>
-              </ScrollReveal>
-              <p className="text-[17px] leading-relaxed mt-8" style={{ color: INK2, maxWidth: "38em" }}>
-                Al entrar a Gobernia te recibe <span className="font-semibold" style={{ color: INK }}>Todd</span>,
-                el secretario del consejo. Él te va guiando en todo el proceso: conoce tu empresa
-                haciéndote preguntas como en una conversación, y con tus respuestas construye el
-                diagnóstico y deja todo listo para tu primera sesión.
-              </p>
-            </FadeUp>
-
-            {/* iPad grande, centrado (la imagen ya trae el dispositivo) */}
-            <div className="relative mx-auto w-full max-w-[700px]">
-              {/* Círculo azul translúcido de fondo */}
-              <motion.div
-                aria-hidden
-                initial={{ opacity: 0, scale: 0.6 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 1.1, ease: EASE }}
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
-                style={{
-                  width: "112%",
-                  aspectRatio: "1 / 1",
-                  background: "radial-gradient(circle, rgba(21,39,66,0.16) 0%, rgba(21,39,66,0.08) 55%, rgba(21,39,66,0) 75%)",
-                }}
-              />
-              {/* Entrada: sube, escala y se asienta */}
-              <motion.div
-                initial={{ opacity: 0, y: 70, scale: 0.94, rotate: -1.5 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.95, ease: EASE, delay: 0.12 }}
-                className="relative"
-              >
-                <Image
-                  src="/images/todd-ipad5.png"
-                  alt="Todd, el secretario del consejo de Gobernia, dando la bienvenida y haciendo la primera pregunta del onboarding en un iPad"
-                  width={1347}
-                  height={1750}
-                  className="w-full h-auto drop-shadow-[0_34px_60px_rgba(14,22,38,0.30)]"
-                />
-              </motion.div>
-            </div>
-
-            {/* Bullets en fila bajo el iPad */}
-            <FadeUp>
-              <ul className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                {[
-                  "Preguntas una a la vez — sin formularios largos.",
-                  "Tu progreso se guarda solo: puedes pausar y volver cuando quieras.",
-                  "En 5–10 minutos, tu consejo ya te conoce.",
-                ].map(item => (
-                  <li key={item} className="flex items-start gap-3 text-[15px] leading-relaxed" style={{ color: INK2 }}>
-                    <span className="mt-[9px] h-1.5 w-1.5 shrink-0" style={{ background: ACCENT }} />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </FadeUp>
-
-          </div>
-        </section>
-
-        {/* ── Divider ──────────────────────────────────────── */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px" style={{ background: LINE }} /></div>
-
-        {/* ── Para quién ───────────────────────────────────── */}
-        <section className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]" style={{ background: SAND }}>
-          <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
-            <FadeUp>
-              <Eyebrow className="mb-4">Para quién</Eyebrow>
-              <ScrollReveal>
-                <h2
-                  style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.02, letterSpacing: "-0.03em", maxWidth: "13em" }}
-                >
-                  <span style={{ opacity: 0.4 }}>Diseñado para </span>
-                  <Heavy range={[0.2, 0.7]}>empresas reales.</Heavy>
-                </h2>
-              </ScrollReveal>
-            </FadeUp>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {FOR_WHO.map((c, i) => (
-                <FadeUp key={c.title} delay={i * 0.1}>
-                  <div className="rounded-[26px] p-[30px] space-y-3 h-full" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-                    <h3 className="text-[19px] font-bold leading-tight tracking-[-.02em]" style={{ ...SANS, color: INK }}>{c.title}</h3>
-                    <p className="text-[14.5px] leading-relaxed" style={{ color: INK2 }}>{c.desc}</p>
-                  </div>
-                </FadeUp>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── FAQ ──────────────────────────────────────────── */}
-        <section id="faq" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
-          <div className="w-full max-w-[var(--container-fluid)] mx-auto">
-            <FadeUp>
-              <div style={{ marginBottom: 60 }}>
-                <ScrollReveal>
-                  <h2
-                    style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.02, letterSpacing: "-0.03em", maxWidth: "13em" }}
-                  >
-                    <Heavy range={[0.15, 0.55]}>FAQ</Heavy>
-                    <span style={{ opacity: 0.4 }}> — preguntas frecuentes.</span>
-                  </h2>
-                </ScrollReveal>
-              </div>
-            </FadeUp>
-
-            <FadeUp delay={0.1}>
-              <div>
-                {FAQS.map(f => <FAQItem key={f.q} q={f.q} a={f.a} />)}
-              </div>
-            </FadeUp>
-          </div>
-        </section>
-
-        {/* ── Divider ──────────────────────────────────────── */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px" style={{ background: LINE }} /></div>
-
-        {/* ── CTA ──────────────────────────────────────────── */}
-        <section className="py-20 sm:py-28 3xl:py-36 px-[var(--px-fluid)]">
-          <FadeUp className="w-full max-w-[var(--container-fluid)] mx-auto space-y-8">
-            <Eyebrow>Empieza hoy</Eyebrow>
+      {/* ── Agents ───────────────────────────────────────── */}
+      <section id="producto" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
+          <FadeUp>
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase mb-4">Cinco consejeros</p>
             <ScrollReveal>
               <h2
-                style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.0, letterSpacing: "-0.03em", maxWidth: "13em" }}
+                className="font-light text-[var(--gob-ink)]"
+                style={{
+                  fontSize: "clamp(28px, 4.2vw, 104px)",
+                  lineHeight: 1.0,
+                  letterSpacing: "-0.03em",
+                }}
               >
-                <span style={{ opacity: 0.4 }}>Tu empresa merece un </span>
-                <Heavy range={[0.15, 0.5]}>consejo</Heavy>
-                <br />
-                <span style={{ opacity: 0.4 }}>que </span>
-                <Heavy range={[0.45, 0.85]}>nunca duerme.</Heavy>
+                <span style={{ opacity: 0.4 }}>Cinco </span>
+                <Heavy range={[0.1, 0.45]}>consejeros con IA</Heavy>
+                <span style={{ opacity: 0.4 }}> en tu </span>
+                <Heavy range={[0.4, 0.8]}>Sesión de Consejo.</Heavy>
               </h2>
             </ScrollReveal>
-            <p className="text-[17px] leading-relaxed max-w-xl" style={{ color: INK2 }}>
-              Cinco consejeros listos para sesionar sobre tu empresa. Sin consultores, cancela cuando quieras — primer diagnóstico en menos de 30 minutos.
-            </p>
-            <Link
-              href="/sign-up"
-              className="inline-flex items-center gap-2.5 rounded-full px-7 py-3.5 text-[14px] font-bold tracking-wide text-white transition-colors hover:brightness-90"
-              style={{ ...SANS, background: BNAVY }}
-            >
-              Comenzar gratis <ArrowRight className="h-4 w-4" />
-            </Link>
           </FadeUp>
-        </section>
 
-        {/* ── Divider ──────────────────────────────────────── */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px" style={{ background: LINE }} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+            {CONSEJEROS.map((a, i) => (
+              <FadeUp key={a.name} delay={i * 0.09}>
+                <div className="h-full">
+                  <span
+                    className="text-xs uppercase"
+                    style={{ color: "var(--gob-stone)", letterSpacing: "0.05em" }}
+                  >
+                    {a.tag}
+                  </span>
+                  <h3
+                    className="text-2xl font-normal text-[var(--gob-ink)]"
+                    style={{ marginTop: 12, marginBottom: 0, letterSpacing: "-0.01em" }}
+                  >
+                    {a.name}
+                  </h3>
+                  <div
+                    className="w-full"
+                    style={{ height: 1, backgroundColor: "var(--gob-rule)", margin: "20px 0" }}
+                  />
+                  <p className="text-sm leading-relaxed text-[var(--gob-muted)]" style={{ margin: 0 }}>
+                    {a.desc}
+                  </p>
+                </div>
+              </FadeUp>
+            ))}
+          </div>
+        </div>
+      </section>
 
-        {/* ── Seguridad y confidencialidad ─────────────────── */}
-        <section className="py-20 sm:py-28 3xl:py-36 px-[var(--px-fluid)]">
-          <FadeUp className="w-full max-w-[var(--container-fluid)] mx-auto space-y-12">
-            <div className="space-y-5 max-w-2xl">
-              <Eyebrow>Seguridad y confidencialidad</Eyebrow>
+      {/* ── Divider ──────────────────────────────────────── */}
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+
+      {/* ── Cómo funciona ────────────────────────────────── */}
+      <section id="como-funciona" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
+          <FadeUp>
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase mb-4">El proceso</p>
+            <ScrollReveal>
+              <h2
+                className="font-light text-[var(--gob-ink)]"
+                style={{
+                  fontSize: "clamp(28px, 4.2vw, 104px)",
+                  lineHeight: 1.0,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                <span style={{ opacity: 0.4 }}>De cero a tu </span>
+                <Heavy range={[0.1, 0.45]}>primer diagnóstico</Heavy>
+                <span style={{ opacity: 0.4 }}> en </span>
+                <Heavy range={[0.4, 0.8]}>tres pasos.</Heavy>
+              </h2>
+            </ScrollReveal>
+          </FadeUp>
+
+          <div>
+            {STEPS.map((s, i) => (
+              <FadeUp key={s.n} delay={i * 0.1}>
+                <div
+                  className="grid items-start"
+                  style={{
+                    gridTemplateColumns: "120px 1fr",
+                    gap: 40,
+                    padding: "60px 0",
+                    borderTop: i === 0 ? "1px solid var(--gob-rule)" : "none",
+                    borderBottom: "1px solid var(--gob-rule)",
+                  }}
+                >
+                  <span
+                    className="font-light leading-none"
+                    style={{
+                      fontSize: "clamp(42px, 5.5vw, 128px)",
+                      color: "var(--gob-rule)",
+                    }}
+                  >
+                    {s.n}
+                  </span>
+                  <div>
+                    <h3
+                      className="text-2xl font-normal text-[var(--gob-ink)]"
+                      style={{ margin: 0, letterSpacing: "-0.01em" }}
+                    >
+                      {s.title}
+                    </h3>
+                    <p
+                      className="text-base leading-relaxed text-[var(--gob-muted)]"
+                      style={{ maxWidth: "32em", marginTop: 16, marginBottom: 0 }}
+                    >
+                      {s.desc}
+                    </p>
+                  </div>
+                </div>
+              </FadeUp>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Divider ──────────────────────────────────────── */}
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+
+      {/* ── Para quién ───────────────────────────────────── */}
+      <section className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)] bg-[var(--gob-bone)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
+          <FadeUp>
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase mb-4">Para quién</p>
+            <ScrollReveal>
+              <h2
+                className="font-light text-[var(--gob-ink)]"
+                style={{
+                  fontSize: "clamp(28px, 4.2vw, 104px)",
+                  lineHeight: 1.0,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                <span style={{ opacity: 0.4 }}>Diseñado para </span>
+                <Heavy range={[0.2, 0.7]}>empresas reales.</Heavy>
+              </h2>
+            </ScrollReveal>
+          </FadeUp>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {FOR_WHO.map((c, i) => (
+              <FadeUp key={c.title} delay={i * 0.1}>
+                <div className="bg-white border border-[var(--gob-rule)]/60 rounded-2xl p-7 space-y-3 h-full">
+                  <h3 className="font-bold text-[var(--gob-navy)] text-sm">{c.title}</h3>
+                  <p className="italic font-light text-sm text-[var(--gob-muted)] leading-relaxed">{c.desc}</p>
+                </div>
+              </FadeUp>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ──────────────────────────────────────────── */}
+      <section id="faq" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto">
+          <FadeUp>
+            <div style={{ marginBottom: 60 }}>
               <ScrollReveal>
                 <h2
-                  style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.02, letterSpacing: "-0.03em", maxWidth: "13em" }}
+                  className="font-light text-[var(--gob-ink)]"
+                  style={{
+                    fontSize: "clamp(28px, 4.2vw, 104px)",
+                    lineHeight: 1.0,
+                    letterSpacing: "-0.03em",
+                  }}
                 >
-                  <span style={{ opacity: 0.4 }}>Tus datos financieros y estratégicos, </span>
-                  <Heavy range={[0.15, 0.55]}>protegidos.</Heavy>
+                  <Heavy range={[0.15, 0.55]}>FAQ</Heavy>
+                  <span style={{ opacity: 0.4 }}> — preguntas frecuentes.</span>
                 </h2>
               </ScrollReveal>
-              <p className="text-[17px] leading-relaxed" style={{ color: INK2 }}>
-                La información que compartes con tu consejo es sensible. La ciframos y la mantenemos privada.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {SECURITY.map(s => {
-                const Icon = s.icon
-                return (
-                  <div key={s.title} className="rounded-[26px] p-6 space-y-3" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(21,39,66,0.06)", color: BNAVY }}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <p className="text-sm font-bold" style={{ ...SANS, color: INK }}>{s.title}</p>
-                    <p className="text-sm leading-relaxed" style={{ color: INK2 }}>{s.desc}</p>
-                  </div>
-                )
-              })}
             </div>
           </FadeUp>
-        </section>
 
-        {/* ── Footer ───────────────────────────────────────── */}
-        <footer className="px-[var(--px-fluid)] pt-16 pb-8" style={{ background: SAND }}>
-          <div className="w-full max-w-[var(--container-fluid)] mx-auto">
-
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-14">
-              {/* Marca */}
-              <div className="md:col-span-5 space-y-5">
-                <GoberniaLogo size={30} />
-                <p className="text-[14.5px] leading-relaxed" style={{ color: INK2, maxWidth: "26em" }}>
-                  La evolución del Consejo de Administración. Cinco consejeros con IA
-                  sesionan sobre tu empresa cada mes.
-                </p>
-                <Link
-                  href="/sign-up"
-                  className="inline-flex items-center gap-2.5 rounded-full px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:brightness-90"
-                  style={{ ...SANS, background: BNAVY }}
-                >
-                  Comenzar gratis <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-
-              {/* Producto */}
-              <div className="md:col-span-2">
-                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em] mb-4" style={{ ...SANS, color: MUTED }}>
-                  Producto
-                </p>
-                <ul className="space-y-2.5 text-sm" style={{ color: INK2 }}>
-                  <li><a href="#producto"      className="transition-colors hover:text-[#152742]">Consejeros</a></li>
-                  <li><a href="#como-funciona" className="transition-colors hover:text-[#152742]">Cómo funciona</a></li>
-                  <li><a href="#faq"           className="transition-colors hover:text-[#152742]">FAQ</a></li>
-                </ul>
-              </div>
-
-              {/* Cuenta */}
-              <div className="md:col-span-2">
-                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em] mb-4" style={{ ...SANS, color: MUTED }}>
-                  Cuenta
-                </p>
-                <ul className="space-y-2.5 text-sm" style={{ color: INK2 }}>
-                  <li><Link href="/sign-in" className="transition-colors hover:text-[#152742]">Iniciar sesión</Link></li>
-                  <li><Link href="/sign-up" className="transition-colors hover:text-[#152742]">Crear cuenta</Link></li>
-                </ul>
-              </div>
-
-              {/* Legal */}
-              <div className="md:col-span-3">
-                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em] mb-4" style={{ ...SANS, color: MUTED }}>
-                  Legal
-                </p>
-                <ul className="space-y-2.5 text-sm" style={{ color: INK2 }}>
-                  <li><Link href="/legal/privacidad" className="transition-colors hover:text-[#152742]">Aviso de privacidad</Link></li>
-                  <li><Link href="/legal/terminos"   className="transition-colors hover:text-[#152742]">Términos y condiciones</Link></li>
-                  <li><Link href="/legal/cookies"    className="transition-colors hover:text-[#152742]">Política de cookies</Link></li>
-                </ul>
-              </div>
+          <FadeUp delay={0.1}>
+            <div>
+              {FAQS.map(f => <FAQItem key={f.q} q={f.q} a={f.a} />)}
             </div>
+          </FadeUp>
+        </div>
+      </section>
 
-            {/* Línea final */}
-            <div
-              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-6 text-xs"
-              style={{ borderTop: "1px solid rgba(14,22,38,0.12)", color: MUTED }}
+      {/* ── Divider ──────────────────────────────────────── */}
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+
+      {/* ── CTA ──────────────────────────────────────────── */}
+      <section className="py-20 sm:py-28 3xl:py-36 px-[var(--px-fluid)]">
+        <FadeUp className="w-full max-w-[var(--container-fluid)] mx-auto space-y-8">
+          <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase">Empieza hoy</p>
+          <ScrollReveal>
+            <h2
+              className="font-light text-[var(--gob-ink)]"
+              style={{
+                fontSize: "clamp(34px, 5.5vw, 128px)",
+                lineHeight: 0.98,
+                letterSpacing: "-0.03em",
+              }}
             >
-              <span>© {new Date().getFullYear()} Gobernia. Todos los derechos reservados.</span>
-              <span className="inline-flex items-center gap-2">
-                <span aria-hidden className="h-1.5 w-1.5" style={{ background: ACCENT }} />
-                Tu información está cifrada y protegida.
-              </span>
-            </div>
+              <span style={{ opacity: 0.4 }}>Tu empresa merece un </span>
+              <Heavy range={[0.15, 0.5]}>consejo</Heavy>
+              <br />
+              <span style={{ opacity: 0.4 }}>que </span>
+              <Heavy range={[0.45, 0.85]}>nunca duerme.</Heavy>
+            </h2>
+          </ScrollReveal>
+          <p className="italic font-light text-xl text-[var(--gob-muted)] max-w-xl leading-relaxed">
+            Cinco consejeros listos para sesionar sobre tu empresa. Sin consultores, cancela cuando quieras — primer diagnóstico en menos de 30 minutos.
+          </p>
+          <Link
+            href="/sign-up"
+            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] font-medium px-8 py-4 rounded-xl hover:bg-[var(--gob-ink)] transition-all duration-200 text-base"
+          >
+            Comenzar gratis <ArrowRight className="h-4 w-4" />
+          </Link>
+        </FadeUp>
+      </section>
 
+      {/* ── Divider ──────────────────────────────────────── */}
+      <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px bg-[var(--gob-rule)]/60" /></div>
+
+      {/* ── Seguridad y confidencialidad ─────────────────── */}
+      <section className="py-20 sm:py-28 3xl:py-36 px-[var(--px-fluid)]">
+        <FadeUp className="w-full max-w-[var(--container-fluid)] mx-auto space-y-12">
+          <div className="space-y-5 max-w-2xl">
+            <p className="text-xs font-medium tracking-widest text-[var(--gob-stone)] uppercase">Seguridad y confidencialidad</p>
+            <ScrollReveal>
+              <h2
+                className="font-light text-[var(--gob-ink)]"
+                style={{ fontSize: "clamp(28px, 4.2vw, 104px)", lineHeight: 1.0, letterSpacing: "-0.03em" }}
+              >
+                <span style={{ opacity: 0.4 }}>Tus datos financieros y estratégicos, </span>
+                <Heavy range={[0.15, 0.55]}>protegidos.</Heavy>
+              </h2>
+            </ScrollReveal>
+            <p className="text-lg font-light text-[var(--gob-muted)] leading-relaxed">
+              La información que compartes con tu consejo es sensible. La ciframos y la mantenemos privada.
+            </p>
           </div>
-        </footer>
 
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {SECURITY.map(s => {
+              const Icon = s.icon
+              return (
+                <div key={s.title} className="rounded-2xl border border-[var(--gob-rule)]/60 p-6 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--gob-navy)]/[0.06] text-[var(--gob-navy)] flex items-center justify-center">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-[var(--gob-ink)]">{s.title}</p>
+                  <p className="text-sm text-[var(--gob-muted)] leading-relaxed">{s.desc}</p>
+                </div>
+              )
+            })}
+          </div>
+        </FadeUp>
+      </section>
+
+      {/* ── Footer ───────────────────────────────────────── */}
+      <footer className="border-t border-[var(--gob-rule)]/60 py-8 sm:py-10 3xl:py-14 px-[var(--px-fluid)]">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-[var(--gob-stone)]">
+          <div className="flex items-center gap-3">
+            <GoberniaLogo size={16} />
+            <span>© {new Date().getFullYear()}</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <Link href="/sign-in"  className="hover:text-[var(--gob-navy)] transition-colors">Iniciar sesión</Link>
+            <Link href="/sign-up"  className="hover:text-[var(--gob-navy)] transition-colors">Registro</Link>
+            <span>Tu información está cifrada y protegida.</span>
+          </div>
+        </div>
+      </footer>
+
     </div>
   )
 }
