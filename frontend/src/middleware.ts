@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 // /t = escritorio público del responsable (enlace mágico, sin login).
-const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/auth/callback", "/landing-2", "/c", "/t"]
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/auth/callback", "/landing-2", "/v2", "/c", "/t"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -37,6 +37,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|fonts/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2|woff|otf|ttf)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|fonts/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2|woff|otf|ttf|mp4|webm)$).*)",
   ],
 }
