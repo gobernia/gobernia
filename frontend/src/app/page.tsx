@@ -259,7 +259,7 @@ const SECURITY = [
   { icon: Lock, title: "Cifrado en tránsito", desc: "Toda la comunicación viaja sobre HTTPS/TLS." },
   { icon: ShieldCheck, title: "Cifrado en reposo", desc: "Tu información se almacena cifrada en la base de datos." },
   { icon: KeyRound, title: "Acceso autenticado", desc: "Solo tú entras a tu cuenta, con inicio de sesión seguro." },
-  { icon: EyeOff, title: "Privado y confidencial", desc: "Tu información es solo para tu consejo y sus análisis." },
+  { icon: EyeOff, title: "Privado y confidencial", desc: "Tu información es solo para tu Consejo y sus análisis." },
 ]
 
 const CONSEJEROS = [
@@ -272,18 +272,18 @@ const CONSEJEROS = [
 
 const STEPS = [
   { n: "01", title: "Configura tu empresa",  desc: "8 pasos conversacionales. Industria, equipo, prioridades, KPIs y expectativas. Menos de 30 minutos para conocerte bien." },
-  { n: "02", title: "Tu consejo se activa",  desc: "Los cinco consejeros con IA leen tu perfil, generan el primer diagnóstico completo y proponen un plan de acción." },
+  { n: "02", title: "Tu Consejo se activa",  desc: "Los cinco consejeros con IA leen tu perfil, generan el primer diagnóstico completo y proponen un plan de acción." },
   { n: "03", title: "Sesiones cada mes",     desc: "Análisis actualizado cada periodo. Chatea con cualquier consejero sobre cualquier decisión en tiempo real." },
 ]
 
 const FOR_WHO = [
   { title: "Empresas familiares",    desc: "Módulos de protocolo, análisis de concentración y planificación de sucesión activados automáticamente." },
   { title: "PyMEs en crecimiento",   desc: "Benchmarks por industria y tamaño. Identifica en qué punto del camino estás y qué necesitas para el siguiente." },
-  { title: "Directivos sin consejo", desc: "Si aún no tienes consejo de administración, Gobernia es el punto de partida para estructurar tu gobierno." },
+  { title: "Directivos sin consejo", desc: "Si aún no tienes Consejo de Administración, Gobernia es el punto de partida para estructurar tu gobierno." },
 ]
 
 const FAQS = [
-  { q: "¿Gobernia reemplaza a mi consejo de administración?",  a: "No. Es un copiloto que complementa o prepara el camino hacia un consejo humano. Te da el rigor analítico que normalmente solo tienen las grandes corporaciones, mientras decides cuándo incorporar consejeros externos." },
+  { q: "¿Gobernia reemplaza a mi Consejo de Administración?",  a: "No. Es un copiloto que complementa o prepara el camino hacia un Consejo humano. Te da el rigor analítico que normalmente solo tienen las grandes corporaciones, mientras decides cuándo incorporar consejeros externos." },
   { q: "¿Qué tan segura está mi información?",                 a: "Toda la información está cifrada en tránsito y en reposo. Infraestructura en AWS vía Supabase. Tus datos nunca se usan para entrenar modelos ni se comparten con terceros." },
   { q: "¿Necesito experiencia en Consejos de Administración?",       a: "Para nada. Gobernia está diseñado para directivos y dueños que quieren profesionalizar su toma de decisiones sin ser expertos. El onboarding es conversacional y guiado." },
   { q: "¿Funciona para empresas familiares?",                  a: "Especialmente para ellas. Activa módulos de protocolo familiar, análisis de concentración de decisiones y planificación de sucesión cuando detecta que la empresa es familiar." },
@@ -500,7 +500,7 @@ export default function LandingV2() {
             className="text-sm font-semibold"
             style={{ ...SANS, color: INK, borderBottom: `2px solid ${ACCENT}`, paddingBottom: 3, letterSpacing: "-0.01em" }}
           >
-            Tu consejo, sesión tras sesión
+            Tu Consejo, sesión tras sesión
           </span>
         </div>
       </div>
@@ -577,7 +577,7 @@ export default function LandingV2() {
                 </h3>
                 <p className="mt-4 text-[15.5px] leading-relaxed" style={{ color: "rgba(255,255,255,.72)", maxWidth: "30em" }}>
                   Sin consultores ni implementaciones largas: entras, Todd conoce tu
-                  empresa y tu consejo queda listo para trabajar.
+                  empresa y tu Consejo queda listo para trabajar.
                 </p>
                 <div className="mt-8 flex items-center gap-6">
                   <Link
@@ -681,13 +681,13 @@ export default function LandingV2() {
         {/* ── Divider ──────────────────────────────────────── */}
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px" style={{ background: LINE }} /></div>
 
-        {/* ── Todd, tu secretario: te acompaña desde el inicio ── */}
+        {/* ── Todd, tu Secretario: te acompaña desde el inicio ── */}
         <section className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)] overflow-x-clip">
           <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
 
             {/* Título tamaño hero + intro */}
             <FadeUp>
-              <Eyebrow className="mb-4">Tu secretario de consejo</Eyebrow>
+              <Eyebrow className="mb-4">Tu Secretario de consejo</Eyebrow>
               <ScrollReveal>
                 <h2
                   style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.0, letterSpacing: "-0.03em", maxWidth: "13em" }}
@@ -701,7 +701,7 @@ export default function LandingV2() {
               </ScrollReveal>
               <p className="text-[17px] leading-relaxed mt-8" style={{ color: INK2, maxWidth: "38em" }}>
                 Al entrar a Gobernia te recibe <span className="font-semibold" style={{ color: INK }}>Todd</span>,
-                el secretario del consejo. Él te va guiando en todo el proceso: conoce tu empresa
+                el Secretario del Consejo. Él te va guiando en todo el proceso: conoce tu empresa
                 haciéndote preguntas como en una conversación, y con tus respuestas construye el
                 diagnóstico y deja todo listo para tu primera sesión.
               </p>
@@ -733,7 +733,7 @@ export default function LandingV2() {
               >
                 <Image
                   src="/images/todd-ipad5.png"
-                  alt="Todd, el secretario del consejo de Gobernia, dando la bienvenida y haciendo la primera pregunta del onboarding en un iPad"
+                  alt="Todd, el Secretario del Consejo de Gobernia, dando la bienvenida y haciendo la primera pregunta del onboarding en un iPad"
                   width={1347}
                   height={1750}
                   className="w-full h-auto drop-shadow-[0_34px_60px_rgba(14,22,38,0.30)]"
@@ -747,7 +747,7 @@ export default function LandingV2() {
                 {[
                   "Preguntas una a la vez — sin formularios largos.",
                   "Tu progreso se guarda solo: puedes pausar y volver cuando quieras.",
-                  "En 5–10 minutos, tu consejo ya te conoce.",
+                  "En 5–10 minutos, tu Consejo ya te conoce.",
                 ].map(item => (
                   <li key={item} className="flex items-start gap-3 text-[15px] leading-relaxed" style={{ color: INK2 }}>
                     <span className="mt-[9px] h-1.5 w-1.5 shrink-0" style={{ background: ACCENT }} />
@@ -863,7 +863,7 @@ export default function LandingV2() {
                 </h2>
               </ScrollReveal>
               <p className="text-[17px] leading-relaxed" style={{ color: INK2 }}>
-                La información que compartes con tu consejo es sensible. La ciframos y la mantenemos privada.
+                La información que compartes con tu Consejo es sensible. La ciframos y la mantenemos privada.
               </p>
             </div>
 

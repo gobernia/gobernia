@@ -34,7 +34,7 @@ export default function AvisoPrivacidadPage() {
       <p><strong>Finalidades primarias</strong> (necesarias para el servicio):</p>
       <ul>
         <li>Crear y administrar tu cuenta y autenticar tu acceso.</li>
-        <li>Prestar el servicio: generar diagnósticos, planes, sesiones del consejo con IA y demás funciones de la plataforma a partir de la información de tu empresa.</li>
+        <li>Prestar el servicio: generar diagnósticos, planes, sesiones del Consejo con IA y demás funciones de la plataforma a partir de la información de tu empresa.</li>
         <li>Darte soporte y atender tus solicitudes.</li>
         <li>Cumplir obligaciones legales aplicables.</li>
       </ul>
@@ -66,7 +66,7 @@ export default function AvisoPrivacidadPage() {
       <p>
         Tu información viaja cifrada (HTTPS/TLS) y se almacena cifrada en reposo. El acceso a tu
         cuenta está protegido con autenticación y la información de tu empresa es confidencial:
-        solo tú y tu consejo con IA la utilizan.
+        solo tú y tu Consejo con IA la utilizan.
       </p>
 
       <h2>7. Derechos ARCO y revocación del consentimiento</h2>

@@ -24,7 +24,7 @@ export default function TerminosPage() {
       <p>
         Gobernia es un copiloto de gobierno corporativo: cinco consejeros con inteligencia
         artificial analizan la información que proporcionas sobre tu empresa y generan diagnósticos,
-        planes, sesiones de consejo y seguimiento de tareas. El servicio está dirigido a empresas y
+        planes, sesiones de Consejo y seguimiento de tareas. El servicio está dirigido a empresas y
         profesionales; al usarlo declaras que lo haces en nombre de una empresa y que tienes
         facultades para ello.
       </p>
@@ -33,8 +33,8 @@ export default function TerminosPage() {
       <p>
         Los análisis, diagnósticos y recomendaciones se generan con inteligencia artificial y tienen
         una finalidad <strong>informativa y de apoyo a la decisión</strong>. No constituyen asesoría
-        legal, fiscal, contable, financiera ni de inversión, y no sustituyen a un consejo de
-        administración humano ni a profesionales certificados.
+        legal, fiscal, contable, financiera ni de inversión, y no sustituyen a un Consejo de
+        Administración humano ni a profesionales certificados.
         <strong> Las decisiones que tomes con base en la plataforma son tu responsabilidad.</strong>
         La IA puede producir información incompleta o inexacta; verifica cualquier resultado
         relevante antes de actuar.
