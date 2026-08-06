@@ -18,6 +18,8 @@ class BoardTaskOut(BaseModel):
     # Mes de origen cuando la tarea se arrastra a otro mes (p.ej. "Marzo 2026").
     # None para las tareas propias del mes.
     viene_de:  str | None = None
+    # Índice del pilar del roadmap que la tarea hace avanzar (None si no se determinó).
+    pilar_index: int | None = None
     # Cuántas evidencias tiene subidas la tarea.
     evidencias: int = 0
     # Veredicto del Consejo sobre la evidencia: {"estado", "motivo"} o None si nunca se validó.

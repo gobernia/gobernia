@@ -8,7 +8,7 @@ import {
   ArrowRight, Play, ChevronRight, ChevronDown,
   CheckCircle2, ArrowUpRight, X, Loader2, Pencil,
   Sparkles, FileSearch, LayoutGrid, MessagesSquare, ClipboardList, Library, Users,
-  Cpu, Building2, ShieldCheck, Workflow,
+  Cpu, Building2, ShieldCheck, Workflow, CircleDot, Circle,
 } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
@@ -73,6 +73,7 @@ import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
 import { getLogo } from "@/lib/logo"
+import { getBoard, type BoardMes, type BoardTask } from "@/lib/board"
 import { getRoadmap, type Roadmap, type Pilar } from "@/lib/roadmap"
 import { roadmapIsEmpty } from "@/components/roadmap/shared"
 
@@ -268,14 +269,20 @@ function MiniLbl({ children, dark }: { children: ReactNode; dark?: boolean }) {
 }
 
 // Ficha de prioridad: índice grande y tenue, nombre, propósito (2 líneas) y un
-// split de dos columnas — Indicadores (bullets cuadrados naranjas) y Tareas
-// (numeradas con "Ver más" expandible). `dark` cambia bordes y colores de texto.
-function PrioTile({ pilar, index, bg, col }: { pilar: Pilar; index: number; bg: BG; col: string }) {
+// split de dos columnas — Indicadores (bullets cuadrados naranjas) y Tareas.
+// Si hay Board IA (`boardTasks`), las tareas se muestran VIVAS con su estado
+// real (check hecho / en proceso / sin ejecutar); si no, caen a las
+// estrategias del roadmap como antes. `dark` cambia bordes y colores de texto.
+function PrioTile({ pilar, index, bg, col, boardTasks }: {
+  pilar: Pilar; index: number; bg: BG; col: string; boardTasks?: BoardTask[]
+}) {
   const dark = bg === "dark" || bg === "ink"
   const kpis = (pilar.kpis ?? []).filter(k => k.label).slice(0, 5)
   const tareas = (pilar.estrategias ?? []).slice(0, 6)
   const purpose = pilar.objetivo || pilar.descripcion
   const num = String(index + 1).padStart(2, "0")
+  const vivas = boardTasks ?? []
+  const hechas = vivas.filter(t => t.status === "completada").length
   return (
     <div id={`prioridad-${index}`} className={`${TILE} ${col} scroll-mt-24`} style={bgStyle(bg)}>
       <div className="relative">
@@ -314,8 +321,33 @@ function PrioTile({ pilar, index, bg, col }: { pilar: Pilar; index: number; bg: 
             )}
           </div>
           <div>
-            <MiniLbl dark={dark}>Tareas</MiniLbl>
-            {tareas.length > 0 ? (
+            <MiniLbl dark={dark}>
+              {vivas.length > 0 ? `Tareas · ${hechas} de ${vivas.length} hechas` : "Tareas"}
+            </MiniLbl>
+            {vivas.length > 0 ? (
+              <>
+                <ul className="space-y-0.5">
+                  {vivas.slice(0, 7).map(t => {
+                    const Icon = t.status === "completada" ? CheckCircle2 : t.status === "en_progreso" ? CircleDot : Circle
+                    const iconColor =
+                      t.status === "completada" ? "#0f766e"
+                      : t.status === "en_progreso" ? "#b45309"
+                      : dark ? "rgba(255,255,255,.45)" : MUTED
+                    return (
+                      <li key={t.id} className="flex items-start gap-2 py-1.5 text-[14.5px] leading-snug" style={{ color: dark ? "#fff" : INK }}>
+                        <Icon className="mt-[3px] h-[15px] w-[15px] shrink-0" style={{ color: iconColor }} />
+                        <span className={t.status === "completada" ? "line-through opacity-70" : ""}>{t.title}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+                {vivas.length > 7 && (
+                  <p className="mt-1.5 text-[12px] font-semibold" style={{ color: dark ? "rgba(255,255,255,.55)" : MUTED }}>
+                    +{vivas.length - 7} tareas más en el Board IA
+                  </p>
+                )}
+              </>
+            ) : tareas.length > 0 ? (
               <ol className="space-y-0.5">
                 {tareas.map((t, j) => (
                   <TareaItem key={j} n={j + 1} texto={t} dark={dark} />
@@ -334,8 +366,8 @@ function PrioTile({ pilar, index, bg, col }: { pilar: Pilar; index: number; bg: 
 const ENAB_ICONS = [Users, Cpu, Building2, ShieldCheck, Workflow]
 
 function RoadmapOnePager({
-  roadmap, companyName, companyLogo,
-}: { roadmap: Roadmap; companyName: string | null; companyLogo: string | null }) {
+  roadmap, companyName, companyLogo, boardMeses,
+}: { roadmap: Roadmap; companyName: string | null; companyLogo: string | null; boardMeses: BoardMes[] }) {
   const objetivos = (roadmap.objetivos_estrategicos ?? []).filter(Boolean)
   const enablers  = (roadmap.key_enablers ?? []).filter(Boolean)
   const pilares   = roadmap.pilares ?? []
@@ -344,6 +376,16 @@ function RoadmapOnePager({
   // Compromiso seleccionado arriba → SU ficha (la azul) se muestra abajo.
   const [selPilar, setSelPilar] = useState(0)
   const pilarActivo = Math.min(selPilar, Math.max(pilares.length - 1, 0))
+  // Tareas vivas del Board IA agrupadas por pilar → checks de avance real.
+  const tareasPorPilar = new Map<number, BoardTask[]>()
+  for (const m of boardMeses) {
+    for (const t of m.tareas) {
+      if (t.pilar_index == null) continue
+      const arr = tareasPorPilar.get(t.pilar_index)
+      if (arr) arr.push(t)
+      else tareasPorPilar.set(t.pilar_index, [t])
+    }
+  }
 
   return (
     <motion.div
@@ -503,7 +545,14 @@ function RoadmapOnePager({
 
             {/* Solo se muestra LA ficha del compromiso seleccionado arriba
                 (dark, ancho completo); cambia al hacer click en otro. */}
-            <PrioTile key={pilarActivo} pilar={pilares[pilarActivo]} index={pilarActivo} bg="dark" col={COL.c12} />
+            <PrioTile
+              key={pilarActivo}
+              pilar={pilares[pilarActivo]}
+              index={pilarActivo}
+              bg="dark"
+              col={COL.c12}
+              boardTasks={tareasPorPilar.get(pilarActivo)}
+            />
           </>
         )}
 
@@ -550,6 +599,7 @@ export default function DashboardPage() {
 
   const [roadmap,     setRoadmap]     = useState<Roadmap | null>(null)
   const [roadmapChecked, setRoadmapChecked] = useState(false)
+  const [boardMeses,  setBoardMeses]  = useState<BoardMes[]>([])
 
   const [showSetupModal, setShowSetupModal] = useState(false)
 
@@ -595,6 +645,9 @@ export default function DashboardPage() {
       .then(r => setSessions(r.data))
       .catch(() => {})
       .finally(() => setSessLoading(false))
+
+    // Las tareas vivas del Board IA: alimentan los checks de avance por prioridad.
+    getBoard().then(setBoardMeses).catch(() => {})
   }, [hydrate, reset])
 
   // El roadmap alimenta el one-pager del Inicio. Si aún no hay (usuario nuevo o
@@ -930,7 +983,7 @@ export default function DashboardPage() {
               Con roadmap → estrategia de un vistazo (solo lectura).
               Sin roadmap → el camino guiado "Del diagnóstico al plan". */}
           {hasRoadmap ? (
-            <RoadmapOnePager roadmap={roadmap!} companyName={companyName} companyLogo={companyLogo} />
+            <RoadmapOnePager roadmap={roadmap!} companyName={companyName} companyLogo={companyLogo} boardMeses={boardMeses} />
           ) : (!roadmapChecked && onboardingComplete) ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-5 w-5 animate-spin text-gray-300" />

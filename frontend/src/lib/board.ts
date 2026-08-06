@@ -26,6 +26,8 @@ export interface BoardTask {
   priority: TaskPriority
   due_date: string | null
   objetivo: string | null
+  // Índice del pilar del roadmap que la tarea hace avanzar (None si no se determinó).
+  pilar_index?: number | null
   // Si la tarea se arrastró de un mes anterior, de dónde viene (p.ej. "Marzo 2026").
   viene_de?: string | null
   // Cuántos documentos de evidencia tiene la tarea.

@@ -313,6 +313,7 @@ async def get_board(
     obj_ids = [o.id for m in months for o in m.objectives]
     grouped = await _tasks_by_objective(obj_ids, db)
     obj_title = {o.id: o.title for m in months for o in m.objectives}
+    obj_pilar = {o.id: o.pilar_index for m in months for o in m.objectives}
 
     # Conteo de evidencias por tarea en UNA sola query (sin N+1).
     task_ids = [t.id for tasks in grouped.values() for t in tasks]
@@ -341,6 +342,7 @@ async def get_board(
             owner_email=t.owner_email,
             status=t.status, priority=t.priority, due_date=t.due_date,
             objetivo=obj_title.get(t.objective_id),
+            pilar_index=obj_pilar.get(t.objective_id),
             viene_de=viene_de,
             evidencias=evidence_counts.get(t.id, 0),
             validacion=_validacion_out(t.validacion),
