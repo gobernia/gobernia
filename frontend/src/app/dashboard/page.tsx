@@ -432,22 +432,40 @@ function RoadmapOnePager({
           </h3>
         </div>
 
-        {/* 6. KPI VISIÓN — los compromisos */}
+        {/* 6. KPI VISIÓN — los compromisos: los 5 en UNA misma línea (uno por
+            pilar) y cada tarjeta es un enlace que baja a su ficha de Prioridad
+            (#prioridad-i). La flecha ↓ da la señal de que se puede seleccionar. */}
         {objetivos.length > 0 && (
           <>
             <div className="col-span-12 px-1 pt-3">
               <Eyebrow>KPI Visión — los compromisos</Eyebrow>
             </div>
-            {objetivos.map((o, i) => (
-              <div key={i} className={`${TILE} ${COL.c4} flex min-h-[170px] flex-col`} style={bgStyle(i % 2 === 0 ? "sand" : "card")}>
-                <div className="text-[13px] font-extrabold tracking-[0.04em]" style={{ color: ACCENT }}>
-                  {String(i + 1).padStart(2, "0")}
-                </div>
-                <div className="mt-3.5 text-[16px] font-semibold leading-snug tracking-[-.015em]" style={{ color: INK }}>
-                  {o}
-                </div>
-              </div>
-            ))}
+            <div className="col-span-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {objetivos.map((o, i) => (
+                <a
+                  key={i}
+                  href={`#prioridad-${i}`}
+                  aria-label={`Ir a la prioridad ${String(i + 1).padStart(2, "0")}`}
+                  className={`${TILE} group flex min-h-[170px] flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
+                  style={bgStyle(i % 2 === 0 ? "sand" : "card")}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-[13px] font-extrabold tracking-[0.04em]" style={{ color: ACCENT }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </div>
+                    <span
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] transition-colors group-hover:border-transparent group-hover:bg-[#FF5C1A] group-hover:text-white"
+                      style={{ borderColor: "rgba(14,22,38,0.18)", color: MUTED }}
+                    >
+                      ↓
+                    </span>
+                  </div>
+                  <div className="mt-3.5 text-[16px] font-semibold leading-snug tracking-[-.015em]" style={{ color: INK }}>
+                    {o}
+                  </div>
+                </a>
+              ))}
+            </div>
           </>
         )}
 
@@ -458,37 +476,8 @@ function RoadmapOnePager({
               <Eyebrow>Prioridades estratégicas — cada ficha trae sus indicadores y sus tareas</Eyebrow>
             </div>
 
-            {/* Prioridad 1 (dark, ancha) + tile de Composición (ink) al lado */}
-            <PrioTile pilar={pilares[0]} index={0} bg="dark" col={COL.c8} />
-            <div className={`${TILE} ${COL.c4} flex flex-col justify-between`} style={bgStyle("ink")}>
-              <div>
-                <Eyebrow dark className="mb-3">Composición del roadmap</Eyebrow>
-                <h3 className="text-[19px] font-bold leading-tight tracking-[-.02em]" style={SANS}>
-                  {pilares.length} prioridades · {totalTar} tareas en tu plan.
-                </h3>
-              </div>
-              <div>
-                <div className="mt-5 flex gap-[3px]">
-                  {pilares.map((_, i) => (
-                    <span
-                      key={i}
-                      className="grid h-11 flex-1 place-items-center rounded-[7px] text-[11px] font-extrabold"
-                      style={{
-                        background: i === 0 ? ACCENT : "rgba(255,255,255,.22)",
-                        color: i === 0 ? "#fff" : "rgba(255,255,255,.9)",
-                      }}
-                    >
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-3.5 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-semibold" style={{ color: "rgba(255,255,255,.62)" }}>
-                  <span>{pilares.length} prioridades</span>
-                  <span>{totalInd} indicadores</span>
-                  <span>{totalTar} tareas</span>
-                </div>
-              </div>
-            </div>
+            {/* Prioridad 1 destacada (dark, ancho completo) */}
+            <PrioTile pilar={pilares[0]} index={0} bg="dark" col={COL.c12} />
 
             {/* Prioridades restantes: alternan sand / card, a media anchura */}
             {restPilares.map((p, i) => (
