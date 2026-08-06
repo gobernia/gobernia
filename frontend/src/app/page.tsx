@@ -409,9 +409,10 @@ export default function LandingV2() {
              El headline vive PEGADO al borde superior del video.
              OJO: el padding va POR FUERA del contenedor centrado (igual que en
              las secciones) para que el headline alinee con el resto de la página. */}
-      {/* En móvil el contenido arranca bajo el menú (mt-24); en desktop se
-          ancla abajo junto al video (mt-auto). El pie siempre queda al fondo. */}
-      <div className="fixed inset-x-0 top-0 z-0 flex flex-col px-[var(--px-fluid)]" style={{ height: HERO_ALTO }}>
+      {/* En móvil el headline queda CENTRADO entre la barra del menú (pt-16
+          compensa su altura) y el pie de Ciudad de México; en desktop se
+          ancla abajo junto al video. */}
+      <div className="fixed inset-x-0 top-0 z-0 flex flex-col px-[var(--px-fluid)] pt-16 lg:pt-0" style={{ height: HERO_ALTO }}>
         {/* Texto descriptivo arriba a la DERECHA (entre el menú y la mitad),
             posicionado en absoluto sobre el hero */}
         <div className="absolute inset-x-0 hidden lg:block px-[var(--px-fluid)]" style={{ top: "26%" }}>
@@ -438,10 +439,9 @@ export default function LandingV2() {
           </div>
         </div>
 
-        {/* Headline grande a la IZQUIERDA. En móvil queda centrado verticalmente
-            (mt-auto arriba + mt-auto del pie reparten el espacio); en desktop
-            se ancla abajo junto al video (el pie va sin margen). */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto mt-auto">
+        {/* Headline grande a la IZQUIERDA: my-auto lo centra en móvil entre el
+            menú y el pie; en desktop vuelve a anclarse abajo. */}
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto my-auto lg:my-0 lg:mt-auto">
           <motion.h1
             variants={heroContainer}
             initial="hidden"
@@ -492,7 +492,7 @@ export default function LandingV2() {
         </div>
 
         {/* Pie del hero, entre el headline y el borde del video */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto mt-auto lg:mt-0 flex flex-wrap items-end justify-between gap-x-8 gap-y-2 pt-6 pb-3.5">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto flex flex-wrap items-end justify-between gap-x-8 gap-y-2 pt-6 pb-3.5">
           <span className="text-[10.5px] font-extrabold uppercase tracking-[0.17em]" style={{ ...SANS, color: INK2 }}>
             Ciudad de México{hora ? ` · ${hora}` : ""}
           </span>
