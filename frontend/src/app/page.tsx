@@ -14,7 +14,7 @@ import { useState, useEffect, useRef, useContext, createContext, type CSSPropert
 import Link from "next/link"
 import Image from "next/image"
 import { motion, useScroll, useTransform, useMotionValue, type MotionValue } from "framer-motion"
-import { ArrowRight, Lock, ShieldCheck, KeyRound, EyeOff } from "lucide-react"
+import { ArrowRight, Lock, ShieldCheck, KeyRound, EyeOff, Play, Pause, Rewind, FastForward, Volume2, VolumeX } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
 // ── Easing ────────────────────────────────────────────────
@@ -38,12 +38,19 @@ const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
 // ── Geometría del hero ────────────────────────────────────
 const HERO_ALTO = "74svh"  // alto del área del hero; el video asoma debajo
 
-// ── Video que se ensancha con el scroll ───────────────────
+// ── Video que se ensancha con el scroll + controles propios ──
 // Arranca con los márgenes de la página y esquinas bento (26px); al hacer
-// scroll los márgenes se cierran hasta quedar a sangre completa.
+// scroll los márgenes se cierran hasta quedar a sangre completa. Se muestra
+// COMPLETO (16:9, sin recorte) y trae controles táctiles: pausa, ±10s,
+// audio y barra de progreso con seek — funcionan en desktop y móvil.
 function VideoExpand() {
   const { scrollY } = useScroll()
+  const videoRef = useRef<HTMLVideoElement>(null)
   const [m, setM] = useState({ pad: 48, dist: 400 })
+  const [playing, setPlaying] = useState(true)
+  const [muted, setMuted] = useState(true)
+  const [progress, setProgress] = useState(0)
+
   useEffect(() => {
     const calc = () => setM({
       // Mismo cálculo que --px-fluid: clamp(1.25rem, 4vw, 5rem)
@@ -54,20 +61,91 @@ function VideoExpand() {
     window.addEventListener("resize", calc)
     return () => window.removeEventListener("resize", calc)
   }, [])
+
   const inset = useTransform(scrollY, [0, m.dist], [m.pad, 0])
   const radius = useTransform(scrollY, [0, m.dist], [26, 0])
+
+  const togglePlay = () => {
+    const v = videoRef.current
+    if (!v) return
+    if (v.paused) void v.play()
+    else v.pause()
+  }
+  const skip = (s: number) => {
+    const v = videoRef.current
+    if (!v || !v.duration) return
+    v.currentTime = Math.min(Math.max(0, v.currentTime + s), v.duration)
+  }
+  const toggleMute = () => {
+    const v = videoRef.current
+    if (!v) return
+    v.muted = !v.muted
+    setMuted(v.muted)
+  }
+  const seek = (e: React.PointerEvent<HTMLDivElement>) => {
+    const v = videoRef.current
+    if (!v || !v.duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const ratio = Math.min(Math.max(0, (e.clientX - rect.left) / rect.width), 1)
+    v.currentTime = ratio * v.duration
+    setProgress(ratio)
+  }
+
+  const btn =
+    "flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors " +
+    "bg-[rgba(14,22,38,0.5)] hover:bg-[rgba(14,22,38,0.75)] backdrop-blur-sm"
+
   return (
     <section className="relative">
-      <motion.div className="overflow-hidden" style={{ marginInline: inset, borderRadius: radius }}>
+      <motion.div className="relative overflow-hidden" style={{ marginInline: inset, borderRadius: radius }}>
         <video
+          ref={videoRef}
           src="/video/Fertodd.mp4"
           autoPlay
           muted
           loop
           playsInline
           preload="auto"
-          className="block w-full h-[100svh] object-cover"
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onTimeUpdate={e => {
+            const v = e.currentTarget
+            if (v.duration) setProgress(v.currentTime / v.duration)
+          }}
+          className="block w-full h-auto"
         />
+
+        {/* Controles: siempre visibles (táctiles), sobre un degradado para legibilidad */}
+        <div className="absolute inset-x-0 bottom-0 px-4 pb-3 pt-12 sm:px-6 sm:pb-5 bg-gradient-to-t from-[rgba(14,22,38,0.55)] to-transparent">
+          {/* Barra de progreso con seek */}
+          <div
+            role="slider"
+            aria-label="Posición del video"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress * 100)}
+            onPointerDown={seek}
+            className="group mb-3 cursor-pointer py-1.5"
+          >
+            <div className="h-1 w-full rounded-full bg-white/30 transition-all group-hover:h-1.5">
+              <div className="h-full rounded-full bg-white" style={{ width: `${progress * 100}%` }} />
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+            <button type="button" onClick={() => skip(-10)} aria-label="Retroceder 10 segundos" className={btn}>
+              <Rewind className="h-4.5 w-4.5" />
+            </button>
+            <button type="button" onClick={togglePlay} aria-label={playing ? "Pausar" : "Reproducir"} className={btn}>
+              {playing ? <Pause className="h-4.5 w-4.5" /> : <Play className="h-4.5 w-4.5" />}
+            </button>
+            <button type="button" onClick={() => skip(10)} aria-label="Adelantar 10 segundos" className={btn}>
+              <FastForward className="h-4.5 w-4.5" />
+            </button>
+            <button type="button" onClick={toggleMute} aria-label={muted ? "Activar sonido" : "Silenciar"} className={btn}>
+              {muted ? <VolumeX className="h-4.5 w-4.5" /> : <Volume2 className="h-4.5 w-4.5" />}
+            </button>
+          </div>
+        </div>
       </motion.div>
     </section>
   )
@@ -331,7 +409,9 @@ export default function LandingV2() {
              El headline vive PEGADO al borde superior del video.
              OJO: el padding va POR FUERA del contenedor centrado (igual que en
              las secciones) para que el headline alinee con el resto de la página. */}
-      <div className="fixed inset-x-0 top-0 z-0 flex flex-col justify-end px-[var(--px-fluid)]" style={{ height: HERO_ALTO }}>
+      {/* En móvil el contenido arranca bajo el menú (mt-24); en desktop se
+          ancla abajo junto al video (mt-auto). El pie siempre queda al fondo. */}
+      <div className="fixed inset-x-0 top-0 z-0 flex flex-col px-[var(--px-fluid)]" style={{ height: HERO_ALTO }}>
         {/* Texto descriptivo arriba a la DERECHA (entre el menú y la mitad),
             posicionado en absoluto sobre el hero */}
         <div className="absolute inset-x-0 hidden lg:block px-[var(--px-fluid)]" style={{ top: "26%" }}>
@@ -359,7 +439,7 @@ export default function LandingV2() {
         </div>
 
         {/* Headline grande a la IZQUIERDA, anclado abajo junto al video */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto mt-24 lg:mt-auto">
           <motion.h1
             variants={heroContainer}
             initial="hidden"
@@ -410,7 +490,7 @@ export default function LandingV2() {
         </div>
 
         {/* Pie del hero, entre el headline y el borde del video */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto flex flex-wrap items-end justify-between gap-x-8 gap-y-2 pt-6 pb-3.5">
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto mt-auto lg:mt-0 flex flex-wrap items-end justify-between gap-x-8 gap-y-2 pt-6 pb-3.5">
           <span className="text-[10.5px] font-extrabold uppercase tracking-[0.17em]" style={{ ...SANS, color: INK2 }}>
             Ciudad de México{hora ? ` · ${hora}` : ""}
           </span>
@@ -600,7 +680,7 @@ export default function LandingV2() {
         <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px" style={{ background: LINE }} /></div>
 
         {/* ── Todd, tu secretario: te acompaña desde el inicio ── */}
-        <section className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)]">
+        <section className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)] overflow-x-clip">
           <div className="w-full max-w-[var(--container-fluid)] mx-auto space-y-14">
 
             {/* Título tamaño hero + intro */}
@@ -632,7 +712,7 @@ export default function LandingV2() {
                 aria-hidden
                 initial={{ opacity: 0, scale: 0.6 }}
                 whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true, margin: "-80px" }}
+                viewport={{ once: true, amount: 0.1 }}
                 transition={{ duration: 1.1, ease: EASE }}
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
                 style={{
@@ -645,7 +725,7 @@ export default function LandingV2() {
               <motion.div
                 initial={{ opacity: 0, y: 70, scale: 0.94, rotate: -1.5 }}
                 whileInView={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
+                viewport={{ once: true, amount: 0.1 }}
                 transition={{ duration: 0.95, ease: EASE, delay: 0.12 }}
                 className="relative"
               >
