@@ -251,7 +251,7 @@ export default function SessionPage() {
     <div className="min-h-dvh bg-white text-black font-sans antialiased flex flex-col">
 
       {/* ── Navbar ───────────────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 md:left-60 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <header className="fixed top-0 inset-x-0 md:left-56 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <PageShell className="h-14 flex items-center gap-4">
           <button
             onClick={() => router.push("/dashboard")}
@@ -281,7 +281,7 @@ export default function SessionPage() {
       </header>
 
       {/* ── Tab bar ── justo debajo del navbar, con el mismo lienzo ── */}
-      <div className="fixed top-14 inset-x-0 md:left-60 z-30 bg-white border-b border-gray-100">
+      <div className="fixed top-14 inset-x-0 md:left-56 z-30 bg-white border-b border-gray-100">
         <PageShell className="flex">
           {(["analisis", "chat"] as Tab[]).map(t => (
             <button

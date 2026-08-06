@@ -18,13 +18,21 @@ import {
 import { getColaboradorLink } from "@/lib/colaborador"
 
 /**
- * El tablero tipo Monday del plan mensual, en la paleta sobria de Gobernia.
+ * El tablero tipo Monday del plan mensual, en el sistema de diseño Bento.
  *
- * Estructura de Monday con colores de Gobernia: rejilla real (líneas verticales y
+ * Estructura de Monday con colores Bento: rejilla real (líneas verticales y
  * horizontales), columnas con sombreado alterno para que cada una "se note", la celda
  * de Estado rellena del color del estado (editable, optimista) y la de Responsable
  * editable con popover (input prellenado + chips de responsables ya usados).
  */
+
+// ── Bento design system color tokens ──
+const INK = "#0E1626"      // primary text
+const MUTED = "#6E7686"    // tertiary text
+const CARD = "#FFFFFF"     // cards/containers
+const SAND = "#E8E3D8"     // accent backgrounds
+const BNAVY = "#152742"    // navy accent
+const LINE = "#E2E2DC"     // borders
 
 // ── Estado: etiqueta + color sobrio (hex literal; Tailwind v4 no ve clases dinámicas) ──
 const ESTADOS: TaskStatus[] = ["pendiente", "en_progreso", "completada"]
@@ -36,14 +44,14 @@ const ESTADO_LABEL: Record<TaskStatus, string> = {
 }
 
 const ESTADO_COLOR: Record<TaskStatus, string> = {
-  pendiente:   "#8E8B84", // --gob-stone
+  pendiente:   MUTED,     // bento MUTED
   en_progreso: "#b45309", // ámbar
   completada:  "#0f766e", // verde
 }
 
-// ── Filete de color por grupo de mes: paleta rotatoria sobria (navy y variantes) ──
+// ── Filete de color por grupo de mes: paleta rotatoria Bento (navy y variantes) ──
 // Array literal de hex — NADA dinámico por el JIT de Tailwind.
-const FILETE = ["#142849", "#3a4a63", "#26282E", "#5a6b82", "#1f3a5f", "#4a5568"]
+const FILETE = [BNAVY, "#1f3a52", "#203950", "#2d4563", "#1a334d", "#26384a"]
 
 const filete = (i: number) => FILETE[i % FILETE.length]
 
@@ -54,17 +62,10 @@ const GRID_COLS = "md:grid-cols-[minmax(260px,1fr)_220px_200px_120px_120px_260px
 // Ancho mínimo de la rejilla: fuerza el scroll horizontal cuando el tablero aprieta.
 const GRID_MINW = "md:min-w-[1180px]"
 
-// Sombreado alterno de columnas (efecto Monday, tonos Gobernia).
-// Literales para el JIT: blanco / hueso (--gob-bone #F4F1EC). Con el gutter blanco las
-// columnas blancas se funden con la separación, así que la alterna sube a hueso para que
-// el rayado siga leyéndose. Estado va aparte (color).
-const BG_WHITE = "md:bg-white"
-const BG_ALT = "md:bg-[#F4F1EC]"
-
 // La columna Tarea queda fija a la izquierda (sticky) con fondo sólido y un corte
 // (borde + sombra) para marcar el congelado mientras el resto se desplaza. Solo en
 // desktop; en móvil el layout de bloque no necesita congelar nada.
-const STICKY_TAREA = "md:sticky md:left-0 md:z-[15] md:shadow-[6px_0_10px_-8px_rgba(20,40,73,0.22)]"
+const STICKY_TAREA = `md:sticky md:left-0 md:z-[15] md:shadow-[6px_0_10px_-8px_rgba(21,39,66,0.22)]`
 
 // ── Fecha corta es-MX ("15 mar") ──
 function venceCorto(iso: string | null): string {
@@ -94,7 +95,7 @@ function Prioridad({ nivel }: { nivel: BoardTask["priority"] }) {
     <span className="inline-flex items-end gap-0.5" role="img" aria-label={PRIORIDAD_LABEL[nivel]} title={PRIORIDAD_LABEL[nivel]}>
       {[0, 1, 2].map(i => (
         <span key={i} className="w-1 rounded-full"
-          style={{ height: 7 + i * 4, backgroundColor: i < llenas ? "#142849" : "#D9D4CB" }} />
+          style={{ height: 7 + i * 4, backgroundColor: i < llenas ? BNAVY : LINE }} />
       ))}
     </span>
   )
@@ -222,16 +223,18 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
       <button ref={btnRef} type="button" onClick={abrir}
         aria-haspopup="dialog" aria-expanded={open}
         aria-label={owner ? `Responsable: ${owner}. Cambiar responsable` : "Sin asignar. Asignar responsable"}
-        className="group inline-flex items-center gap-2 min-w-0 max-w-full rounded-lg -mx-1.5 px-1.5 py-1 text-left hover:bg-[var(--gob-bone)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]">
+        className="group inline-flex items-center gap-2 min-w-0 max-w-full rounded-lg -mx-1.5 px-1.5 py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
+        style={{ outlineColor: BNAVY }}>
         {owner ? (
           <>
-            <span className="h-6 w-6 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] text-[10px] font-bold flex items-center justify-center shrink-0">
+            <span className="h-6 w-6 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0"
+              style={{ backgroundColor: BNAVY, color: CARD }}>
               {iniciales(owner)}
             </span>
-            <span className="text-xs text-[var(--gob-charcoal)] truncate">{owner}</span>
+            <span className="text-xs truncate" style={{ color: INK }}>{owner}</span>
           </>
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-xs text-[var(--gob-stone)] group-hover:text-[var(--gob-muted)]">
+          <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: MUTED }}>
             <UserPlus className="h-3.5 w-3.5" />
             Sin asignar
           </span>
@@ -240,7 +243,8 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
 
       <MenuFlotante anchorRef={btnRef} open={open} onClose={cerrar} ancho={256} altoEstimado={200}>
         <div role="dialog" aria-label="Editar responsable"
-          className="w-full rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg p-3 space-y-2.5">
+          className="w-full rounded-xl shadow-lg p-3 space-y-2.5"
+          style={{ border: `1px solid ${LINE}`, backgroundColor: SAND }}>
           <input
               autoFocus
               value={valor}
@@ -250,7 +254,8 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
                 else if (e.key === "Escape") { e.preventDefault(); cerrar() }
               }}
               placeholder="Nombre del responsable"
-              className="w-full rounded-lg border border-[var(--gob-rule)] bg-white px-2.5 py-2 text-sm text-[var(--gob-ink)] placeholder:text-[var(--gob-stone)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]"
+              className="w-full rounded-lg px-2.5 py-2 text-sm placeholder:text-[color:inherit] focus-visible:outline-none focus-visible:ring-2"
+              style={{ border: `1px solid ${LINE}`, backgroundColor: CARD, color: INK, outlineColor: BNAVY }}
             />
 
             <div className="space-y-1">
@@ -263,14 +268,16 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
                   else if (e.key === "Escape") { e.preventDefault(); cerrar() }
                 }}
                 placeholder="Correo (opcional, para enviarle sus tareas)"
-                className="w-full rounded-lg border border-[var(--gob-rule)] bg-white px-2.5 py-2 text-sm text-[var(--gob-ink)] placeholder:text-[var(--gob-stone)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]"
+                className="w-full rounded-lg px-2.5 py-2 text-sm placeholder:text-[color:inherit] focus-visible:outline-none focus-visible:ring-2"
+                style={{ border: `1px solid ${LINE}`, backgroundColor: CARD, color: INK, outlineColor: BNAVY }}
               />
-              <p className="text-[10px] leading-snug text-[var(--gob-stone)]">
+              <p className="text-[10px] leading-snug" style={{ color: MUTED }}>
                 Con su correo podrás enviarle un enlace a sus tareas.
               </p>
               {correo.trim() && (
                 <button type="button" onClick={copiarEnlace}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--gob-rule)] bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--gob-navy)] hover:border-[var(--gob-navy)] transition-colors">
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
+                  style={{ border: `1px solid ${LINE}`, backgroundColor: CARD, color: BNAVY }}>
                   {copiado ? <Check className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
                   {copiado ? "¡Copiado!" : "Copiar enlace de sus tareas"}
                 </button>
@@ -279,12 +286,14 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
 
             {chips.length > 0 && (
               <div className="space-y-1.5">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Del tablero</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: MUTED }}>Del tablero</p>
                 <div className="flex flex-wrap gap-1.5">
                   {chips.map(c => (
                     <button key={c} type="button" onClick={() => confirmar(c, ownerEmail)}
-                      className="inline-flex items-center gap-1 rounded-full border border-[var(--gob-rule)] bg-white px-2 py-1 text-xs text-[var(--gob-charcoal)] hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors">
-                      <span className="h-4 w-4 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] text-[8px] font-bold flex items-center justify-center shrink-0">
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs transition-colors"
+                      style={{ border: `1px solid ${LINE}`, backgroundColor: CARD, color: INK }}>
+                      <span className="h-4 w-4 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: BNAVY, color: CARD }}>
                         {iniciales(c)}
                       </span>
                       <span className="truncate max-w-[8rem]">{c}</span>
@@ -296,12 +305,14 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
 
             <div className="flex items-center gap-2 pt-0.5">
               <button type="button" onClick={() => confirmar(valor, correo)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--gob-navy)] text-[var(--gob-bone)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--gob-ink)] transition-colors">
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                style={{ backgroundColor: BNAVY, color: CARD }}>
                 <Check className="h-3.5 w-3.5" />
                 Asignar
               </button>
               <button type="button" onClick={cerrar}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--gob-rule)] text-[var(--gob-muted)] px-3 py-1.5 text-xs font-medium hover:border-[var(--gob-stone)] hover:text-[var(--gob-ink)] transition-colors">
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                style={{ border: `1px solid ${LINE}`, color: MUTED }}>
                 <X className="h-3.5 w-3.5" />
                 Cancelar
               </button>
@@ -323,8 +334,8 @@ function EstadoCelda({ status, onChange }: { status: TaskStatus; onChange: (s: T
       <button ref={btnRef} type="button" onClick={() => setOpen(o => !o)}
         aria-haspopup="listbox" aria-expanded={open}
         aria-label={`Estado: ${ESTADO_LABEL[status]}. Cambiar estado`}
-        className="w-full h-full min-h-[2.75rem] flex items-center gap-2 px-4 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--gob-navy)]"
-        style={{ color, backgroundColor: `${color}22` }}>
+        className="w-full h-full min-h-[2.75rem] flex items-center gap-2 px-4 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+        style={{ color, backgroundColor: `${color}22`, outlineColor: BNAVY }}>
         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <span className="flex-1 text-left truncate">{ESTADO_LABEL[status]}</span>
         <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
@@ -332,15 +343,17 @@ function EstadoCelda({ status, onChange }: { status: TaskStatus; onChange: (s: T
 
       <MenuFlotante anchorRef={btnRef} open={open} onClose={() => setOpen(false)} ancho={200} altoEstimado={140}>
         <ul role="listbox" aria-label="Estados"
-          className="w-full rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg py-1">
+          className="w-full rounded-xl shadow-lg py-1"
+          style={{ border: `1px solid ${LINE}`, backgroundColor: SAND }}>
           {ESTADOS.map(s => (
             <li key={s} role="option" aria-selected={s === status}>
               <button type="button"
                 onClick={() => { setOpen(false); if (s !== status) onChange(s) }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left hover:bg-[var(--gob-bone)] transition-colors focus-visible:outline-none focus-visible:bg-[var(--gob-bone)]">
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left transition-colors"
+                style={{ backgroundColor: "transparent" }}>
                 <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ESTADO_COLOR[s] }} />
                 <span className="flex-1" style={{ color: ESTADO_COLOR[s] }}>{ESTADO_LABEL[s]}</span>
-                {s === status && <Check className="h-3.5 w-3.5 text-[var(--gob-muted)]" />}
+                {s === status && <Check className="h-3.5 w-3.5" style={{ color: MUTED }} />}
               </button>
             </li>
           ))}
@@ -353,7 +366,7 @@ function EstadoCelda({ status, onChange }: { status: TaskStatus; onChange: (s: T
 // ── Etiqueta de columna en móvil (bloque) ──
 function EtiquetaMovil({ children }: { children: string }) {
   return (
-    <span className="md:hidden text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)] w-20 shrink-0">
+    <span className="md:hidden text-[10px] font-medium uppercase tracking-wider w-20 shrink-0" style={{ color: MUTED }}>
       {children}
     </span>
   )
@@ -371,7 +384,7 @@ const VALIDACION: Record<ValidacionEstado, {
 }> = {
   validada:     { color: "#0f766e", label: "Validada por el Consejo", Icon: ShieldCheck },
   insuficiente: { color: "#b45309", label: "Falta sustento",          Icon: AlertTriangle },
-  sin_revisar:  { color: "#8E8B84", label: "Sin revisar",             Icon: Clock },
+  sin_revisar:  { color: MUTED,    label: "Sin revisar",             Icon: Clock },
 }
 
 function ValidacionBadge({ validacion, tieneEvidencia }: {
@@ -395,7 +408,7 @@ function ValidacionBadge({ validacion, tieneEvidencia }: {
         <span className="truncate">{label}</span>
       </span>
       {estado === "insuficiente" && motivo && (
-        <span className="text-[10px] leading-snug text-[var(--gob-muted)] line-clamp-2">{motivo}</span>
+        <span className="text-[10px] leading-snug line-clamp-2" style={{ color: MUTED }}>{motivo}</span>
       )}
     </span>
   )
@@ -474,7 +487,8 @@ function DocumentosCelda({ tarea, onRefresh }: {
 
       <div className="flex items-center gap-2 flex-wrap">
         <button type="button" disabled={busy} onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--gob-rule)] px-2 py-1 text-xs font-medium text-[var(--gob-muted)] hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]">
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2"
+          style={{ border: `1px solid ${LINE}`, color: MUTED, outlineColor: BNAVY }}>
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
           {busy ? "Subiendo…" : "Subir"}
         </button>
@@ -483,7 +497,8 @@ function DocumentosCelda({ tarea, onRefresh }: {
           <button ref={verBtnRef} type="button" onClick={abrirLista}
             aria-haspopup="dialog" aria-expanded={open}
             aria-label={`Ver ${count} ${count === 1 ? "documento" : "documentos"}`}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--gob-navy)] hover:bg-[var(--gob-bone)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]">
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
+            style={{ color: BNAVY, outlineColor: BNAVY }}>
             <Paperclip className="h-3.5 w-3.5" />
             {count}
           </button>
@@ -497,33 +512,37 @@ function DocumentosCelda({ tarea, onRefresh }: {
 
       <MenuFlotante anchorRef={verBtnRef} open={open} onClose={() => setOpen(false)} ancho={288} altoEstimado={260}>
         <div role="dialog" aria-label="Documentos de la tarea"
-          className="w-full rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] shadow-lg p-3 space-y-2">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Documentos</p>
+          className="w-full rounded-xl shadow-lg p-3 space-y-2"
+          style={{ border: `1px solid ${LINE}`, backgroundColor: SAND }}>
+          <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: MUTED }}>Documentos</p>
           {cargandoLista ? (
             <div className="flex items-center justify-center py-3">
-              <Loader2 className="h-4 w-4 animate-spin text-[var(--gob-stone)]" />
+              <Loader2 className="h-4 w-4 animate-spin" style={{ color: MUTED }} />
             </div>
           ) : (lista && lista.length > 0) ? (
             <ul className="space-y-1.5">
               {lista.map(ev => (
-                <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-white border border-[var(--gob-rule)] px-2.5 py-1.5">
-                  <Paperclip className="h-3.5 w-3.5 text-[var(--gob-stone)] shrink-0" />
-                  <span className="flex-1 truncate text-xs text-[var(--gob-charcoal)]" title={ev.filename}>{ev.filename}</span>
+                <li key={ev.id} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5"
+                  style={{ border: `1px solid ${LINE}`, backgroundColor: CARD }}>
+                  <Paperclip className="h-3.5 w-3.5 shrink-0" style={{ color: MUTED }} />
+                  <span className="flex-1 truncate text-xs" style={{ color: INK }} title={ev.filename}>{ev.filename}</span>
                   <button type="button" onClick={() => descargar(ev.id)}
                     aria-label={`Descargar ${ev.filename}`}
-                    className="text-[var(--gob-navy)] hover:text-[var(--gob-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)] rounded">
+                    className="transition-colors focus-visible:outline-none focus-visible:ring-2 rounded"
+                    style={{ color: BNAVY, outlineColor: BNAVY }}>
                     <Download className="h-3.5 w-3.5" />
                   </button>
                   <button type="button" onClick={() => borrar(ev.id)}
                     aria-label={`Borrar ${ev.filename}`}
-                    className="text-[var(--gob-stone)] hover:text-[#b45309] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b45309] rounded">
+                    className="transition-colors focus-visible:outline-none focus-visible:ring-2 rounded"
+                    style={{ color: MUTED, outlineColor: "#b45309" }}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-[var(--gob-muted)] py-1">Sin documentos todavía.</p>
+            <p className="text-xs py-1" style={{ color: MUTED }}>Sin documentos todavía.</p>
           )}
         </div>
       </MenuFlotante>
@@ -542,10 +561,12 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
   const celdaBase = "px-4 py-2.5 flex items-center gap-2"
 
   return (
-    <div className={`grid grid-cols-1 ${GRID_COLS} md:gap-x-1 md:bg-white md:items-stretch border-b border-[var(--gob-rule)] last:border-b-0`}>
+    <div className={`grid grid-cols-1 ${GRID_COLS} md:gap-x-1 md:items-stretch last:border-b-0`}
+      style={{ borderBottom: `1px solid ${LINE}`, backgroundColor: CARD }}>
       {/* Tarea + objetivo — columna congelada a la izquierda */}
-      <div className={`px-4 py-2.5 flex flex-col justify-center min-w-0 ${BG_WHITE} ${STICKY_TAREA}`}>
-        <p className="text-[13px] font-medium text-[var(--gob-ink)] leading-snug">{tarea.title}</p>
+      <div className={`px-4 py-2.5 flex flex-col justify-center min-w-0 ${STICKY_TAREA}`}
+        style={{ backgroundColor: CARD }}>
+        <p className="text-[13px] font-medium leading-snug" style={{ color: INK }}>{tarea.title}</p>
         {tarea.viene_de && (
           <span className="inline-flex items-center gap-1 mt-1 self-start rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{ color: "#b45309", backgroundColor: "#b4530914", border: "1px solid #b4530933" }}>
@@ -554,38 +575,38 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
           </span>
         )}
         {tarea.objetivo && (
-          <p className="text-[11px] text-[var(--gob-muted)] leading-snug mt-0.5 truncate">{tarea.objetivo}</p>
+          <p className="text-[11px] leading-snug mt-0.5 truncate" style={{ color: MUTED }}>{tarea.objetivo}</p>
         )}
       </div>
 
       {/* Responsable (editable) */}
-      <div className={`${celdaBase} ${BG_ALT}`}>
+      <div className={`${celdaBase}`} style={{ backgroundColor: SAND }}>
         <EtiquetaMovil>Responsable</EtiquetaMovil>
         <ResponsableCelda owner={tarea.owner} ownerEmail={tarea.owner_email} sugerencias={sugerencias} onChange={onOwner} />
       </div>
 
       {/* Estado (celda rellena tipo Monday) */}
       <div className="flex flex-col">
-        <span className="md:hidden px-4 pt-2.5 text-[10px] font-medium uppercase tracking-wider text-[var(--gob-stone)]">Estado</span>
+        <span className="md:hidden px-4 pt-2.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: MUTED }}>Estado</span>
         <EstadoCelda status={tarea.status} onChange={onEstado} />
       </div>
 
       {/* Vence */}
-      <div className={`${celdaBase} ${BG_WHITE}`}>
+      <div className={`${celdaBase}`} style={{ backgroundColor: CARD }}>
         <EtiquetaMovil>Vence</EtiquetaMovil>
-        <span className="text-xs text-[var(--gob-charcoal)]">
-          {venceCorto(tarea.due_date) || <span className="text-[var(--gob-stone)]">—</span>}
+        <span className="text-xs" style={{ color: INK }}>
+          {venceCorto(tarea.due_date) || <span style={{ color: MUTED }}>—</span>}
         </span>
       </div>
 
       {/* Prioridad */}
-      <div className={`px-4 py-2.5 flex items-center gap-2 ${BG_ALT}`}>
+      <div className={`px-4 py-2.5 flex items-center gap-2`} style={{ backgroundColor: SAND }}>
         <EtiquetaMovil>Prioridad</EtiquetaMovil>
         <Prioridad nivel={tarea.priority} />
       </div>
 
       {/* Documentos (última columna: sin filete derecho) */}
-      <div className={`px-4 py-2.5 flex items-start gap-2 ${BG_WHITE}`}>
+      <div className={`px-4 py-2.5 flex items-start gap-2`} style={{ backgroundColor: CARD }}>
         <EtiquetaMovil>Documentos</EtiquetaMovil>
         <DocumentosCelda tarea={tarea} onRefresh={onRefresh} />
       </div>
@@ -600,7 +621,8 @@ function SesionarBtn({ label, cargando, onClick }: {
   return (
     <button type="button" onClick={onClick} disabled={cargando}
       aria-label={`Sesionar ${label}: convocar al Consejo a evaluar este mes`}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--gob-rule)] px-2.5 py-1.5 text-xs font-medium text-[var(--gob-muted)] hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--gob-navy)]">
+      className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+      style={{ border: `1px solid ${LINE}`, color: MUTED, outlineColor: BNAVY }}>
       {cargando
         ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
         : <Gavel className="h-3.5 w-3.5" />}
@@ -613,11 +635,13 @@ function SesionarBtn({ label, cargando, onClick }: {
 function EncabezadoColumnas() {
   const cols = ["Tarea", "Responsable", "Estado", "Vence", "Prioridad", "Documentos"]
   return (
-    <div className={`hidden md:grid ${GRID_COLS} md:gap-x-1 md:bg-white border-b border-[var(--gob-rule)]`}>
+    <div className={`hidden md:grid ${GRID_COLS} md:gap-x-1`}
+      style={{ borderBottom: `1px solid ${LINE}`, backgroundColor: CARD }}>
       {cols.map((label, i) => (
         <span key={label}
-          className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--gob-muted)] bg-[var(--gob-bone)] ${
-            i === 0 ? STICKY_TAREA : ""}`}>
+          className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider ${
+            i === 0 ? STICKY_TAREA : ""}`}
+          style={{ backgroundColor: SAND, color: MUTED }}>
           {label}
         </span>
       ))}
@@ -639,17 +663,19 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSes
   const arrastradas = mes.es_mes_actual ? (mes.arrastradas ?? []) : []
 
   return (
-    <section className="rounded-2xl border border-[var(--gob-rule)] overflow-hidden bg-white"
-      style={{ borderLeftWidth: 4, borderLeftColor: filete(index) }}>
+    <section className="rounded-2xl overflow-hidden"
+      style={{ border: `1px solid ${LINE}`, borderLeftWidth: 4, borderLeftColor: filete(index), backgroundColor: CARD }}>
       {/* Encabezado del mes */}
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-[var(--gob-rule)]">
-        <h3 className="text-sm font-bold text-[var(--gob-ink)] tracking-tight">{mes.label}</h3>
+      <header className="flex items-center gap-3 px-4 py-3"
+        style={{ borderBottom: `1px solid ${LINE}` }}>
+        <h3 className="text-sm font-bold tracking-tight" style={{ color: INK }}>{mes.label}</h3>
         {mes.es_mes_actual && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)]">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: BNAVY, color: CARD }}>
             Mes actual
           </span>
         )}
-        <span className="ml-auto text-xs text-[var(--gob-muted)]">
+        <span className="ml-auto text-xs" style={{ color: MUTED }}>
           {mes.tareas.length} {mes.tareas.length === 1 ? "tarea" : "tareas"}
         </span>
         <SesionarBtn label={mes.label} cargando={sesionando} onClick={onSesionar} />
@@ -661,7 +687,7 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSes
         <div className={GRID_MINW}>
           {/* Subgrupo: tareas arrastradas de meses anteriores (solo mes actual) */}
           {arrastradas.length > 0 && (
-            <div className="border-b border-[var(--gob-rule)]" style={{ backgroundColor: "#b4530908" }}>
+            <div style={{ borderBottom: `1px solid ${LINE}`, backgroundColor: "#b4530908" }}>
               <div className="px-4 py-2">
                 <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "#b45309" }}>
                   Vienen de antes
@@ -791,30 +817,34 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
 
   if (status === "loading") {
     return (
-      <div className="border border-[var(--gob-rule)] rounded-2xl p-16 flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-[var(--gob-stone)]" />
+      <div className="rounded-2xl p-16 flex items-center justify-center"
+        style={{ border: `1px solid ${LINE}` }}>
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: MUTED }} />
       </div>
     )
   }
 
   if (status === "error") {
     return (
-      <div className="border border-[var(--gob-rule)] rounded-2xl p-10 text-center space-y-1">
-        <p className="text-sm font-medium text-[var(--gob-ink)]">No se pudo cargar el tablero</p>
-        <p className="text-xs text-[var(--gob-muted)]">Vuelve a intentarlo en un momento.</p>
+      <div className="rounded-2xl p-10 text-center space-y-1"
+        style={{ border: `1px solid ${LINE}` }}>
+        <p className="text-sm font-medium" style={{ color: INK }}>No se pudo cargar el tablero</p>
+        <p className="text-xs" style={{ color: MUTED }}>Vuelve a intentarlo en un momento.</p>
       </div>
     )
   }
 
   if (meses.length === 0) {
     return (
-      <div className="border border-[var(--gob-rule)] rounded-2xl p-12 flex flex-col items-center justify-center text-center gap-3">
-        <p className="text-sm font-medium text-[var(--gob-ink)]">Tu tablero está vacío</p>
-        <p className="text-xs text-[var(--gob-muted)] max-w-sm leading-relaxed">
+      <div className="rounded-2xl p-12 flex flex-col items-center justify-center text-center gap-3"
+        style={{ border: `1px solid ${LINE}` }}>
+        <p className="text-sm font-medium" style={{ color: INK }}>Tu tablero está vacío</p>
+        <p className="text-xs max-w-sm leading-relaxed" style={{ color: MUTED }}>
           Cuando generes tu plan estratégico, las tareas de cada mes aparecerán aquí para que las operes.
         </p>
         <Link href="/dashboard/plan"
-          className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-xs font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors mt-1">
+          className="inline-flex items-center gap-2 text-xs font-medium px-4 py-2.5 rounded-xl transition-colors mt-1"
+          style={{ backgroundColor: BNAVY, color: CARD }}>
           Generar mi plan <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -824,10 +854,10 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
   return (
     <div className="space-y-4">
       {/* Ayuda: qué es la columna Documentos y quién valida. */}
-      <p className="flex items-start gap-2 text-xs text-[var(--gob-muted)] leading-snug">
-        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[var(--gob-stone)]" />
+      <p className="flex items-start gap-2 text-xs leading-snug" style={{ color: MUTED }}>
+        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: MUTED }} />
         <span>
-          Cada responsable sube en <strong className="font-medium text-[var(--gob-charcoal)]">Documentos</strong> la
+          Cada responsable sube en <strong className="font-medium" style={{ color: INK }}>Documentos</strong> la
           evidencia de su tarea. La validación la hace el Consejo al sesionar el mes.
         </span>
       </p>

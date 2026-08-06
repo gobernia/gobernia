@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, type ReactNode } from "react"
+import { useState, useEffect, useCallback, useRef, type ReactNode, type CSSProperties } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Loader2, Sparkles, AlertCircle, Download, FileSearch, ChevronDown, ArrowRight,
   TrendingUp, TrendingDown, Link2, ShieldAlert, Globe, Compass, AlertTriangle, LayoutGrid,
 } from "lucide-react"
-import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
+import { PageShell } from "@/components/ui/PageShell"
 import {
   getDiagnostico, getDiagnosticoStatus, generateDiagnostico, downloadDiagnosticoPdf,
   type Diagnostico,
@@ -20,12 +20,24 @@ const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 type View = "loading" | "none" | "generating" | "failed" | "active" | "error"
 
 // Paleta por hex — Tailwind v4 no detecta clases dinámicas, así que los colores
-// de acento se aplican con `style`. Misma familia visual que el Inicio.
-const NAVY = "#142849"
+// de acento se aplican con `style`. Mismos tokens del bento del Inicio.
+const PAPER = "#F2F2F0"
+const INK   = "#0E1626"
+const INK2  = "#39435A"
+const MUTED = "#6E7686"
+const CARD  = "#FFFFFF"
+const SAND  = "#E8E3D8"
+const BNAVY = "#152742"
+const ACCENT = "#FF5C1A"
+const LINE  = "#E2E2DC"
+// Colores semánticos del FODA (se mantienen).
 const GREEN = "#0f766e"
 const AMBER = "#b45309"
 const RED = "#b91c1c"
 const RESUMEN_KEY = "resumen_ejecutivo"
+// El CSS global pone h1/h2/h3 en serif (Newsreader). En el bento NO queremos
+// serif: forzamos sans (Inter) en cada título, igual que el Inicio.
+const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
 
 // --- Acordeón reutilizable -------------------------------------------------
 function Accordion({ title, defaultOpen = false, badge, children }: {
@@ -33,11 +45,11 @@ function Accordion({ title, defaultOpen = false, badge, children }: {
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className={`rounded-2xl border transition-colors ${open ? "border-gray-200" : "border-gray-100 hover:border-gray-200"}`}>
+    <div className="rounded-[26px] border transition-colors" style={{ background: CARD, borderColor: LINE }}>
       <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+        className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left rounded-[26px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
         <span className="flex items-center gap-2.5 min-w-0">
-          <h2 className="text-sm font-bold text-black tracking-tight truncate">{title}</h2>
+          <h2 className="text-[20px] font-bold tracking-tight truncate" style={{ ...SANS, color: INK }}>{title}</h2>
           {badge}
         </span>
         <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
@@ -83,14 +95,14 @@ function ResumenEjecutivo({ body }: { body: string }) {
   const oneLine = paras.join(" ")
   const long = oneLine.length > 320 || paras.length > 2
   return (
-    <section className="rounded-2xl p-6 text-white" style={{ background: NAVY }}>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Resumen ejecutivo</p>
+    <section className="rounded-[26px] p-6 text-white" style={{ background: BNAVY }}>
+      <p className="mb-2 text-[10.5px] font-extrabold uppercase tracking-[0.17em] text-white/60">Resumen ejecutivo</p>
       {open ? (
-        <Prose className="space-y-2">
-          {paras.map((p, i) => <p key={i} className="text-sm leading-relaxed text-white/90">{p}</p>)}
-        </Prose>
+        <div className="space-y-2">
+          {paras.map((p, i) => <p key={i} className="text-[16px] leading-relaxed text-white/90">{p}</p>)}
+        </div>
       ) : (
-        <p className="text-sm leading-relaxed text-white/90 line-clamp-4">{oneLine}</p>
+        <p className="text-[16px] leading-relaxed text-white/90 line-clamp-4">{oneLine}</p>
       )}
       {long && <VerMas open={open} onClick={() => setOpen(o => !o)} color="rgba(255,255,255,0.75)" />}
     </section>
@@ -101,8 +113,8 @@ function ResumenEjecutivo({ body }: { body: string }) {
 function Cifra({ value, label, color }: { value: number; label: string; color: string }) {
   return (
     <span className="inline-flex items-baseline gap-1.5">
-      <b className="text-base font-bold tabular-nums" style={{ color }}>{value}</b>
-      <span className="text-[var(--gob-muted)]">{label}</span>
+      <b className="text-[19px] font-bold tabular-nums" style={{ color }}>{value}</b>
+      <span className="text-[14px] font-medium" style={{ color: MUTED }}>{label}</span>
     </span>
   )
 }
@@ -118,15 +130,15 @@ function InternalBlock({ title, Icon, color, items }: {
   const shown = open ? items : items.slice(0, CAP)
   const more = items.length - CAP
   return (
-    <section className="rounded-2xl border border-[var(--gob-rule)] p-5 flex flex-col">
+    <section className="rounded-[26px] p-5 flex flex-col" style={{ background: CARD, border: `1px solid ${LINE}` }}>
       <div className="flex items-center gap-2 mb-3">
         <Icon className="h-4 w-4" style={{ color }} />
-        <h3 className="text-sm font-bold text-black tracking-tight">{title}</h3>
+        <h3 className="text-[20px] font-bold tracking-tight" style={{ ...SANS, color: INK }}>{title}</h3>
         <span className="ml-auto text-xs font-bold tabular-nums" style={{ color, opacity: 0.55 }}>{items.length}</span>
       </div>
       <ul className="space-y-2.5 flex-1">
         {shown.map((h, i) => (
-          <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
+          <li key={i} className="flex gap-2 text-[16px] text-[var(--gob-charcoal)]">
             <span className="mt-2 h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
             <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>{h.texto}</span>
           </li>
@@ -145,17 +157,17 @@ function RiesgosBlock({ riesgos }: { riesgos: { riesgo: string; severidad: strin
   const shown = open ? riesgos : riesgos.slice(0, CAP)
   const more = riesgos.length - CAP
   return (
-    <section className="rounded-2xl border border-[var(--gob-rule)] p-5 flex flex-col">
+    <section className="rounded-[26px] p-5 flex flex-col" style={{ background: CARD, border: `1px solid ${LINE}` }}>
       <div className="flex items-center gap-2 mb-3">
         <ShieldAlert className="h-4 w-4" style={{ color: AMBER }} />
-        <h3 className="text-sm font-bold text-black tracking-tight">Riesgos</h3>
+        <h3 className="text-[20px] font-bold tracking-tight" style={{ ...SANS, color: INK }}>Riesgos</h3>
         <span className="ml-auto text-xs font-bold tabular-nums" style={{ color: AMBER, opacity: 0.55 }}>{riesgos.length}</span>
       </div>
       <ul className="space-y-2.5 flex-1">
         {shown.map((r, i) => {
           const m = sevHex(r.severidad)
           return (
-            <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
+            <li key={i} className="flex gap-2 text-[16px] text-[var(--gob-charcoal)]">
               <span className="mt-1.5 h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} title={m.label} />
               <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>
                 {r.riesgo}
@@ -176,7 +188,7 @@ function RiesgosBlock({ riesgos }: { riesgos: { riesgo: string; severidad: strin
 type QuadDef = { key: keyof Foda; label: string; sub: string; color: string; Icon: typeof TrendingUp }
 const FODA_QUADS: QuadDef[] = [
   { key: "fortalezas", label: "Fortalezas", sub: "Interno · a favor", color: GREEN, Icon: TrendingUp },
-  { key: "oportunidades", label: "Oportunidades", sub: "Externo · a favor", color: NAVY, Icon: Compass },
+  { key: "oportunidades", label: "Oportunidades", sub: "Externo · a favor", color: BNAVY, Icon: Compass },
   { key: "debilidades", label: "Debilidades", sub: "Interno · en contra", color: AMBER, Icon: AlertTriangle },
   { key: "amenazas", label: "Amenazas", sub: "Externo · en contra", color: RED, Icon: ShieldAlert },
 ]
@@ -188,13 +200,13 @@ function FodaQuadrant({ def, items }: { def: QuadDef; items: string[] }) {
   const more = items.length - CAP
   const { color, Icon } = def
   return (
-    <div className="rounded-2xl p-5 flex flex-col" style={{ backgroundColor: `${color}14`, border: `1px solid ${color}22` }}>
+    <div className="rounded-[26px] p-5 flex flex-col" style={{ backgroundColor: `${color}14`, border: `1px solid ${color}22` }}>
       <div className="flex items-center gap-2.5 mb-3">
         <span className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: color }}>
           <Icon className="h-4 w-4 text-white" />
         </span>
         <div className="min-w-0">
-          <h3 className="text-sm font-bold tracking-tight" style={{ color }}>{def.label}</h3>
+          <h3 className="text-[20px] font-bold tracking-tight" style={{ ...SANS, color }}>{def.label}</h3>
           <p className="text-[10px] font-medium uppercase tracking-[0.14em]" style={{ color, opacity: 0.6 }}>{def.sub}</p>
         </div>
         <span className="ml-auto text-xs font-bold tabular-nums" style={{ color, opacity: 0.5 }}>{items.length}</span>
@@ -202,7 +214,7 @@ function FodaQuadrant({ def, items }: { def: QuadDef; items: string[] }) {
       {items.length > 0 ? (
         <ul className="space-y-2 flex-1">
           {shown.map((t, i) => (
-            <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
+            <li key={i} className="flex gap-2 text-[16px] text-[var(--gob-charcoal)]">
               <span className="mt-2 h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
               <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>{t}</span>
             </li>
@@ -218,8 +230,8 @@ function FodaSection({ foda }: { foda: Foda }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2">
-        <LayoutGrid className="h-4 w-4 text-[var(--gob-navy)]" />
-        <h2 className="text-base font-bold text-black tracking-tight">Matriz FODA</h2>
+        <LayoutGrid className="h-4 w-4" style={{ color: BNAVY }} />
+        <h2 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={{ ...SANS, color: INK }}>Matriz FODA</h2>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {FODA_QUADS.map(def => (
@@ -227,9 +239,9 @@ function FodaSection({ foda }: { foda: Foda }) {
         ))}
       </div>
       {foda.sintesis && (
-        <div className="rounded-2xl p-5 text-white" style={{ background: NAVY }}>
-          <p className="mb-1.5 text-[10px] font-medium tracking-[0.18em] uppercase text-white/60">Síntesis</p>
-          <Prose><p className="text-sm leading-relaxed text-white/90">{foda.sintesis}</p></Prose>
+        <div className="rounded-[26px] p-6 text-white" style={{ background: BNAVY }}>
+          <p className="mb-2 text-[10.5px] font-extrabold tracking-[0.17em] uppercase text-white/60">Síntesis</p>
+          <p className="text-[16px] leading-relaxed text-white/90">{foda.sintesis}</p>
         </div>
       )}
     </section>
@@ -320,18 +332,18 @@ export default function DiagnosticoPage() {
   }
 
   if (view === "loading") {
-    return <div className="min-h-dvh bg-white flex items-center justify-center">
+    return <div className="min-h-dvh flex items-center justify-center" style={{ background: PAPER }}>
       <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
     </div>
   }
 
   if (view === "generating") {
     return (
-      <div className="min-h-dvh bg-white flex flex-col items-center justify-center gap-6 px-6 text-center">
-        <Loader2 className="h-6 w-6 animate-spin text-[var(--gob-navy)]" />
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-6 px-6 text-center" style={{ background: PAPER }}>
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: BNAVY }} />
         <div className="space-y-1">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Investigando</p>
-          <h1 className="text-2xl font-bold text-black">Tu Consejo está investigando tu empresa en la web</h1>
+          <p className="text-[10.5px] font-extrabold tracking-[0.17em] uppercase" style={{ color: ACCENT }}>Investigando</p>
+          <h1 className="text-2xl font-bold" style={{ ...SANS, color: INK }}>Tu Consejo está investigando tu empresa en la web</h1>
           <p className="text-sm text-gray-500 max-w-md">
             Analiza tu presencia digital, competidores reales, tendencias de mercado y contexto de tu región.
             Esto puede tardar unos minutos.
@@ -345,8 +357,8 @@ export default function DiagnosticoPage() {
     const isFail = view === "failed" || view === "error"
     const isDatos = isFail && failReason === "datos"
     return (
-      <div className="min-h-dvh bg-white flex flex-col items-center justify-center gap-6 px-6 text-center">
-        <div className="w-14 h-14 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-6 px-6 text-center" style={{ background: PAPER }}>
+        <div className="w-14 h-14 rounded-[20px] border-2 border-gray-100 flex items-center justify-center">
           {isFail ? <AlertCircle className="h-5 w-5 text-red-400" /> : <FileSearch className="h-5 w-5 text-gray-300" />}
         </div>
         <div className="space-y-2 max-w-md">
@@ -363,12 +375,12 @@ export default function DiagnosticoPage() {
         </div>
         {isDatos ? (
           <Link href="/dashboard/datos"
-            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+            className="inline-flex items-center gap-2 rounded-full bg-[#FF5C1A] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
             Completar mis datos
           </Link>
         ) : (
           <button onClick={onGenerate}
-            className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+            className="inline-flex items-center gap-2 rounded-full bg-[#FF5C1A] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
             <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar diagnóstico"}
           </button>
         )}
@@ -391,27 +403,7 @@ export default function DiagnosticoPage() {
   const fodaActivo = foda?.status === "active" && !!foda.foda
 
   return (
-    <div className="min-h-dvh bg-white text-black antialiased">
-      <PageHeader
-        eyebrow="Diagnóstico estratégico"
-        title="La realidad de tu empresa"
-        actions={
-          <>
-            <button onClick={onDownload} disabled={downloading}
-              className="inline-flex items-center gap-2 border border-gray-200 text-sm font-medium text-gray-700 px-3.5 py-2.5 rounded-xl hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
-              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              PDF
-            </button>
-            <a href="/onboarding/todd/externo"
-              className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
-              <span className="hidden sm:inline">Continuar al análisis del entorno</span>
-              <span className="sm:hidden">Continuar</span>
-              <ArrowRight className="h-4 w-4" />
-            </a>
-          </>
-        }
-      />
-
+    <div className="min-h-dvh text-black antialiased" style={{ background: PAPER }}>
       <main>
         <PageShell className="py-8">
           <motion.div
@@ -421,16 +413,38 @@ export default function DiagnosticoPage() {
             className="space-y-6"
           >
 
+            {/* Header bento — todo en Inter, sin barra sticky, igual que el Inicio */}
+            <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em]" style={{ color: MUTED }}>Diagnóstico estratégico</p>
+                <h1 className="mt-1 text-[32px] font-bold leading-[1.05] tracking-[-.03em]" style={{ ...SANS, color: INK }}>La realidad de tu empresa</h1>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={onDownload} disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-medium text-gray-700 transition-colors disabled:opacity-50 hover:border-[#0E1626] hover:text-[#0E1626] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]"
+                  style={{ borderColor: LINE }}>
+                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  PDF
+                </button>
+                <a href="/onboarding/todd/externo"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#FF5C1A] px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:bg-[#e64f12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+                  <span className="hidden sm:inline">Continuar al análisis del entorno</span>
+                  <span className="sm:hidden">Continuar</span>
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+
             {/* 1 · Resumen ejecutivo: lo primero que lee el dueño */}
             {resumen && <ResumenEjecutivo body={resumen.body} />}
 
             {/* 2 · Cifras de un vistazo — una línea */}
             {hayCifras && (
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] px-5 py-3 text-sm">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-[26px] px-5 py-3.5 text-sm" style={{ background: SAND, border: `1px solid ${LINE}` }}>
                 <Cifra value={fortalezas.length} label="Fortalezas" color={GREEN} />
                 <Cifra value={debilidades.length} label="Debilidades" color={RED} />
                 <Cifra value={riesgos.length} label="Riesgos" color={AMBER} />
-                <Cifra value={sources.length} label="Fuentes" color={NAVY} />
+                <Cifra value={sources.length} label="Fuentes" color={BNAVY} />
               </div>
             )}
 
@@ -439,7 +453,7 @@ export default function DiagnosticoPage() {
 
             {/* 4 · Hallazgos internos + Riesgos, compactos */}
             {sinInterno ? (
-              <p className="text-sm text-gray-400">
+              <p className="text-[16px]" style={{ color: MUTED }}>
                 Aún no hay hallazgos internos. Complétalos platicando con Todd — abajo tienes el contexto de mercado.
               </p>
             ) : (
@@ -459,15 +473,22 @@ export default function DiagnosticoPage() {
                       <Globe className="h-3 w-3" /> investigación web
                     </span>
                   }>
-                    <div className="space-y-6">
+                    {/* Cada sub-tema en su propia tarjeta (divisiones bento) con color-coded markers en los párrafos */}
+                    <div className="grid gap-3 md:grid-cols-2">
                       {contextSections.map(s => (
-                        <div key={s.key} className="space-y-1.5">
-                          <h3 className="text-sm font-bold text-black">{s.title}</h3>
-                          <Prose className="space-y-2">
-                            {s.body.split("\n").filter(p => p.trim()).map((p, j) => (
-                              <p key={j} className="text-[14px] text-gray-600 leading-relaxed">{p.trim()}</p>
-                            ))}
-                          </Prose>
+                        <div key={s.key} className="rounded-[26px] p-5" style={{ background: SAND }}>
+                          <h3 className="text-[20px] font-bold leading-tight tracking-[-.02em]" style={{ ...SANS, color: INK }}>{s.title}</h3>
+                          <div className="mt-3 space-y-3">
+                            {s.body.split("\n").filter(p => p.trim()).map((p, j) => {
+                              const markerColor = j % 2 === 0 ? BNAVY : ACCENT
+                              return (
+                                <div key={j} className="flex gap-3">
+                                  <span className="mt-1.5 h-2 w-2 rounded-full shrink-0" style={{ background: markerColor }} />
+                                  <p className="text-[16px] leading-relaxed" style={{ color: INK2 }}>{p.trim()}</p>
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -476,11 +497,11 @@ export default function DiagnosticoPage() {
 
                 {sources.length > 0 && (
                   <Accordion title="Fuentes" badge={
-                    <span className="text-xs font-medium text-gray-400 bg-gray-50 rounded-full px-2 py-0.5">{sources.length}</span>
+                    <span className="text-xs font-medium text-gray-400 rounded-full px-2 py-0.5" style={{ background: SAND }}>{sources.length}</span>
                   }>
                     <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                       {sources.map((src, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
+                        <li key={i} className="flex items-start gap-2 text-[13px] text-gray-500">
                           <Link2 className="h-3.5 w-3.5 text-gray-300 mt-0.5 shrink-0" />
                           <a href={src.url} target="_blank" rel="noopener noreferrer"
                             className="hover:text-[var(--gob-navy)] underline decoration-gray-200 break-words focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
@@ -495,13 +516,13 @@ export default function DiagnosticoPage() {
             )}
 
             {/* Pie: regenerar + continuar */}
-            <div className="pt-4 flex items-center justify-between gap-4 flex-wrap border-t border-gray-100">
+            <div className="pt-4 flex items-center justify-between gap-4 flex-wrap border-t" style={{ borderColor: LINE }}>
               <button onClick={onGenerate}
                 className="text-xs font-medium text-gray-400 hover:text-[var(--gob-navy)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)] rounded">
                 Regenerar diagnóstico
               </button>
               <a href="/onboarding/todd/externo"
-                className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+                className="inline-flex items-center gap-2 rounded-full bg-[#FF5C1A] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
                 Continuar al análisis del entorno <ArrowRight className="h-4 w-4" />
               </a>
             </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Loader2, ArrowRight, Map as MapIcon, CalendarCheck } from "lucide-react"
@@ -11,9 +11,17 @@ import { aniosDelPlan, pilarColor, roadmapIsEmpty } from "@/components/roadmap/s
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
-// Colores por hex — Tailwind v4 no detecta clases dinámicas.
-const NAVY = "#142849"
-const AMBER = "#b45309"
+// Paleta bento — mismos tokens del Inicio.
+const PAPER = "#F2F2F0"
+const INK   = "#0E1626"
+const INK2  = "#39435A"
+const MUTED = "#6E7686"
+const CARD  = "#FFFFFF"
+const SAND  = "#E8E3D8"
+const BNAVY = "#152742"
+const ACCENT = "#FF5C1A"
+const LINE  = "#E2E2DC"
+const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
 
 type AnioKey = "anio1" | "anio2" | "anio3"
 
@@ -34,7 +42,7 @@ export default function RoadmapBetaPage() {
   const hasRoadmap = !!roadmap && !roadmapIsEmpty(roadmap)
 
   return (
-    <div className="min-h-dvh bg-white text-black">
+    <div className="min-h-dvh text-black antialiased" style={{ background: PAPER }}>
       <PageHeader
         eyebrow="Cómo te ves a 3 años"
         title="Roadmap"
@@ -42,7 +50,8 @@ export default function RoadmapBetaPage() {
           hasRoadmap ? (
             <Link
               href="/dashboard/plan-anual"
-              className="inline-flex items-center gap-2 rounded-xl bg-[var(--gob-navy)] px-4 py-2.5 text-xs font-medium text-[var(--gob-bone)] transition-colors hover:bg-[var(--gob-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-medium text-white transition-colors"
+              style={{ background: ACCENT }}
             >
               <CalendarCheck className="h-3.5 w-3.5" /> Ir a mi Plan anual
             </Link>
@@ -55,27 +64,28 @@ export default function RoadmapBetaPage() {
 
           {/* Cargando */}
           {!loaded && (
-            <div className="flex items-center justify-center rounded-2xl border border-gray-100 p-16">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+            <div className="flex items-center justify-center rounded-[26px] p-16" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+              <Loader2 className="h-6 w-6 animate-spin" style={{ color: MUTED }} />
             </div>
           )}
 
           {/* Vacío */}
           {loaded && !hasRoadmap && (
-            <div className="flex flex-col items-center gap-4 rounded-2xl border border-gray-100 p-12 text-center sm:p-16">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-gray-100">
-                <MapIcon className="h-5 w-5 text-gray-300" />
+            <div className="flex flex-col items-center gap-4 rounded-[26px] p-12 text-center sm:p-16" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+              <div className="flex h-14 w-14 items-center justify-center rounded-[26px] border-2" style={{ borderColor: LINE, color: MUTED }}>
+                <MapIcon className="h-5 w-5" />
               </div>
               <div className="max-w-md space-y-1.5">
-                <p className="text-base font-medium text-black">Todavía no hay una dirección a 3 años</p>
-                <p className="text-sm leading-relaxed text-gray-500">
+                <p className="text-base font-medium" style={{ ...SANS, color: INK }}>Todavía no hay una dirección a 3 años</p>
+                <p className="text-sm leading-relaxed" style={{ color: INK2 }}>
                   Cuando generes tu plan, aquí verás — muy sencillo, año por año — a dónde apunta la
                   empresa en los próximos tres años. El detalle y las tareas viven en tu Plan anual.
                 </p>
               </div>
               <Link
                 href="/dashboard/plan"
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--gob-navy)] px-5 py-2.5 text-sm font-medium text-[var(--gob-bone)] transition-colors hover:bg-[var(--gob-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]"
+                className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white transition-colors"
+                style={{ background: ACCENT }}
               >
                 Generar mi plan <ArrowRight className="h-4 w-4" />
               </Link>
@@ -113,15 +123,15 @@ function RoadmapTresAnios({ roadmap }: { roadmap: Roadmap }) {
     >
       {/* La pregunta que responde el roadmap + la regla de que solo el año 1 se ejecuta */}
       <div className="max-w-3xl space-y-2">
-        <p className="text-lg font-semibold leading-snug tracking-tight" style={{ color: NAVY }}>
+        <p className="text-lg font-semibold leading-snug tracking-tight" style={{ ...SANS, color: INK }}>
           ¿Qué debe conseguir la empresa en los próximos tres años para fortalecerse, crecer y
           asegurar su continuidad?
         </p>
-        <p className="text-sm leading-relaxed text-gray-500">
-          Solo el <span className="font-semibold text-gray-700">año en curso se ejecuta</span> — su detalle
+        <p className="text-sm leading-relaxed" style={{ color: INK2 }}>
+          Solo el <span className="font-semibold" style={{ color: INK }}>año en curso se ejecuta</span> — su detalle
           y sus tareas están en tu{" "}
-          <Link href="/dashboard/plan-anual" className="font-medium underline" style={{ color: NAVY }}>Plan anual</Link>.
-          Los <span style={{ color: AMBER }}>años 2 y 3 son orientativos</span> y se ajustan al cerrar cada año.
+          <Link href="/dashboard/plan-anual" className="font-medium underline" style={{ color: BNAVY }}>Plan anual</Link>.
+          Los <span style={{ color: ACCENT }}>años 2 y 3 son orientativos</span> y se ajustan al cerrar cada año.
         </p>
       </div>
 
@@ -156,43 +166,43 @@ function ColumnaAnio({
 
   return (
     <section
-      className="flex flex-col overflow-hidden rounded-2xl border"
-      style={activo ? { borderColor: NAVY } : { borderColor: "#e5e7eb" }}
+      className="flex flex-col overflow-hidden rounded-[26px] border"
+      style={activo ? { borderColor: BNAVY } : { borderColor: LINE }}
     >
       {/* Cabecera del año */}
-      <div className="p-5" style={activo ? { background: NAVY, color: "#fff" } : { background: "#f7f8fa" }}>
+      <div className="p-5" style={activo ? { background: BNAVY, color: "#fff" } : { background: SAND }}>
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: activo ? "rgba(255,255,255,0.55)" : "#9ca3af" }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ ...SANS, color: activo ? "rgba(255,255,255,0.55)" : MUTED }}>
               Año {orden}
             </p>
-            <p className="text-xl font-bold tabular-nums" style={{ color: activo ? "#fff" : NAVY }}>{anio.n}</p>
+            <p className="text-xl font-bold tabular-nums" style={{ ...SANS, color: activo ? "#fff" : INK }}>{anio.n}</p>
           </div>
           <span
             className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]"
-            style={activo ? { background: "rgba(255,255,255,0.16)", color: "#fff" } : { background: "#f3ede3", color: AMBER }}
+            style={activo ? { background: "rgba(255,255,255,0.16)", color: "#fff" } : { background: CARD, color: ACCENT, border: `1px solid ${LINE}` }}
           >
             {activo ? "En ejecución" : "Orientativo"}
           </span>
         </div>
         {anio.lema && (
-          <p className="mt-2 text-sm font-medium leading-snug" style={{ color: activo ? "rgba(255,255,255,0.92)" : "var(--gob-charcoal)" }}>
+          <p className="mt-2 text-sm font-medium leading-snug" style={{ ...SANS, color: activo ? "rgba(255,255,255,0.92)" : INK }}>
             «{anio.lema}»
           </p>
         )}
       </div>
 
       {/* Qué se trabaja ese año, prioridad por prioridad */}
-      <div className="flex-1 space-y-4 p-5">
+      <div className="flex-1 space-y-4 p-5" style={{ background: CARD }}>
         {filas.length > 0 ? (
           filas.map((f, j) => (
             <div key={j} className="border-l-2 pl-3" style={{ borderColor: f.color }}>
-              <p className="text-sm font-bold leading-tight" style={{ color: NAVY }}>{f.nombre}</p>
-              {f.fase && <p className="mt-0.5 text-xs font-medium text-gray-600">{f.fase}</p>}
+              <p className="text-sm font-bold leading-tight" style={{ ...SANS, color: INK }}>{f.nombre}</p>
+              {f.fase && <p className="mt-0.5 text-xs font-medium" style={{ color: INK2 }}>{f.fase}</p>}
               {f.hitos.length > 0 && (
                 <ul className="mt-1.5 space-y-1">
                   {f.hitos.map((h, k) => (
-                    <li key={k} className="flex gap-1.5 text-xs leading-relaxed text-gray-500">
+                    <li key={k} className="flex gap-1.5 text-xs leading-relaxed" style={{ color: INK2 }}>
                       <span className="mt-1 h-1 w-1 shrink-0 rounded-full" style={{ background: f.color }} />
                       <span>{h}</span>
                     </li>
@@ -202,16 +212,17 @@ function ColumnaAnio({
             </div>
           ))
         ) : (
-          <p className="text-xs italic text-gray-400">Sin actividades definidas para este año todavía.</p>
+          <p className="text-xs italic" style={{ color: MUTED }}>Sin actividades definidas para este año todavía.</p>
         )}
       </div>
 
       {/* El año en curso conecta con el Plan anual */}
       {activo && (
-        <div className="border-t border-gray-100 p-4">
+        <div className="border-t p-4" style={{ borderColor: LINE }}>
           <Link
             href="/dashboard/plan-anual"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--gob-navy)] px-4 py-2.5 text-xs font-medium text-[var(--gob-bone)] transition-colors hover:bg-[var(--gob-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-xs font-medium text-white transition-colors"
+            style={{ background: ACCENT }}
           >
             <CalendarCheck className="h-3.5 w-3.5" /> Trabajar este año en mi Plan anual
           </Link>

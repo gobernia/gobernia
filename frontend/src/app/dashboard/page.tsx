@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
@@ -8,12 +8,14 @@ import {
   ArrowRight, Play, ChevronRight, ChevronDown,
   CheckCircle2, ArrowUpRight, X, Loader2, Pencil,
   Sparkles, FileSearch, LayoutGrid, MessagesSquare, ClipboardList, Library, Users,
+  Cpu, Building2, ShieldCheck, Workflow,
 } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
-// Una tarea del one-pager del Inicio: se muestra recortada y, SI no cabe, ofrece un
-// "Ver más" con chevron para que quede claro que se puede desplegar (no un "…" mudo).
-function TareaItem({ n, texto }: { n: number; texto: string }) {
+// Una tarea de una ficha de prioridad (bento): número leading-zero, se muestra
+// recortada a 2 líneas y, SI no cabe, ofrece un "Ver más" con chevron (no un "…"
+// mudo). `dark` ajusta los colores cuando la ficha va sobre fondo oscuro.
+function TareaItem({ n, texto, dark = false }: { n: number; texto: string; dark?: boolean }) {
   const [abierta, setAbierta] = useState(false)
   const [truncada, setTruncada] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
@@ -24,22 +26,37 @@ function TareaItem({ n, texto }: { n: number; texto: string }) {
     setTruncada(el.scrollHeight > el.clientHeight + 1)
   }, [texto])
 
+  const num = String(n).padStart(2, "0")
+
   return (
     <li>
       <button
         type="button"
         onClick={() => setAbierta(o => !o)}
         aria-expanded={abierta}
-        className="flex w-full gap-2 text-left text-xs leading-relaxed rounded-md -mx-1 px-1 py-0.5 hover:bg-black/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#142849]/40"
+        className={`flex w-full gap-2.5 text-left rounded-md -mx-1 px-1 py-1 transition-colors focus-visible:outline-none ${
+          dark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+        }`}
         title={abierta ? "Contraer" : "Leer completa"}
       >
-        <span className="shrink-0 font-bold tabular-nums">{n}.</span>
-        <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-          <span ref={ref} className={abierta ? "" : "line-clamp-2"}>{texto}</span>
+        <span
+          className="shrink-0 pt-0.5 text-[11px] font-extrabold tabular-nums"
+          style={{ color: dark ? "rgba(255,255,255,.5)" : MUTED }}
+        >
+          {num}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+          <span
+            ref={ref}
+            className={`text-[14.5px] leading-snug ${abierta ? "" : "line-clamp-2"}`}
+            style={{ color: dark ? "#fff" : INK }}
+          >
+            {texto}
+          </span>
           {(truncada || abierta) && (
             <span
-              className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide"
-              style={{ color: "#142849", opacity: 0.55 }}
+              className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide"
+              style={{ color: ACCENT }}
             >
               {abierta ? "Ver menos" : "Ver más"}
               <ChevronDown className={`h-3 w-3 transition-transform ${abierta ? "rotate-180" : ""}`} />
@@ -56,7 +73,7 @@ import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
 import { getLogo } from "@/lib/logo"
-import { getRoadmap, type Roadmap } from "@/lib/roadmap"
+import { getRoadmap, type Roadmap, type Pilar } from "@/lib/roadmap"
 import { roadmapIsEmpty } from "@/components/roadmap/shared"
 
 // ── Easing ────────────────────────────────────────────────
@@ -152,137 +169,360 @@ function statusLabel(s: string) {
   return map[s] ?? s
 }
 
-// ── One-pager (solo lectura) ──────────────────────────────
-// El Inicio muestra la estrategia de un vistazo con la plantilla clásica de
-// estrategia (one-pager): reusa la data del Roadmap que ya vive en /dashboard/plan.
-// Aquí no se edita — para eso está "Editar mi Roadmap". Colores por hex porque
-// Tailwind v4 no detecta clases dinámicas.
-const NAVY = "#142849"
-const STEEL = "#9fb2ce"
-const LIGHT = "#e7ecf4"
+// ── Sistema de diseño BENTO ───────────────────────────────
+// El Inicio muestra la estrategia "de un vistazo" con estética bento: reusa la
+// data del Roadmap que ya vive en /dashboard/plan. Aquí no se edita — para eso
+// está "Editar mi Roadmap". Tokens por hex (Tailwind v4 no ve clases dinámicas).
+const PAPER = "#F2F2F0"
+const INK   = "#0E1626"
+const INK2  = "#39435A"
+const MUTED = "#6E7686"
+const CARD  = "#FFFFFF"
+const SAND  = "#E8E3D8"
+const SAND2 = "#F0ECE3"
+const BNAVY = "#152742"
+const ACCENT = "#FF5C1A"
+const LINE  = "#E2E2DC"
 
-function RoadmapOnePager({ roadmap }: { roadmap: Roadmap }) {
-  const objetivos = roadmap.objetivos_estrategicos ?? []
-  const enablers = roadmap.key_enablers ?? []
-  const pilares = (roadmap.pilares ?? []).slice(0, 6)
-  const n = pilares.length || 1
-  // Mismas columnas para tarjetas (pilares) y columnas de tareas → quedan alineadas.
-  const gridCols = { gridTemplateColumns: `repeat(${n}, minmax(190px,1fr))` }
+// Clases compartidas por todos los tiles del bento.
+const TILE = "rounded-[26px] p-[30px] relative overflow-hidden"
+// El CSS global pone h1/h2 en serif (Newsreader). En el bento NO queremos serif:
+// forzamos sans en cada título y número display.
+const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
+
+// Anchos bento con responsive: móvil apila todo; md reparte a mitades; lg abre 4/8.
+const COL = {
+  c4:  "col-span-12 md:col-span-6 lg:col-span-4",
+  c6:  "col-span-12 md:col-span-6",
+  c8:  "col-span-12 lg:col-span-8",
+  c12: "col-span-12",
+}
+
+type BG = "card" | "sand" | "sand2" | "dark" | "ink"
+function bgStyle(bg: BG): CSSProperties {
+  switch (bg) {
+    case "sand":  return { background: SAND }
+    case "sand2": return { background: SAND2 }
+    case "dark":  return { background: BNAVY, color: "#fff" }
+    case "ink":   return { background: INK, color: "#fff" }
+    default:      return { background: CARD }
+  }
+}
+
+function Eyebrow({ children, dark = false, className = "" }: { children: ReactNode; dark?: boolean; className?: string }) {
+  return (
+    <p
+      className={`text-[10.5px] font-extrabold uppercase tracking-[0.17em] ${className}`}
+      style={{ color: dark ? "rgba(255,255,255,.6)" : MUTED }}
+    >
+      {children}
+    </p>
+  )
+}
+
+// Detalle firma: subrayado a mano "squiggle" naranja bajo una palabra del hero.
+function Squiggle({ children }: { children: ReactNode }) {
+  return (
+    <span className="relative inline-block">
+      {children}
+      <span
+        aria-hidden
+        className="absolute left-0 right-0 -bottom-1.5 h-[7px]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='7' viewBox='0 0 40 7'><path d='M0 4 Q5 0 10 4 T20 4 T30 4 T40 4' fill='none' stroke='%23FF5C1A' stroke-width='2.2'/></svg>\")",
+          backgroundRepeat: "repeat-x",
+          backgroundSize: "20px 7px",
+        }}
+      />
+    </span>
+  )
+}
+
+// Número display grande del hero (peso 700, tracking negativo). `sm` = variante chica.
+function DisplayNum({ value, unit, sm = false }: { value: ReactNode; unit: string; sm?: boolean }) {
+  return (
+    <div>
+      <p
+        className="font-bold tracking-[-.05em] leading-[.88]"
+        style={{ ...SANS, fontSize: sm ? "clamp(40px,7vw,56px)" : "clamp(46px,9vw,82px)" }}
+      >
+        {value}
+      </p>
+      <p className="mt-2.5 max-w-[20ch] text-[14px] font-semibold leading-snug" style={{ color: INK2 }}>
+        {unit}
+      </p>
+    </div>
+  )
+}
+
+function MiniLbl({ children, dark }: { children: ReactNode; dark?: boolean }) {
+  return (
+    <div
+      className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em]"
+      style={{ color: dark ? "rgba(255,255,255,.55)" : MUTED }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// Ficha de prioridad: índice grande y tenue, nombre, propósito (2 líneas) y un
+// split de dos columnas — Indicadores (bullets cuadrados naranjas) y Tareas
+// (numeradas con "Ver más" expandible). `dark` cambia bordes y colores de texto.
+function PrioTile({ pilar, index, bg, col }: { pilar: Pilar; index: number; bg: BG; col: string }) {
+  const dark = bg === "dark" || bg === "ink"
+  const kpis = (pilar.kpis ?? []).filter(k => k.label).slice(0, 5)
+  const tareas = (pilar.estrategias ?? []).slice(0, 6)
+  const purpose = pilar.objetivo || pilar.descripcion
+  const num = String(index + 1).padStart(2, "0")
+  return (
+    <div id={`prioridad-${index}`} className={`${TILE} ${col} scroll-mt-24`} style={bgStyle(bg)}>
+      <div className="relative">
+        <div className="flex items-start gap-[18px]">
+          <div className="shrink-0 font-bold leading-[.85] tracking-[-.04em]" style={{ ...SANS, fontSize: "46px", opacity: 0.22 }}>
+            {num}
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={SANS}>
+              {pilar.nombre || `Prioridad ${index + 1}`}
+            </h3>
+            {purpose && (
+              <p className="mt-3 text-[15.5px] leading-relaxed line-clamp-2" style={{ color: dark ? "rgba(255,255,255,.86)" : INK2 }}>
+                {purpose}
+              </p>
+            )}
+          </div>
+        </div>
+        <div
+          className="mt-6 grid grid-cols-1 gap-5 border-t pt-5 sm:grid-cols-2"
+          style={{ borderColor: dark ? "rgba(255,255,255,.16)" : LINE }}
+        >
+          <div>
+            <MiniLbl dark={dark}>Indicadores</MiniLbl>
+            {kpis.length > 0 ? (
+              <ul className="space-y-0.5">
+                {kpis.map((k, j) => (
+                  <li key={j} className="relative py-1.5 pl-[18px] text-[14.5px] leading-snug" style={{ color: dark ? "#fff" : INK }}>
+                    <span className="absolute left-0 top-[13px] h-[7px] w-[7px] rounded-[2px]" style={{ background: ACCENT }} />
+                    {k.label}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[13px]" style={{ color: MUTED }}>—</p>
+            )}
+          </div>
+          <div>
+            <MiniLbl dark={dark}>Tareas</MiniLbl>
+            {tareas.length > 0 ? (
+              <ol className="space-y-0.5">
+                {tareas.map((t, j) => (
+                  <TareaItem key={j} n={j + 1} texto={t} dark={dark} />
+                ))}
+              </ol>
+            ) : (
+              <p className="text-[13px]" style={{ color: MUTED }}>—</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const ENAB_ICONS = [Users, Cpu, Building2, ShieldCheck, Workflow]
+
+function RoadmapOnePager({
+  roadmap, companyName, companyLogo,
+}: { roadmap: Roadmap; companyName: string | null; companyLogo: string | null }) {
+  const objetivos = (roadmap.objetivos_estrategicos ?? []).filter(Boolean)
+  const enablers  = (roadmap.key_enablers ?? []).filter(Boolean)
+  const pilares   = roadmap.pilares ?? []
+  const totalInd  = pilares.reduce((a, p) => a + (p.kpis ?? []).filter(k => k.label).length, 0)
+  const totalTar  = pilares.reduce((a, p) => a + (p.estrategias ?? []).length, 0)
+  const restPilares = pilares.slice(1)
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, ease: EASE, delay: 0.25 }}
-      className="space-y-4"
+      transition={{ duration: 0.55, ease: EASE, delay: 0.2 }}
     >
-      {/* Encabezado + acceso a edición */}
-      <div className="mb-2 flex items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-400">Tu estrategia</p>
-          <h2 className="text-2xl font-bold tracking-tight text-black">Roadmap de un vistazo</h2>
+      {/* 1. TOPBAR */}
+      <div className="mb-1 flex items-center gap-3.5 px-1 pb-4">
+        {companyLogo && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={companyLogo}
+            alt={companyName ?? "Logo de tu empresa"}
+            className="h-9 w-9 shrink-0 rounded-lg border border-black/5 bg-white object-contain"
+          />
+        )}
+        <div className="leading-tight">
+          <Eyebrow className="mb-0">{todayLabel()}</Eyebrow>
+          <div className="text-[18px] font-bold tracking-[-.02em]" style={{ ...SANS, color: INK }}>
+            {greeting()}, {companyName || "tu empresa"}.
+          </div>
         </div>
+        <div className="flex-1" />
         <Link
           href="/dashboard/plan"
-          className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-medium text-gray-700 transition-colors hover:border-[var(--gob-navy)] hover:text-[var(--gob-navy)]"
+          className="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:brightness-90"
+          style={{ background: ACCENT }}
         >
-          <Pencil className="h-3.5 w-3.5" /> Editar mi Roadmap
+          <span className="hidden sm:inline">Editar mi Roadmap</span>
+          <span className="grid h-[22px] w-[22px] place-items-center rounded-full" style={{ background: "rgba(255,255,255,.18)" }}>
+            <Pencil className="h-3 w-3" />
+          </span>
         </Link>
       </div>
 
-      {/* 1. Misión · Visión — dos recuadros navy lado a lado */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl p-6 text-white" style={{ background: NAVY }}>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Misión</p>
-          <p className="text-sm leading-relaxed text-white/90 line-clamp-4">{roadmap.mision || "—"}</p>
-        </div>
-        <div className="rounded-2xl p-6 text-white" style={{ background: NAVY }}>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Visión</p>
-          <p className="text-sm leading-relaxed text-white/90 line-clamp-4">{roadmap.vision || "—"}</p>
-        </div>
-      </div>
+      {/* BENTO */}
+      <div className="grid grid-cols-12 gap-4">
 
-      {/* 2. KPI Visión — barra navy a todo el ancho */}
-      {objetivos.length > 0 && (
-        <div className="rounded-xl px-6 py-3.5 text-sm text-white" style={{ background: NAVY }}>
-          <span className="font-bold">KPI Visión: </span>
-          <span className="text-white/85">{objetivos.join(" · ")}</span>
-        </div>
-      )}
-
-      {/* 3. Franja azul acero */}
-      <div
-        className="rounded-xl py-2.5 text-center text-sm font-bold uppercase tracking-wide"
-        style={{ background: STEEL, color: NAVY }}
-      >
-        Prioridades estratégicas
-      </div>
-
-      {/* 4 + 5 + 6 — mismas columnas; scroll horizontal solo aquí, el body no se rompe */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[860px] space-y-4">
-          {/* 4. Tarjetas navy por pilar */}
-          <div className="grid gap-3" style={gridCols}>
-            {pilares.map((p, i) => {
-              const kpis = (p.kpis ?? []).filter(k => k.label).slice(0, 3)
-              const desc = p.objetivo || p.descripcion
-              return (
-                <article key={i} className="rounded-2xl p-4 text-center text-white" style={{ background: NAVY }}>
-                  <h3 className="text-sm font-bold leading-tight">{p.nombre || `Prioridad ${i + 1}`}</h3>
-                  {desc && (
-                    <p className="mt-2 text-xs italic leading-relaxed text-white/75 line-clamp-2">{desc}</p>
-                  )}
-                  {kpis.length > 0 && (
-                    <div className="mt-3 border-t border-white/15 pt-3">
-                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/50">Indicadores</p>
-                      <ul className="space-y-1">
-                        {kpis.map((k, j) => (
-                          <li key={j} className="text-xs leading-snug text-white/85">{k.label}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </article>
-              )
-            })}
+        {/* 2. HERO — en pastel (sand), texto oscuro, sin rayas */}
+        <div className={`${TILE} ${COL.c8} flex min-h-[300px] flex-col justify-between`} style={{ background: SAND, color: INK }}>
+          <div className="relative">
+            <Eyebrow className="mb-3">Tu estrategia</Eyebrow>
+            <h2 className="text-[34px] font-bold leading-[1.08] tracking-[-.03em]" style={SANS}>
+              Roadmap<br />de un <Squiggle>vistazo</Squiggle>
+            </h2>
           </div>
-
-          {/* 5. Franja azul acero */}
-          <div
-            className="rounded-xl py-2.5 text-center text-sm font-bold uppercase tracking-wide"
-            style={{ background: STEEL, color: NAVY }}
-          >
-            Tareas
+          <div className="relative mt-8 flex flex-wrap items-end gap-x-10 gap-y-6">
+            <DisplayNum value={pilares.length} unit="Prioridades estratégicas" />
+            <DisplayNum value={totalInd} unit="Indicadores" sm />
+            <DisplayNum value={totalTar} unit="Tareas" sm />
           </div>
+        </div>
 
-          {/* 6. Columnas claras por pilar — tareas numeradas, alineadas bajo cada pilar */}
-          <div className="grid gap-3" style={gridCols}>
-            {pilares.map((p, i) => {
-              const estrategias = (p.estrategias ?? []).slice(0, 5)
+        {/* 3. ONBOARDING — en azul (navy), texto blanco, sin líneas */}
+        <div className={`${TILE} ${COL.c4} flex min-h-[274px] flex-col justify-between`} style={bgStyle("dark")}>
+          <div>
+            <Eyebrow dark className="mb-3">Onboarding</Eyebrow>
+            <h3 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={SANS}>Completado</h3>
+            <p className="mt-3.5 text-[15px] leading-relaxed" style={{ color: "rgba(255,255,255,.82)" }}>
+              Tu roadmap ya está configurado y listo para consultarse.
+            </p>
+          </div>
+          <a href="#prioridades" className="group inline-flex items-center gap-3 text-[12px] font-extrabold uppercase tracking-[0.09em]">
+            Ver prioridades
+            <span
+              className="grid h-7 w-7 place-items-center rounded-full border text-[12px] transition-colors group-hover:border-transparent group-hover:bg-[#FF5C1A] group-hover:text-white"
+              style={{ borderColor: "currentColor" }}
+            >
+              →
+            </span>
+          </a>
+        </div>
+
+        {/* 4. MISIÓN */}
+        <div className={`${TILE} ${COL.c6}`} style={bgStyle("card")}>
+          <Eyebrow className="mb-3">Misión</Eyebrow>
+          <h3 className="text-[20px] font-semibold leading-[1.45] tracking-[-.015em]" style={SANS}>
+            {roadmap.mision || "—"}
+          </h3>
+        </div>
+
+        {/* 5. VISIÓN */}
+        <div className={`${TILE} ${COL.c6}`} style={bgStyle("sand2")}>
+          <Eyebrow className="mb-3">Visión</Eyebrow>
+          <h3 className="text-[20px] font-semibold leading-[1.45] tracking-[-.015em]" style={SANS}>
+            {roadmap.vision || "—"}
+          </h3>
+        </div>
+
+        {/* 6. KPI VISIÓN — los compromisos */}
+        {objetivos.length > 0 && (
+          <>
+            <div className="col-span-12 px-1 pt-3">
+              <Eyebrow>KPI Visión — los compromisos</Eyebrow>
+            </div>
+            {objetivos.map((o, i) => (
+              <div key={i} className={`${TILE} ${COL.c4} flex min-h-[170px] flex-col`} style={bgStyle(i % 2 === 0 ? "sand" : "card")}>
+                <div className="text-[13px] font-extrabold tracking-[0.04em]" style={{ color: ACCENT }}>
+                  {String(i + 1).padStart(2, "0")}
+                </div>
+                <div className="mt-3.5 text-[16px] font-semibold leading-snug tracking-[-.015em]" style={{ color: INK }}>
+                  {o}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* 7. PRIORIDADES ESTRATÉGICAS */}
+        {pilares.length > 0 && (
+          <>
+            <div id="prioridades" className="col-span-12 scroll-mt-24 px-1 pt-4">
+              <Eyebrow>Prioridades estratégicas — cada ficha trae sus indicadores y sus tareas</Eyebrow>
+            </div>
+
+            {/* Prioridad 1 (dark, ancha) + tile de Composición (ink) al lado */}
+            <PrioTile pilar={pilares[0]} index={0} bg="dark" col={COL.c8} />
+            <div className={`${TILE} ${COL.c4} flex flex-col justify-between`} style={bgStyle("ink")}>
+              <div>
+                <Eyebrow dark className="mb-3">Composición del roadmap</Eyebrow>
+                <h3 className="text-[19px] font-bold leading-tight tracking-[-.02em]" style={SANS}>
+                  {pilares.length} prioridades · {totalTar} tareas en tu plan.
+                </h3>
+              </div>
+              <div>
+                <div className="mt-5 flex gap-[3px]">
+                  {pilares.map((_, i) => (
+                    <span
+                      key={i}
+                      className="grid h-11 flex-1 place-items-center rounded-[7px] text-[11px] font-extrabold"
+                      style={{
+                        background: i === 0 ? ACCENT : "rgba(255,255,255,.22)",
+                        color: i === 0 ? "#fff" : "rgba(255,255,255,.9)",
+                      }}
+                    >
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3.5 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-semibold" style={{ color: "rgba(255,255,255,.62)" }}>
+                  <span>{pilares.length} prioridades</span>
+                  <span>{totalInd} indicadores</span>
+                  <span>{totalTar} tareas</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Prioridades restantes: alternan sand / card, a media anchura */}
+            {restPilares.map((p, i) => (
+              <PrioTile key={i + 1} pilar={p} index={i + 1} bg={i % 2 === 0 ? "sand" : "card"} col={COL.c6} />
+            ))}
+          </>
+        )}
+
+        {/* 8. KEY ENABLERS */}
+        {enablers.length > 0 && (
+          <>
+            <div className="col-span-12 px-1 pt-4">
+              <Eyebrow>Key enablers</Eyebrow>
+            </div>
+            {enablers.map((e, i) => {
+              const Icon = ENAB_ICONS[i % ENAB_ICONS.length]
               return (
-                <div key={i} className="rounded-2xl p-4" style={{ background: LIGHT, color: NAVY }}>
-                  {estrategias.length > 0 ? (
-                    <ol className="space-y-2">
-                      {estrategias.map((s, j) => (
-                        <TareaItem key={j} n={j + 1} texto={s} />
-                      ))}
-                    </ol>
-                  ) : (
-                    <p className="text-center text-xs text-[#142849]/40">—</p>
-                  )}
+                <div key={i} className={`${TILE} ${COL.c4} flex items-start gap-4`} style={bgStyle(i % 2 === 0 ? "card" : "sand")}>
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[14px] text-white" style={{ background: ACCENT }}>
+                    <Icon className="h-[22px] w-[22px]" strokeWidth={1.9} />
+                  </span>
+                  <p className="text-[15.5px] leading-relaxed" style={{ color: INK }}>{e}</p>
                 </div>
               )
             })}
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
-      {/* 7. Key enablers — barra navy a todo el ancho */}
-      {enablers.length > 0 && (
-        <div className="rounded-xl px-6 py-3.5 text-sm text-white" style={{ background: NAVY }}>
-          <span className="font-bold">Key enablers: </span>
-          <span className="text-white/85">{enablers.join(" · ")}</span>
-        </div>
-      )}
+      {/* 9. Nota al pie */}
+      <p className="mt-8 border-l-2 pl-4 text-[13px] leading-relaxed" style={{ color: MUTED, borderColor: LINE }}>
+        Los números grandes son conteos reales de tu roadmap: {pilares.length} prioridades,{" "}
+        {totalInd} indicadores y {totalTar} tareas. Toca cualquier tarea recortada para leerla completa.
+      </p>
     </motion.div>
   )
 }
@@ -409,7 +649,7 @@ export default function DashboardPage() {
   const years = [currentYear - 1, currentYear, currentYear + 1]
 
   return (
-    <div className="min-h-dvh bg-white text-black font-sans antialiased">
+    <div className="min-h-dvh text-black font-sans antialiased" style={{ background: PAPER }}>
 
       <SecretarioWelcome
         onboardingComplete={onboardingComplete}
@@ -419,7 +659,7 @@ export default function DashboardPage() {
       />
 
       {/* ── Navbar ───────────────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 md:left-60 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <header className="fixed top-0 inset-x-0 md:left-56 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <PageShell className="h-14 flex items-center justify-between">
           <GoberniaLogo size={16} />
 
@@ -583,7 +823,10 @@ export default function DashboardPage() {
       <main className="pt-14">
         <PageShell className="py-12 space-y-14">
 
-          {/* ── Greeting ─────────────────────────────────── */}
+          {/* ── Greeting ─────────────────────────────────
+              Con roadmap, el saludo vive dentro del bento (topbar); aquí solo
+              aparece en el estado guiado (sin roadmap). */}
+          {!hasRoadmap && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -614,6 +857,7 @@ export default function DashboardPage() {
               </p>
             )}
           </motion.div>
+          )}
 
           {/* ── Onboarding banner ────────────────────────── */}
           {!onboardingComplete && (
@@ -656,8 +900,9 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {/* ── Estatus compacto (onboarding + gobernanza) ─── */}
-          {onboardingComplete && (
+          {/* ── Estatus compacto (onboarding + gobernanza) ───
+              Con roadmap se omite: el bento ya trae su tile de Onboarding. */}
+          {onboardingComplete && !hasRoadmap && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -675,7 +920,7 @@ export default function DashboardPage() {
               Con roadmap → estrategia de un vistazo (solo lectura).
               Sin roadmap → el camino guiado "Del diagnóstico al plan". */}
           {hasRoadmap ? (
-            <RoadmapOnePager roadmap={roadmap!} />
+            <RoadmapOnePager roadmap={roadmap!} companyName={companyName} companyLogo={companyLogo} />
           ) : (!roadmapChecked && onboardingComplete) ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
