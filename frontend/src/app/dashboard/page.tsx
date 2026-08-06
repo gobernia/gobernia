@@ -341,7 +341,9 @@ function RoadmapOnePager({
   const pilares   = roadmap.pilares ?? []
   const totalInd  = pilares.reduce((a, p) => a + (p.kpis ?? []).filter(k => k.label).length, 0)
   const totalTar  = pilares.reduce((a, p) => a + (p.estrategias ?? []).length, 0)
-  const restPilares = pilares.slice(1)
+  // Compromiso seleccionado arriba → SU ficha (la azul) se muestra abajo.
+  const [selPilar, setSelPilar] = useState(0)
+  const pilarActivo = Math.min(selPilar, Math.max(pilares.length - 1, 0))
 
   return (
     <motion.div
@@ -440,31 +442,54 @@ function RoadmapOnePager({
             <div className="col-span-12 px-1 pt-3">
               <Eyebrow>KPI Visión — los compromisos</Eyebrow>
             </div>
+            {/* La tarjeta activa se pinta del MISMO azul que la ficha de abajo y
+                saca una pestañita (notch) hacia ella: se "pegan" visualmente.
+                El click solo cambia la selección — sin salto de página. */}
             <div className="col-span-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              {objetivos.map((o, i) => (
-                <a
-                  key={i}
-                  href={`#prioridad-${i}`}
-                  aria-label={`Ir a la prioridad ${String(i + 1).padStart(2, "0")}`}
-                  className={`${TILE} group flex min-h-[170px] flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
-                  style={bgStyle(i % 2 === 0 ? "sand" : "card")}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="text-[13px] font-extrabold tracking-[0.04em]" style={{ color: ACCENT }}>
-                      {String(i + 1).padStart(2, "0")}
+              {objetivos.map((o, i) => {
+                const activo = i === pilarActivo
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setSelPilar(i)}
+                    aria-label={`Abrir la prioridad ${String(i + 1).padStart(2, "0")}`}
+                    aria-current={activo ? "true" : undefined}
+                    className="group relative flex min-h-[170px] cursor-pointer flex-col rounded-[26px] p-[30px] text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                    style={activo ? bgStyle("dark") : bgStyle(i % 2 === 0 ? "sand" : "card")}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-[13px] font-extrabold tracking-[0.04em]" style={{ color: ACCENT }}>
+                        {String(i + 1).padStart(2, "0")}
+                      </div>
+                      <span
+                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[12px] transition-colors ${
+                          activo
+                            ? "bg-white/20 text-white"
+                            : "border group-hover:border-transparent group-hover:bg-[#FF5C1A] group-hover:text-white"
+                        }`}
+                        style={activo ? {} : { borderColor: "rgba(14,22,38,0.18)", color: MUTED }}
+                      >
+                        ↓
+                      </span>
                     </div>
-                    <span
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] transition-colors group-hover:border-transparent group-hover:bg-[#FF5C1A] group-hover:text-white"
-                      style={{ borderColor: "rgba(14,22,38,0.18)", color: MUTED }}
+                    <div
+                      className="mt-3.5 text-[16px] font-semibold leading-snug tracking-[-.015em]"
+                      style={{ color: activo ? "#fff" : INK }}
                     >
-                      ↓
-                    </span>
-                  </div>
-                  <div className="mt-3.5 text-[16px] font-semibold leading-snug tracking-[-.015em]" style={{ color: INK }}>
-                    {o}
-                  </div>
-                </a>
-              ))}
+                      {o}
+                    </div>
+                    {/* Pestañita que conecta con la ficha azul de abajo */}
+                    {activo && (
+                      <span
+                        aria-hidden
+                        className="absolute left-1/2 -bottom-[8px] h-[18px] w-[18px] -translate-x-1/2 rotate-45 rounded-[4px]"
+                        style={{ background: BNAVY }}
+                      />
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </>
         )}
@@ -476,13 +501,9 @@ function RoadmapOnePager({
               <Eyebrow>Prioridades estratégicas — cada ficha trae sus indicadores y sus tareas</Eyebrow>
             </div>
 
-            {/* Prioridad 1 destacada (dark, ancho completo) */}
-            <PrioTile pilar={pilares[0]} index={0} bg="dark" col={COL.c12} />
-
-            {/* Prioridades restantes: alternan sand / card, a media anchura */}
-            {restPilares.map((p, i) => (
-              <PrioTile key={i + 1} pilar={p} index={i + 1} bg={i % 2 === 0 ? "sand" : "card"} col={COL.c6} />
-            ))}
+            {/* Solo se muestra LA ficha del compromiso seleccionado arriba
+                (dark, ancho completo); cambia al hacer click en otro. */}
+            <PrioTile key={pilarActivo} pilar={pilares[pilarActivo]} index={pilarActivo} bg="dark" col={COL.c12} />
           </>
         )}
 

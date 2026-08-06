@@ -21,7 +21,7 @@ const LINKS = [
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
   { href: "/dashboard/roadmap-beta", label: "Roadmap", exact: false, icon: Map },
   { href: "/dashboard/plan-anual", label: "Plan anual", exact: false, icon: CalendarCheck },
-  { href: "/dashboard/consejo", label: "Tareas", exact: false, icon: Users },
+  { href: "/dashboard/consejo", label: "Board IA", exact: false, icon: Users },
   { href: "/dashboard/biblioteca", label: "Biblioteca", exact: false, icon: Library },
 ]
 
