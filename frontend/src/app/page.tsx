@@ -438,8 +438,10 @@ export default function LandingV2() {
           </div>
         </div>
 
-        {/* Headline grande a la IZQUIERDA, anclado abajo junto al video */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto mt-24 lg:mt-auto">
+        {/* Headline grande a la IZQUIERDA. En móvil queda centrado verticalmente
+            (mt-auto arriba + mt-auto del pie reparten el espacio); en desktop
+            se ancla abajo junto al video (el pie va sin margen). */}
+        <div className="w-full max-w-[var(--container-fluid)] mx-auto mt-auto">
           <motion.h1
             variants={heroContainer}
             initial="hidden"
