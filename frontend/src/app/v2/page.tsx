@@ -803,17 +803,74 @@ export default function LandingV2() {
         </section>
 
         {/* ── Footer ───────────────────────────────────────── */}
-        <footer className="py-8 sm:py-10 3xl:py-14 px-[var(--px-fluid)]" style={{ borderTop: `1px solid ${LINE}` }}>
-          <div className="w-full max-w-[var(--container-fluid)] mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-xs" style={{ color: MUTED }}>
-            <div className="flex items-center gap-3">
-              <GoberniaLogo size={16} />
-              <span>© {new Date().getFullYear()}</span>
+        <footer className="px-[var(--px-fluid)] pt-16 pb-8" style={{ background: SAND }}>
+          <div className="w-full max-w-[var(--container-fluid)] mx-auto">
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-14">
+              {/* Marca */}
+              <div className="md:col-span-5 space-y-5">
+                <GoberniaLogo size={30} />
+                <p className="text-[14.5px] leading-relaxed" style={{ color: INK2, maxWidth: "26em" }}>
+                  La evolución del Consejo de Administración. Cinco consejeros con IA
+                  sesionan sobre tu empresa cada mes.
+                </p>
+                <Link
+                  href="/sign-up"
+                  className="inline-flex items-center gap-2.5 rounded-full px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:brightness-90"
+                  style={{ ...SANS, background: BNAVY }}
+                >
+                  Comenzar gratis <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              {/* Producto */}
+              <div className="md:col-span-2">
+                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em] mb-4" style={{ ...SANS, color: MUTED }}>
+                  Producto
+                </p>
+                <ul className="space-y-2.5 text-sm" style={{ color: INK2 }}>
+                  <li><a href="#producto"      className="transition-colors hover:text-[#152742]">Consejeros</a></li>
+                  <li><a href="#como-funciona" className="transition-colors hover:text-[#152742]">Cómo funciona</a></li>
+                  <li><a href="#faq"           className="transition-colors hover:text-[#152742]">FAQ</a></li>
+                </ul>
+              </div>
+
+              {/* Cuenta */}
+              <div className="md:col-span-2">
+                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em] mb-4" style={{ ...SANS, color: MUTED }}>
+                  Cuenta
+                </p>
+                <ul className="space-y-2.5 text-sm" style={{ color: INK2 }}>
+                  <li><Link href="/sign-in" className="transition-colors hover:text-[#152742]">Iniciar sesión</Link></li>
+                  <li><Link href="/sign-up" className="transition-colors hover:text-[#152742]">Crear cuenta</Link></li>
+                </ul>
+              </div>
+
+              {/* Legal */}
+              <div className="md:col-span-3">
+                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em] mb-4" style={{ ...SANS, color: MUTED }}>
+                  Legal
+                </p>
+                <ul className="space-y-2.5 text-sm" style={{ color: INK2 }}>
+                  <li><Link href="/legal/privacidad" className="transition-colors hover:text-[#152742]">Aviso de privacidad</Link></li>
+                  <li><Link href="/legal/terminos"   className="transition-colors hover:text-[#152742]">Términos y condiciones</Link></li>
+                  <li><Link href="/legal/cookies"    className="transition-colors hover:text-[#152742]">Política de cookies</Link></li>
+                </ul>
+              </div>
             </div>
-            <div className="flex items-center gap-6">
-              <Link href="/sign-in"  className="transition-colors hover:text-[#152742]">Iniciar sesión</Link>
-              <Link href="/sign-up"  className="transition-colors hover:text-[#152742]">Registro</Link>
-              <span>Tu información está cifrada y protegida.</span>
+
+            {/* Línea final */}
+            <div
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-6 text-xs"
+              style={{ borderTop: "1px solid rgba(14,22,38,0.12)", color: MUTED }}
+            >
+              <span>© {new Date().getFullYear()} Gobernia. Todos los derechos reservados.</span>
+              <span className="inline-flex items-center gap-2">
+                <span aria-hidden className="h-1.5 w-1.5" style={{ background: ACCENT }} />
+                Tu información está cifrada y protegida.
+              </span>
             </div>
+
           </div>
         </footer>
 

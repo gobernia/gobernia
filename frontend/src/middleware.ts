@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 // /t = escritorio público del responsable (enlace mágico, sin login).
-const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/auth/callback", "/landing-2", "/v2", "/c", "/t"]
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/auth/callback", "/landing-2", "/v2", "/legal", "/c", "/t"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
