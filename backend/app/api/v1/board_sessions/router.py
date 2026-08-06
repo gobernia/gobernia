@@ -76,6 +76,13 @@ _MONTH_NAMES = [
     "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
+
+
+def _periodo_label(year: int, month: int) -> str:
+    """Etiqueta humana del periodo. month=0 → sesión de TODO el plan."""
+    return f"Todo el plan · {year}" if month == 0 else f"{_MONTH_NAMES[month]} {year}"
+
+
 VALID_AGENTS = {"CFO", "CSO", "CRO", "Auditor"}
 
 # Cómo se lee cada estatus Kanban en el bloque de AVANCE que ve el Consejo.
@@ -291,7 +298,7 @@ async def get_session_acta_pdf(
                 detail="Aprueba tu Plan anual para generar el acta.",
             )
 
-        periodo_label = f"{_MONTH_NAMES[bs.period_month]} {bs.period_year}"
+        periodo_label = _periodo_label(bs.period_year, bs.period_month)
         fecha_iso = (bs.completed_at or datetime.now(timezone.utc)).date().isoformat()
         bs.acta_snapshot = {
             "cadena": cadena.model_dump(),
@@ -350,7 +357,7 @@ async def create_board_session(
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Ya existe una sesión para {_MONTH_NAMES[body.period_month]} {body.period_year}.",
+            detail=f"Ya existe una sesión para {_periodo_label(body.period_year, body.period_month)}.",
         )
 
     bs = BoardSession(
@@ -371,7 +378,7 @@ async def create_board_session(
         onboarding_session_id=str(onboarding.id),
         period_year=bs.period_year,
         period_month=bs.period_month,
-        period_label=f"{_MONTH_NAMES[bs.period_month]} {bs.period_year}",
+        period_label=_periodo_label(bs.period_year, bs.period_month),
         status=bs.status,
         governance_score_snapshot=bs.governance_score_snapshot,
         document_count=0,
@@ -401,7 +408,7 @@ async def list_board_sessions(
             onboarding_session_id=str(bs.onboarding_session_id),
             period_year=bs.period_year,
             period_month=bs.period_month,
-            period_label=f"{_MONTH_NAMES[bs.period_month]} {bs.period_year}",
+            period_label=_periodo_label(bs.period_year, bs.period_month),
             status=bs.status,
             governance_score_snapshot=bs.governance_score_snapshot,
             document_count=len(bs.documents) if bs.documents else 0,
@@ -437,7 +444,7 @@ async def get_board_session(
         onboarding_session_id=str(bs.onboarding_session_id),
         period_year=bs.period_year,
         period_month=bs.period_month,
-        period_label=f"{_MONTH_NAMES[bs.period_month]} {bs.period_year}",
+        period_label=_periodo_label(bs.period_year, bs.period_month),
         status=bs.status,
         kpi_snapshot=bs.kpi_snapshot,
         agent_analyses=normalize_agent_analyses(bs.agent_analyses),
@@ -556,7 +563,7 @@ async def run_analyses(
     past_sessions = history_result.scalars().all()
     previous_analyses = [
         {
-            "period": f"{_MONTH_NAMES[s.period_month]} {s.period_year}",
+            "period": _periodo_label(s.period_year, s.period_month),
             "summary": (s.agent_analyses or {}).get(agent, {}).get("summary", ""),
         }
         for s in past_sessions

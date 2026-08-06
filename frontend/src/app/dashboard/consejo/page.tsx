@@ -13,7 +13,7 @@ import TableroPlan from "@/components/consejo/TableroPlan"
 import ToddSecretario from "@/components/consejo/ToddSecretario"
 import OrdenDelDiaCadena from "@/components/consejo/OrdenDelDiaCadena"
 import api from "@/lib/api"
-import { downloadSesionActaPdf } from "@/lib/board"
+import { downloadSesionActaPdf, getBoard, type BoardMes } from "@/lib/board"
 import { getRoadmap, type Roadmap } from "@/lib/roadmap"
 import { aniosDelPlan } from "@/components/roadmap/shared"
 
@@ -28,6 +28,7 @@ const MUTED = "#6E7686"
 const CARD  = "#FFFFFF"
 const SAND  = "#E8E3D8"
 const BNAVY = "#152742"
+const ACCENT = "#FF5C1A"
 const LINE  = "#E2E2DC"
 const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
 
@@ -70,11 +71,12 @@ export default function ConsejoPage() {
 
   const [sessions, setSessions] = useState<BoardSession[]>([])
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null)
+  // Los meses del Plan anual: son las únicas fechas sesionables en el modal.
+  const [meses, setMeses] = useState<BoardMes[]>([])
   const [showSetupModal, setShowSetupModal] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [modalYear, setModalYear] = useState(new Date().getFullYear())
-  const [modalMonth, setModalMonth] = useState(new Date().getMonth() + 1)
-  const [creating, setCreating] = useState(false)
+  // Periodo que se está creando ("year-month"), para el spinner de esa fila.
+  const [creatingKey, setCreatingKey] = useState<string | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
   // Se incrementa cuando Todd reemplaza una tarea, para refrescar el tablero.
   const [boardReload, setBoardReload] = useState(0)
@@ -108,16 +110,16 @@ export default function ConsejoPage() {
       .catch(() => {})
     api.get("/board-sessions").then(r => setSessions(r.data)).catch(() => {})
     getRoadmap().then(r => setRoadmap(r)).catch(() => {})
+    getBoard().then(setMeses).catch(() => {})
   }, [hydrate, reset])
 
   const onboardingComplete = completedStages.length >= 8
   const nextEtapa = ETAPAS.find(e => !completedStages.includes(e.n))
   const [currentYear] = roadmap ? aniosDelPlan(roadmap.anio_objetivo) : [new Date().getFullYear()]
-  const years = [currentYear - 1, currentYear, currentYear + 1]
+  // Año del plan (para la sesión de TODO el plan): el del primer mes sesionable.
+  const planYear = meses[0]?.period_year ?? currentYear
 
   const openModal = () => {
-    setModalYear(currentYear)
-    setModalMonth(new Date().getMonth() + 1)
     setCreateError(null)
     setShowModal(true)
   }
@@ -127,17 +129,22 @@ export default function ConsejoPage() {
     else setShowSetupModal(true)
   }
 
-  const createSession = async () => {
-    setCreating(true)
+  /** Busca la sesión ya creada de un periodo (para mostrar su estado y reabrirla). */
+  const sesionDe = (y: number, m: number) =>
+    sessions.find(s => s.period_year === y && s.period_month === m)
+
+  /** Crea (o reabre, vía 409) la sesión del periodo. month=0 → todo el plan. */
+  const createSession = async (y: number, m: number) => {
+    setCreatingKey(`${y}-${m}`)
     setCreateError(null)
     try {
-      const r = await api.post("/board-sessions", { period_year: modalYear, period_month: modalMonth })
+      const r = await api.post("/board-sessions", { period_year: y, period_month: m })
       setShowModal(false)
       router.push(`/dashboard/sesion/${r.data.board_session_id}`)
     } catch (e: unknown) {
       const status = (e as { response?: { status?: number } })?.response?.status
       if (status === 409) {
-        const existing = sessions.find(s => s.period_year === modalYear && s.period_month === modalMonth)
+        const existing = sesionDe(y, m)
         if (existing) {
           setShowModal(false)
           router.push(`/dashboard/sesion/${existing.board_session_id}`)
@@ -145,9 +152,9 @@ export default function ConsejoPage() {
         }
       }
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setCreateError(msg ?? "No se pudo crear la sesión. Intenta de nuevo.")
+      setCreateError(typeof msg === "string" ? msg : "No se pudo crear la sesión. Intenta de nuevo.")
     } finally {
-      setCreating(false)
+      setCreatingKey(null)
     }
   }
 
@@ -209,54 +216,73 @@ export default function ConsejoPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-bold" style={{ ...SANS, color: INK }}>Nueva sesión de Consejo</h2>
-                  <p className="text-xs mt-0.5" style={{ color: MUTED }}>Selecciona el periodo a analizar</p>
+                  <p className="text-xs mt-0.5" style={{ color: MUTED }}>Los meses de tu Plan anual — pasados, en curso y por venir</p>
                 </div>
                 <button onClick={() => setShowModal(false)} className="transition-colors hover:opacity-70" style={{ color: MUTED }}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="space-y-2">
-                <p className="text-xs font-medium" style={{ color: INK2 }}>Mes</p>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {MONTH_NAMES.slice(1).map((m, i) => (
-                    <button key={i + 1} onClick={() => setModalMonth(i + 1)}
-                      className={`py-2 rounded-[14px] text-xs font-medium border-2 transition-all duration-100 ${
-                        modalMonth === i + 1
-                          ? ""
-                          : ""}`}
-                      style={{
-                        background: modalMonth === i + 1 ? BNAVY : CARD,
-                        color: modalMonth === i + 1 ? CARD : INK2,
-                        borderColor: modalMonth === i + 1 ? BNAVY : LINE,
-                      }}>
-                      {m.slice(0, 3)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-medium" style={{ color: INK2 }}>Año</p>
-                <div className="flex gap-2">
-                  {years.map(y => (
-                    <button key={y} onClick={() => setModalYear(y)}
-                      className={`flex-1 py-2 rounded-[14px] text-xs font-medium border-2 transition-all duration-100`}
-                      style={{
-                        background: modalYear === y ? BNAVY : CARD,
-                        color: modalYear === y ? CARD : INK2,
-                        borderColor: modalYear === y ? BNAVY : LINE,
-                      }}>
-                      {y}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {createError && <p className="text-xs" style={{ color: "#dc2626" }}>{createError}</p>}
-              <button onClick={createSession} disabled={creating}
-                className="w-full flex items-center justify-center gap-2 text-sm font-medium py-3 rounded-[20px] transition-colors disabled:opacity-50" style={{ background: BNAVY, color: CARD }}>
-                {creating
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Creando…</>
-                  : <>Crear sesión de {MONTH_NAMES[modalMonth]} {modalYear} <ArrowRight className="h-4 w-4" /></>}
+
+              {/* Sesión de TODO el plan (año completo) */}
+              <button
+                type="button"
+                onClick={() => createSession(planYear, 0)}
+                disabled={creatingKey !== null}
+                className="w-full flex items-center justify-between gap-3 rounded-[20px] px-4 py-3.5 text-sm font-bold text-white transition-colors hover:brightness-90 disabled:opacity-50"
+                style={{ ...SANS, background: BNAVY }}
+              >
+                <span className="text-left">
+                  Sesionar todo el plan
+                  <span className="block text-[11px] font-medium" style={{ color: "rgba(255,255,255,.65)" }}>
+                    El Consejo revisa el año {planYear} completo
+                  </span>
+                </span>
+                {creatingKey === `${planYear}-0`
+                  ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                  : <ArrowRight className="h-4 w-4 shrink-0" />}
               </button>
+
+              {/* Meses del plan */}
+              {meses.length > 0 ? (
+                <div className="space-y-1.5 max-h-[46vh] overflow-y-auto pr-1">
+                  {meses.map(mes => {
+                    const existente = sesionDe(mes.period_year, mes.period_month)
+                    const key = `${mes.period_year}-${mes.period_month}`
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => createSession(mes.period_year, mes.period_month)}
+                        disabled={creatingKey !== null}
+                        className="w-full flex items-center justify-between gap-3 rounded-[16px] border px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+                        style={{ borderColor: mes.es_mes_actual ? BNAVY : LINE, color: INK2, background: CARD }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = BNAVY; e.currentTarget.style.color = BNAVY }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = mes.es_mes_actual ? BNAVY : LINE; e.currentTarget.style.color = INK2 }}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          {mes.label}
+                          {mes.es_mes_actual && (
+                            <span className="text-[10px] font-extrabold uppercase tracking-[0.09em]" style={{ color: ACCENT }}>
+                              Mes en curso
+                            </span>
+                          )}
+                        </span>
+                        {creatingKey === key
+                          ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                          : existente
+                            ? <span className="text-[11px] font-bold" style={{ color: MUTED }}>{STATUS_LABEL[existente.status ?? ""] ?? "Abrir"}</span>
+                            : <ArrowRight className="h-4 w-4 shrink-0" style={{ color: MUTED }} />}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
+                  Aún no hay meses sesionables: aprueba tu Plan anual para que aparezcan aquí.
+                </p>
+              )}
+
+              {createError && <p className="text-xs" style={{ color: "#dc2626" }}>{createError}</p>}
             </motion.div>
           </>
         )}
@@ -374,12 +400,12 @@ export default function ConsejoPage() {
                       <div className="flex items-center gap-4 min-w-0">
                         <span className="w-10 h-10 rounded-[16px] border-2 flex items-center justify-center shrink-0 transition-colors" style={{ borderColor: LINE }}>
                           <span className="text-xs font-bold" style={{ color: MUTED }}>
-                            {MONTH_NAMES[s.period_month]?.slice(0, 3)}
+                            {s.period_month === 0 ? "Año" : MONTH_NAMES[s.period_month]?.slice(0, 3)}
                           </span>
                         </span>
                         <span className="min-w-0">
                           <span className="block text-sm font-medium truncate" style={{ color: INK }}>
-                            {s.period_label ?? `${MONTH_NAMES[s.period_month]} ${s.period_year}`}
+                            {s.period_label ?? (s.period_month === 0 ? `Todo el plan · ${s.period_year}` : `${MONTH_NAMES[s.period_month]} ${s.period_year}`)}
                           </span>
                           <span className="block text-xs mt-0.5" style={{ color: MUTED }}>
                             {STATUS_LABEL[s.status ?? ""] ?? "Borrador"}

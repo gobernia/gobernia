@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 
 class BoardSessionCreate(BaseModel):
     period_year: int = Field(ge=2020, le=2100)
-    period_month: int = Field(ge=1, le=12)
+    # 1-12 = mes concreto · 0 = sesión de TODO el plan (año completo)
+    period_month: int = Field(ge=0, le=12)
 
 
 # ── KPIs del periodo ──────────────────────────────────────────────────────────

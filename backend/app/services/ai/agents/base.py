@@ -82,6 +82,10 @@ _MONTH_NAMES = [
 
 
 def _period_label(year: int, month: int) -> str:
+    # month=0 → sesión de TODO el plan: el Consejo analiza el año completo,
+    # no un mes concreto.
+    if month == 0:
+        return f"el Plan anual {year} COMPLETO (todos los meses, visión de año entero)"
     return f"{_MONTH_NAMES[month]} {year}"
 
 
