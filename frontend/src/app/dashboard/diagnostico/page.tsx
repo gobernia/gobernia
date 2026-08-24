@@ -149,11 +149,16 @@ function InternalBlock({ title, Icon, color, items }: {
   )
 }
 
+// Los hallazgos internos (fortalezas/debilidades) se OCULTAN de la vista por
+// pedido del cliente — los datos siguen viniendo del API porque la IA los usa.
+// Cambiar a true para volver a mostrarlos.
+const MOSTRAR_INTERNOS = false
+
 // --- Riesgos compacto (color por severidad) --------------------------------
 function RiesgosBlock({ riesgos }: { riesgos: { riesgo: string; severidad: string }[] }) {
   const [open, setOpen] = useState(false)
   if (riesgos.length === 0) return null
-  const CAP = 4
+  const CAP = 5
   const shown = open ? riesgos : riesgos.slice(0, CAP)
   const more = riesgos.length - CAP
   return (
@@ -178,6 +183,33 @@ function RiesgosBlock({ riesgos }: { riesgos: { riesgo: string; severidad: strin
         })}
       </ul>
       {more > 0 && <VerMas open={open} onClick={() => setOpen(o => !o)} more={more} color={AMBER} />}
+    </section>
+  )
+}
+
+// --- Oportunidades para la empresa (del cuadrante Oportunidades del FODA) ---
+function OportunidadesBlock({ items }: { items: string[] }) {
+  const [open, setOpen] = useState(false)
+  if (items.length === 0) return null
+  const CAP = 5
+  const shown = open ? items : items.slice(0, CAP)
+  const more = items.length - CAP
+  return (
+    <section className="rounded-[26px] p-5 flex flex-col" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Compass className="h-4 w-4" style={{ color: BNAVY }} />
+        <h3 className="text-[20px] font-bold tracking-tight" style={{ ...SANS, color: INK }}>Oportunidades</h3>
+        <span className="ml-auto text-xs font-bold tabular-nums" style={{ color: BNAVY, opacity: 0.55 }}>{items.length}</span>
+      </div>
+      <ul className="space-y-2.5 flex-1">
+        {shown.map((o, i) => (
+          <li key={i} className="flex gap-2 text-[16px] text-[var(--gob-charcoal)]">
+            <span className="mt-2 h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: BNAVY }} />
+            <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>{o}</span>
+          </li>
+        ))}
+      </ul>
+      {more > 0 && <VerMas open={open} onClick={() => setOpen(o => !o)} more={more} color={BNAVY} />}
     </section>
   )
 }
@@ -401,6 +433,8 @@ export default function DiagnosticoPage() {
   const sinInterno = fortalezas.length === 0 && debilidades.length === 0 && riesgos.length === 0
   const hayCifras = fortalezas.length > 0 || debilidades.length > 0 || riesgos.length > 0
   const fodaActivo = foda?.status === "active" && !!foda.foda
+  // Oportunidades para la empresa: salen del cuadrante Oportunidades del FODA.
+  const oportunidades = fodaActivo ? (foda!.foda!.oportunidades ?? []).filter(Boolean) : []
 
   return (
     <div className="min-h-dvh text-black antialiased" style={{ background: PAPER }}>
@@ -451,16 +485,18 @@ export default function DiagnosticoPage() {
             {/* 3 · FODA 2×2 — el protagonista */}
             {fodaActivo && <FodaSection foda={foda!.foda!} />}
 
-            {/* 4 · Hallazgos internos + Riesgos, compactos */}
-            {sinInterno ? (
+            {/* 4 · Riesgos + Oportunidades (los hallazgos internos quedan
+                ocultos con MOSTRAR_INTERNOS; la IA sigue usando esos datos) */}
+            {sinInterno && oportunidades.length === 0 ? (
               <p className="text-[16px]" style={{ color: MUTED }}>
                 Aún no hay hallazgos internos. Complétalos platicando con Todd — abajo tienes el contexto de mercado.
               </p>
             ) : (
-              <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
-                <InternalBlock title="Fortalezas internas" Icon={TrendingUp} color={GREEN} items={fortalezas} />
-                <InternalBlock title="Debilidades internas" Icon={TrendingDown} color={RED} items={debilidades} />
+              <div className={`grid gap-4 lg:items-start ${MOSTRAR_INTERNOS ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+                {MOSTRAR_INTERNOS && <InternalBlock title="Fortalezas internas" Icon={TrendingUp} color={GREEN} items={fortalezas} />}
+                {MOSTRAR_INTERNOS && <InternalBlock title="Debilidades internas" Icon={TrendingDown} color={RED} items={debilidades} />}
                 <RiesgosBlock riesgos={riesgos} />
+                <OportunidadesBlock items={oportunidades} />
               </div>
             )}
 
