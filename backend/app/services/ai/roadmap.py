@@ -285,52 +285,99 @@ def generate_roadmap(memory_buffer: dict, diagnostico_content: dict,
     )
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
-        response = _create_with_retry(
-            client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=4096,
-            system=_SYSTEM + (_SYSTEM_CONSEJO if consejo else ""),
-            messages=[{"role": "user", "content": user}],
-            tools=[ROADMAP_TOOL], tool_choice={"type": "tool", "name": "roadmap_estrategico"},
-        )
-        block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
-        d = dict(block.input) if block and isinstance(block.input, dict) else {}
+
+        def _llamar(extra: str = "") -> dict:
+            # max_tokens amplio: el JSON completo con 5 pilares (estrategias, kpis,
+            # fases y milestones de 3 años) NO cabía en 4096 y el modelo truncaba
+            # justo en 'pilares' (el campo más pesado, al final del esquema).
+            response = _create_with_retry(
+                client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=8192,
+                system=_SYSTEM + (_SYSTEM_CONSEJO if consejo else ""),
+                messages=[{"role": "user", "content": user + extra}],
+                tools=[ROADMAP_TOOL], tool_choice={"type": "tool", "name": "roadmap_estrategico"},
+            )
+            block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
+            return dict(block.input) if block and isinstance(block.input, dict) else {}
+
+        d = _llamar()
         if not d:
             return _roadmap_fallback(memory_buffer, diagnostico_content)
-        metas = []
-        for m in (d.get("metas_3anios") or []):
-            if isinstance(m, dict) and str(m.get("meta") or "").strip():
-                metas.append({"meta": str(m["meta"]).strip(), "kpi": (str(m.get("kpi")).strip() or None) if m.get("kpi") else None,
-                              "valor_actual": (str(m.get("valor_actual")).strip() or None) if m.get("valor_actual") else None,
-                              "target": ""})
-        metas = metas[:6]
-        pilares = []
-        for p in (d.get("pilares") or []):
-            if not isinstance(p, dict) or not str(p.get("nombre") or "").strip():
-                continue
-            mi = p.get("milestones") if isinstance(p.get("milestones"), dict) else {}
-            pilares.append({"nombre": str(p["nombre"]).strip(),
-                            "descripcion": str(p.get("descripcion") or "").strip(),
-                            "razon": str(p.get("razon") or "").strip(),
-                            "objetivo": str(p.get("objetivo") or "").strip(),
-                            "estrategias": _norm_lista(p.get("estrategias"))[:4],
-                            "riesgos": _norm_lista(p.get("riesgos"))[:3],
-                            "kpis": _norm_kpis(p.get("kpis")),
-                            "resultados_esperados": _norm_resultados(p.get("resultados_esperados")),
-                            "fases": _norm_fases(p.get("fases")),
-                            "milestones": {a: _norm_lista(mi.get(a)) for a in _ANIOS}})
-        return {
-            "vision": str(d.get("vision") or "").strip(),
-            "mision": str(d.get("mision") or "").strip(),
-            "propuesta_valor": str(d.get("propuesta_valor") or "").strip(),
-            "anio_objetivo": _norm_anio(d.get("anio_objetivo")),
-            "objetivos_estrategicos": _norm_lista(d.get("objetivos_estrategicos")),
-            "key_enablers": _norm_lista(d.get("key_enablers")),
-            "temas_por_anio": _norm_temas(d.get("temas_por_anio")),
-            "conclusion_diagnostico": str(d.get("conclusion_diagnostico") or "").strip(),
-            "conclusion_entorno": str(d.get("conclusion_entorno") or "").strip(),
-            "metas_3anios": metas,
-            "resumen_foda": str(d.get("resumen_foda") or "").strip(),
-            "resumen_entorno": str(d.get("resumen_entorno") or "").strip(),
-            "pilares": pilares,
-        }
+        out = _parse_roadmap_dict(d)
+
+        # Los PILARES son el corazón del roadmap: sin ellos no hay prioridades,
+        # ni Plan anual, ni tablero. Si vinieron vacíos (truncación o respuesta
+        # tímida), se reintenta UNA vez pidiéndolos de forma explícita.
+        if not out["pilares"]:
+            d2 = _llamar(
+                "\n\nATENCIÓN: tu respuesta anterior dejó el campo 'pilares' VACÍO y eso "
+                "invalida el roadmap. Los PILARES son OBLIGATORIOS: entrega entre 3 y 5, "
+                "derivados de los objetivos y prioridades de la empresa, cada uno con "
+                "nombre, descripcion, estrategias, kpis, fases y milestones por año."
+            )
+            if d2:
+                out2 = _parse_roadmap_dict(d2)
+                if out2["pilares"]:
+                    out = out2
+
+        # Último recurso: derivar pilares mínimos de los objetivos estratégicos,
+        # para que el plan NUNCA quede sin prioridades (el dueño los puede editar).
+        if not out["pilares"]:
+            out["pilares"] = _pilares_desde_objetivos(out)
+        return out
     except Exception:
         return _roadmap_fallback(memory_buffer, diagnostico_content)
+
+
+def _parse_roadmap_dict(d: dict) -> dict:
+    """Normaliza la respuesta cruda del modelo al shape canónico del roadmap."""
+    metas = []
+    for m in (d.get("metas_3anios") or []):
+        if isinstance(m, dict) and str(m.get("meta") or "").strip():
+            metas.append({"meta": str(m["meta"]).strip(), "kpi": (str(m.get("kpi")).strip() or None) if m.get("kpi") else None,
+                          "valor_actual": (str(m.get("valor_actual")).strip() or None) if m.get("valor_actual") else None,
+                          "target": ""})
+    metas = metas[:6]
+    pilares = []
+    for p in (d.get("pilares") or []):
+        if not isinstance(p, dict) or not str(p.get("nombre") or "").strip():
+            continue
+        mi = p.get("milestones") if isinstance(p.get("milestones"), dict) else {}
+        pilares.append({"nombre": str(p["nombre"]).strip(),
+                        "descripcion": str(p.get("descripcion") or "").strip(),
+                        "razon": str(p.get("razon") or "").strip(),
+                        "objetivo": str(p.get("objetivo") or "").strip(),
+                        "estrategias": _norm_lista(p.get("estrategias"))[:4],
+                        "riesgos": _norm_lista(p.get("riesgos"))[:3],
+                        "kpis": _norm_kpis(p.get("kpis")),
+                        "resultados_esperados": _norm_resultados(p.get("resultados_esperados")),
+                        "fases": _norm_fases(p.get("fases")),
+                        "milestones": {a: _norm_lista(mi.get(a)) for a in _ANIOS}})
+    return {
+        "vision": str(d.get("vision") or "").strip(),
+        "mision": str(d.get("mision") or "").strip(),
+        "propuesta_valor": str(d.get("propuesta_valor") or "").strip(),
+        "anio_objetivo": _norm_anio(d.get("anio_objetivo")),
+        "objetivos_estrategicos": _norm_lista(d.get("objetivos_estrategicos")),
+        "key_enablers": _norm_lista(d.get("key_enablers")),
+        "temas_por_anio": _norm_temas(d.get("temas_por_anio")),
+        "conclusion_diagnostico": str(d.get("conclusion_diagnostico") or "").strip(),
+        "conclusion_entorno": str(d.get("conclusion_entorno") or "").strip(),
+        "metas_3anios": metas,
+        "resumen_foda": str(d.get("resumen_foda") or "").strip(),
+        "resumen_entorno": str(d.get("resumen_entorno") or "").strip(),
+        "pilares": pilares,
+    }
+
+
+def _pilares_desde_objetivos(out: dict) -> list[dict]:
+    """Pilares mínimos derivados de los objetivos estratégicos (último recurso)."""
+    pilares = []
+    for o in (out.get("objetivos_estrategicos") or [])[:5]:
+        nombre = str(o).strip()
+        if not nombre:
+            continue
+        pilares.append({"nombre": nombre[:90], "descripcion": nombre, "razon": "",
+                        "objetivo": nombre, "estrategias": [], "riesgos": [], "kpis": [],
+                        "resultados_esperados": [], "fases": _norm_fases(None),
+                        "milestones": {a: [] for a in _ANIOS}})
+    return pilares
