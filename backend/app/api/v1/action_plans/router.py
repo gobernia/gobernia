@@ -28,6 +28,7 @@ from app.schemas.action_plan import (
     ActionTaskOut,
     ActionTaskUpdate,
     TaskEstadoUpdate,
+    TaskIncluidaUpdate,
     AdaptarTareaIn,
     AdaptarTareaOut,
     GeneratePlanResponse,
@@ -322,6 +323,24 @@ async def update_task_estado(
         raise HTTPException(status_code=400, detail="Estado inválido.")
     task = await _get_user_task_or_404(task_id, user_id, db)
     task.status = body.status
+    task.updated_at = datetime.utcnow()
+    await db.flush()
+    await db.commit()
+    await db.refresh(task)
+    return _task_to_out(task)
+
+
+@router.patch("/tasks/{task_id}/incluida", response_model=ActionTaskOut)
+async def update_task_incluida(
+    task_id: uuid.UUID,
+    body: TaskIncluidaUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mete o saca la tarea del plan del año. False = pendiente fuera del plan:
+    no se ejecuta ni cuenta para el avance, pero puede activarse después."""
+    task = await _get_user_task_or_404(task_id, user_id, db)
+    task.incluida = body.incluida
     task.updated_at = datetime.utcnow()
     await db.flush()
     await db.commit()

@@ -47,6 +47,11 @@ class TaskEstadoUpdate(BaseModel):
     status: str
 
 
+class TaskIncluidaUpdate(BaseModel):
+    # True = la tarea entra al plan del año; False = queda como pendiente fuera de él.
+    incluida: bool
+
+
 class ActionTaskUpdate(BaseModel):
     title:        str | None = None
     description:  str | None = None

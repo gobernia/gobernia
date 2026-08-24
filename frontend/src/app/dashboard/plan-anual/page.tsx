@@ -131,13 +131,28 @@ function ModoSeleccion({
   const tooMany = count > MAX
   const enRango = count >= MIN && count <= MAX
 
+  // Selección por TAREA: ids desmarcadas dentro de los pilares elegidos.
+  // No se ejecutan este año — quedan como pendientes en el Board IA.
+  const [excluidas, setExcluidas] = useState<Set<string>>(new Set())
+  const toggleTarea = (id: string) => {
+    setExcluidas(prev => {
+      const s = new Set(prev)
+      if (s.has(id)) s.delete(id); else s.add(id)
+      return s
+    })
+  }
+  // Solo cuentan las exclusiones de pilares actualmente seleccionados.
+  const excluidasVigentes = Array.from(excluidas).filter(id =>
+    disponibles.some(p => sel.has(p.indice) && (p.tareas ?? []).some(t => t.id === id))
+  )
+
   const aprobar = async () => {
     if (!enRango || saving) return
     setSaving(true)
     setError(null)
     try {
       const indices = Array.from(sel).sort((a, b) => a - b)
-      const updated = await aprobarPlanAnual(indices)
+      const updated = await aprobarPlanAnual(indices, excluidasVigentes)
       if (aliveRef.current) onChange(updated)
     } catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -171,6 +186,8 @@ function ModoSeleccion({
             index={i}
             selected={sel.has(p.indice)}
             onToggle={() => toggle(p.indice)}
+            excluidas={excluidas}
+            onToggleTarea={toggleTarea}
           />
         ))}
       </div>
@@ -201,6 +218,11 @@ function ModoSeleccion({
                 {count}
               </span>
               <span style={{ color: INK2 }}> de {MIN}–{MAX} elegidas</span>
+              {excluidasVigentes.length > 0 && (
+                <span className="ml-2 text-xs" style={{ color: MUTED }}>
+                  · {excluidasVigentes.length} tarea{excluidasVigentes.length === 1 ? "" : "s"} quedará{excluidasVigentes.length === 1 ? "" : "n"} pendiente{excluidasVigentes.length === 1 ? "" : "s"}
+                </span>
+              )}
             </p>
             <button
               onClick={aprobar}
@@ -220,16 +242,23 @@ function ModoSeleccion({
 }
 
 function PilarSeleccionable({
-  pilar, index, selected, onToggle,
-}: { pilar: PilarAnual; index: number; selected: boolean; onToggle: () => void }) {
+  pilar, index, selected, onToggle, excluidas, onToggleTarea,
+}: {
+  pilar: PilarAnual; index: number; selected: boolean; onToggle: () => void
+  excluidas: Set<string>; onToggleTarea: (id: string) => void
+}) {
   const kpis = (pilar.kpis ?? []).filter(k => k.label).slice(0, 3)
   const desc = pilar.objetivo || pilar.descripcion
+  const tareas = pilar.tareas ?? []
+  const dentro = tareas.filter(t => !excluidas.has(t.id)).length
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onToggle}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle() } }}
       aria-pressed={selected}
-      className="group flex h-full flex-col rounded-[26px] border-2 p-5 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]"
+      className="group flex h-full cursor-pointer flex-col rounded-[26px] border-2 p-5 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]"
       style={
         selected
           ? { borderColor: NAVY, background: "#f4f7fb" }
@@ -270,7 +299,48 @@ function PilarSeleccionable({
           </ul>
         </div>
       )}
-    </button>
+
+      {/* Al elegir el pilar se abre la selección POR TAREA: las desmarcadas no
+          se ejecutan este año — quedan como pendientes en el Board IA. */}
+      {selected && tareas.length > 0 && (
+        <div className="mt-3 border-t pt-3" style={{ borderColor: "rgba(21,39,66,0.15)" }}>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: NAVY }}>
+            Tareas de este año · {dentro} de {tareas.length}
+          </p>
+          <ul className="space-y-0.5">
+            {tareas.map(t => {
+              const fuera = excluidas.has(t.id)
+              return (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); onToggleTarea(t.id) }}
+                    aria-pressed={!fuera}
+                    className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left text-xs leading-snug transition-colors hover:bg-[rgba(21,39,66,0.05)]"
+                    style={{ color: fuera ? "#9ca3af" : INK2 }}
+                  >
+                    <span
+                      className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors"
+                      style={fuera
+                        ? { borderColor: "#d1d5db", color: "transparent", background: "#fff" }
+                        : { borderColor: NAVY, background: NAVY, color: "#fff" }}
+                    >
+                      <Check className="h-3 w-3" />
+                    </span>
+                    <span className={fuera ? "line-through" : ""}>{t.title}</span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+          {dentro < tareas.length && (
+            <p className="mt-1.5 text-[11px] leading-snug" style={{ color: "#9ca3af" }}>
+              Las desmarcadas quedan como pendientes en el Board IA (no se ejecutan este año).
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 

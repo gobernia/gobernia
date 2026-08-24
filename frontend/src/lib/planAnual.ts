@@ -10,6 +10,15 @@ import api from "@/lib/api"
 /** Indicador de un pilar: valor de hoy → meta. `meta` puede venir vacía ("por definir"). */
 export interface KpiPilarAnual { label: string; actual: string; meta: string }
 
+/** Una tarea REAL del plan (del Board), elegible una a una al aprobar. */
+export interface TareaPilar {
+  id: string
+  title: string
+  status: string
+  /** False = quedó fuera del plan del año (pendiente sin ejecutar). */
+  incluida: boolean
+}
+
 /**
  * Una prioridad candidata (o aprobada) para el Plan anual. Es un pilar del Roadmap
  * con un `indice` estable que identifica al pilar para aprobarlo/quitarlo.
@@ -25,6 +34,8 @@ export interface PilarAnual {
   estrategias: string[]
   /** Riesgos concretos de la prioridad (del Consejo). Vacío en planes viejos. */
   riesgos?: string[]
+  /** Las tareas vivas del pilar (para elegirlas al aprobar). */
+  tareas?: TareaPilar[]
 }
 
 export interface PlanAnual {
@@ -62,9 +73,12 @@ export async function getPlanAnual(): Promise<PlanAnual> {
 /**
  * Aprueba el Plan anual con las prioridades elegidas (por `indice`). Deben ser 3–5;
  * si no, el backend responde 400 con `detail`, que el llamador debe mostrar.
+ * `excluirTareas`: ids de tareas que quedan FUERA del plan (pendientes sin ejecutar).
  */
-export async function aprobarPlanAnual(indices: number[]): Promise<PlanAnual> {
-  const r = await api.post<Partial<PlanAnual>>("/annual-plan/plan-anual/aprobar", { indices })
+export async function aprobarPlanAnual(indices: number[], excluirTareas: string[] = []): Promise<PlanAnual> {
+  const r = await api.post<Partial<PlanAnual>>("/annual-plan/plan-anual/aprobar", {
+    indices, excluir_tareas: excluirTareas,
+  })
   return normalize(r.data)
 }
 

@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import {
   BoardMes, BoardTask, TaskStatus, Validacion, ValidacionEstado,
-  getBoard, setTaskEstado, setTaskOwner, abrirSesionMes,
+  getBoardFull, setTaskEstado, setTaskOwner, setTaskIncluida, eliminarTarea, abrirSesionMes,
 } from "@/lib/board"
 import {
   Evidence, getEvidence, uploadEvidence, deleteEvidence, downloadEvidenceUrl,
@@ -740,16 +740,43 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
     return () => { aliveRef.current = false }
   }, [])
 
+  // Si Todd (el flotante) cambia una tarea, el tablero se refresca solo.
   useEffect(() => {
-    getBoard()
-      .then(m => {
+    const onCambio = () => setTick(t => t + 1)
+    window.addEventListener("todd:tarea-cambiada", onCambio)
+    return () => window.removeEventListener("todd:tarea-cambiada", onCambio)
+  }, [])
+
+  // Tareas que quedaron FUERA del plan al aprobar (pendientes sin ejecutar).
+  const [pendientes, setPendientes] = useState<BoardTask[]>([])
+  const [pendienteBusy, setPendienteBusy] = useState<string | null>(null)
+
+  useEffect(() => {
+    getBoardFull()
+      .then(({ meses: m, pendientes: p }) => {
         if (!aliveRef.current) return
         // Meses con tareas propias o con tareas arrastradas (mes actual).
         setMeses(m.filter(x => x.tareas.length > 0 || (x.arrastradas?.length ?? 0) > 0))
+        setPendientes(p)
         setStatus("ready")
       })
       .catch(() => { if (aliveRef.current) setStatus("error") })
   }, [reloadSignal, tick])
+
+  const activarPendiente = async (id: string) => {
+    setPendienteBusy(id)
+    try { await setTaskIncluida(id, true); refrescarTablero() }
+    catch { /* el refresco no ocurre; la fila queda igual */ }
+    finally { if (aliveRef.current) setPendienteBusy(null) }
+  }
+
+  const eliminarPendiente = async (id: string) => {
+    if (!window.confirm("¿Eliminar esta tarea por completo? No se puede deshacer.")) return
+    setPendienteBusy(id)
+    try { await eliminarTarea(id); refrescarTablero() }
+    catch { /* idem */ }
+    finally { if (aliveRef.current) setPendienteBusy(null) }
+  }
 
   // Responsables ya usados en el tablero (tareas + arrastradas), únicos y no vacíos.
   const sugerencias = useMemo(() => {
@@ -875,6 +902,54 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
           onEstado={cambiarEstado} onOwner={cambiarOwner} onRefresh={refrescarTablero}
           onSesionar={() => sesionarMes(mes)} sesionando={sesionandoMes === mes.month_index} />
       ))}
+
+      {/* ── Pendientes fuera del plan: las tareas que el usuario dejó sin
+             elegir al aprobar el Plan anual. No se ejecutan ni cuentan para el
+             avance — desde aquí se activan o se eliminan por completo. ── */}
+      {pendientes.length > 0 && (
+        <section className="rounded-2xl overflow-hidden" style={{ background: SAND, border: `1px solid ${LINE}` }}>
+          <header className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${LINE}` }}>
+            <Clock className="h-4 w-4 shrink-0" style={{ color: MUTED }} />
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold" style={{ color: INK }}>
+                Pendientes fuera del plan
+                <span className="ml-2 text-xs font-bold tabular-nums" style={{ color: MUTED }}>{pendientes.length}</span>
+              </h3>
+              <p className="text-xs" style={{ color: MUTED }}>
+                No se ejecutan este año. En algún punto se hacen: actívalas para meterlas al plan, o elimínalas si ya no aplican.
+              </p>
+            </div>
+          </header>
+          <ul>
+            {pendientes.map(t => (
+              <li key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5"
+                style={{ borderBottom: `1px solid ${LINE}`, background: CARD }}>
+                <span className="min-w-0 flex-1 text-sm leading-snug" style={{ color: INK }}>
+                  {t.title}
+                  {t.viene_de && <span className="ml-2 text-[11px] font-semibold" style={{ color: MUTED }}>· {t.viene_de}</span>}
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <button type="button" onClick={() => activarPendiente(t.id)} disabled={pendienteBusy !== null}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:brightness-90 disabled:opacity-50"
+                    style={{ background: BNAVY }}>
+                    {pendienteBusy === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Activar
+                  </button>
+                  <button type="button" onClick={() => eliminarPendiente(t.id)} disabled={pendienteBusy !== null}
+                    aria-label={`Eliminar la tarea ${t.title}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
+                    style={{ border: `1px solid ${LINE}`, color: MUTED }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#b91c1c"; e.currentTarget.style.color = "#b91c1c" }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = LINE; e.currentTarget.style.color = MUTED }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Eliminar
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

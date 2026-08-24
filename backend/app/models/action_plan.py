@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,6 +51,10 @@ class ActionTask(Base, UUIDMixin, TimestampMixin):
     source_agent: Mapped[str | None]        = mapped_column(String, nullable=True)
     status:       Mapped[str]               = mapped_column(String, nullable=False, default="pendiente")
     priority:     Mapped[str]               = mapped_column(String, nullable=False, default="media")
+    # ¿La tarea está DENTRO del plan del año? False = el usuario la dejó fuera al
+    # aprobar el Plan anual: no se ejecuta ni cuenta para el avance, pero queda
+    # como pendiente (puede activarla después o eliminarla).
+    incluida:     Mapped[bool]              = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
     owner:        Mapped[str | None]        = mapped_column(String, nullable=True)
     # Correo del responsable, para enviarle el enlace a sus tareas.
     owner_email:  Mapped[str | None]        = mapped_column(String, nullable=True)

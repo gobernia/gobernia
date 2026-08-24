@@ -20,6 +20,8 @@ class BoardTaskOut(BaseModel):
     viene_de:  str | None = None
     # Índice del pilar del roadmap que la tarea hace avanzar (None si no se determinó).
     pilar_index: int | None = None
+    # False = quedó FUERA del Plan anual aprobado (pendiente sin ejecutar).
+    incluida: bool = True
     # Cuántas evidencias tiene subidas la tarea.
     evidencias: int = 0
     # Veredicto del Consejo sobre la evidencia: {"estado", "motivo"} o None si nunca se validó.
@@ -40,3 +42,6 @@ class BoardMonthOut(BaseModel):
 
 class BoardOut(BaseModel):
     meses: list[BoardMonthOut] = Field(default_factory=list)
+    # Tareas que quedaron FUERA del plan del año (incluida=False): visibles como
+    # pendientes para activarlas después o eliminarlas.
+    pendientes: list[BoardTaskOut] = Field(default_factory=list)

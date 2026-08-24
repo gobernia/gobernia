@@ -28,6 +28,8 @@ export interface BoardTask {
   objetivo: string | null
   // Índice del pilar del roadmap que la tarea hace avanzar (None si no se determinó).
   pilar_index?: number | null
+  // False = quedó FUERA del Plan anual aprobado (pendiente sin ejecutar).
+  incluida?: boolean
   // Si la tarea se arrastró de un mes anterior, de dónde viene (p.ej. "Marzo 2026").
   viene_de?: string | null
   // Cuántos documentos de evidencia tiene la tarea.
@@ -49,12 +51,31 @@ export interface BoardMes {
 
 interface BoardResponse {
   meses: BoardMes[]
+  // Tareas que quedaron FUERA del plan del año (pendientes sin ejecutar).
+  pendientes?: BoardTask[]
 }
 
 /** El tablero completo, agrupado por mes. */
 export async function getBoard(): Promise<BoardMes[]> {
   const r = await api.get<BoardResponse>("/annual-plan/board")
   return r.data?.meses ?? []
+}
+
+/** El tablero + las tareas pendientes fuera del plan (para el banco del Board). */
+export async function getBoardFull(): Promise<{ meses: BoardMes[]; pendientes: BoardTask[] }> {
+  const r = await api.get<BoardResponse>("/annual-plan/board")
+  return { meses: r.data?.meses ?? [], pendientes: r.data?.pendientes ?? [] }
+}
+
+/** Mete o saca una tarea del plan del año (False = pendiente fuera del plan). */
+export async function setTaskIncluida(taskId: string, incluida: boolean): Promise<BoardTask> {
+  const r = await api.patch<BoardTask>(`/tasks/${taskId}/incluida`, { incluida })
+  return r.data
+}
+
+/** Elimina una tarea por completo (con sus evidencias). Irreversible. */
+export async function eliminarTarea(taskId: string): Promise<void> {
+  await api.delete(`/tasks/${taskId}`)
 }
 
 /** Cambia el estado de una tarea. Sin candado de evidencia. */

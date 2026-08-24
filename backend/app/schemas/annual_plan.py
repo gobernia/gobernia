@@ -89,6 +89,14 @@ class CloseMonthResponse(BaseModel):
 
 # ── Plan anual (prioridades aprobadas del roadmap) ────────────────────────────
 
+class TareaPilarOut(BaseModel):
+    """Una tarea REAL del plan (ActionTask), para elegirla/mostrarla por pilar."""
+    id:       str
+    title:    str
+    status:   str
+    incluida: bool = True
+
+
 class PilarAnualOut(BaseModel):
     """Un pilar del roadmap, con su índice, para elegirlo/mostrarlo en el plan anual."""
     indice:      int
@@ -99,6 +107,8 @@ class PilarAnualOut(BaseModel):
     kpis:        list[dict] = Field(default_factory=list)
     estrategias: list = Field(default_factory=list)
     riesgos:     list = Field(default_factory=list)
+    # Las tareas vivas del pilar (elegibles una a una al aprobar).
+    tareas:      list[TareaPilarOut] = Field(default_factory=list)
 
 
 class PlanAnualOut(BaseModel):
@@ -113,3 +123,5 @@ class PlanAnualOut(BaseModel):
 
 class AprobarPlanAnualIn(BaseModel):
     indices: list[int]
+    # Ids de tareas que el usuario dejó FUERA del plan (quedan como pendientes).
+    excluir_tareas: list[str] = Field(default_factory=list)

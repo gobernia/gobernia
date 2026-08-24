@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Home, Users, FileSearch, Library,
-  Settings, LogOut, Menu, X, ImagePlus, Loader2,
+  Settings, LogOut, Menu, X, ImagePlus, Loader2, UsersRound,
 } from "lucide-react"
 import { Map, CalendarCheck } from "lucide-react"
 import { supabase } from "@/lib/supabase"
@@ -18,10 +18,13 @@ import { getLogo, uploadLogo, LOGO_ACCEPT } from "@/lib/logo"
 // activa usa el "hueco" (.sb-active) que se recorta hacia el contenido (papel).
 const LINKS = [
   { href: "/dashboard", label: "Inicio", exact: true, icon: Home },
+  // Temporal, para comparar contra el Inicio actual; al aprobarse lo sustituye.
+  { href: "/dashboard/inicio-beta", label: "Inicio BETA", exact: false, icon: Home },
   { href: "/dashboard/diagnostico", label: "Diagnóstico", exact: false, icon: FileSearch },
-  { href: "/dashboard/roadmap-beta", label: "Roadmap", exact: false, icon: Map },
+  { href: "/dashboard/roadmap-beta", label: "Estrategia", exact: false, icon: Map },
   { href: "/dashboard/plan-anual", label: "Plan anual", exact: false, icon: CalendarCheck },
   { href: "/dashboard/consejo", label: "Board IA", exact: false, icon: Users },
+  { href: "/dashboard/consejeros", label: "Mis consejeros", exact: false, icon: UsersRound },
   { href: "/dashboard/biblioteca", label: "Biblioteca", exact: false, icon: Library },
 ]
 

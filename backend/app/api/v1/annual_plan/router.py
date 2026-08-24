@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import anyio
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -344,6 +344,7 @@ async def get_board(
             objetivo=obj_title.get(t.objective_id),
             pilar_index=obj_pilar.get(t.objective_id),
             viene_de=viene_de,
+            incluida=bool(t.incluida),
             evidencias=evidence_counts.get(t.id, 0),
             validacion=_validacion_out(t.validacion),
         )
@@ -354,9 +355,18 @@ async def get_board(
         return ts
 
     meses_out = []
+    # Las tareas que el usuario dejó FUERA del plan al aprobarlo (incluida=False):
+    # no se ejecutan ni cuentan para el avance, pero quedan visibles como
+    # pendientes (activables o eliminables) en su propia lista.
+    pendientes_out: list[BoardTaskOut] = []
     for m in months:
+        mes_label = f"{_MONTH_NAMES[m.period_month]} {m.period_year}"
+        pendientes_out.extend(
+            _board_task(t, viene_de=mes_label) for t in _month_tareas(m) if not t.incluida
+        )
+
         # Las tareas PROPIAS del mes (con su status real). Los meses pasados NO se mutan.
-        tareas = [_board_task(t) for t in _month_tareas(m)]
+        tareas = [_board_task(t) for t in _month_tareas(m) if t.incluida]
 
         # El arrastre es a nivel de VISTA: solo el mes actual reúne, en una lista aparte,
         # las tareas incompletas cuyos meses ya pasaron (marcadas con su mes de origen).
@@ -367,7 +377,7 @@ async def get_board(
                     continue
                 prev_label = f"{_MONTH_NAMES[prev.period_month]} {prev.period_year}"
                 for t in _month_tareas(prev):
-                    if t.status != "completada":
+                    if t.status != "completada" and t.incluida:
                         arrastradas.append(_board_task(t, viene_de=prev_label))
 
         meses_out.append(BoardMonthOut(
@@ -379,7 +389,7 @@ async def get_board(
             tareas=tareas,
             arrastradas=arrastradas,
         ))
-    return BoardOut(meses=meses_out)
+    return BoardOut(meses=meses_out, pendientes=pendientes_out)
 
 
 # ── Roadmap estratégico ───────────────────────────────────────────────────────
@@ -595,13 +605,47 @@ def _roadmap_pilares(plan: AnnualPlan) -> list[dict]:
     return [p for p in ((plan.roadmap or {}).get("pilares") or []) if isinstance(p, dict)]
 
 
-def _plan_anual_out(plan: AnnualPlan) -> PlanAnualOut:
+async def _tareas_por_pilar(plan: AnnualPlan, db: AsyncSession) -> dict[int, list[dict]]:
+    """Las tareas REALES del plan agrupadas por pilar_index, para poder elegirlas
+    una a una al aprobar el Plan anual (y mostrar cuáles quedaron fuera)."""
+    mres = await db.execute(
+        select(MonthlyPlan)
+        .where(MonthlyPlan.annual_plan_id == plan.id)
+        .options(selectinload(MonthlyPlan.objectives))
+        .order_by(MonthlyPlan.month_index)
+    )
+    months = list(mres.scalars().all())
+    obj_pilar = {o.id: o.pilar_index for m in months for o in m.objectives}
+    if not obj_pilar:
+        return {}
+    tres = await db.execute(
+        select(ActionTask)
+        .where(ActionTask.objective_id.in_(list(obj_pilar.keys())))
+        .order_by(ActionTask.order_index)
+    )
+    out: dict[int, list[dict]] = {}
+    for t in tres.scalars().all():
+        pi = obj_pilar.get(t.objective_id)
+        if pi is None:
+            continue
+        out.setdefault(pi, []).append({
+            "id": str(t.id), "title": t.title, "status": t.status, "incluida": bool(t.incluida),
+        })
+    return out
+
+
+def _plan_anual_out(plan: AnnualPlan, tareas_por_pilar: dict[int, list[dict]] | None = None) -> PlanAnualOut:
     pilares = _roadmap_pilares(plan)
     disponibles = [_pilar_view(p, i) for i, p in enumerate(pilares)]
     pa = plan.plan_anual or {}
     aprobado = bool(pa.get("aprobado"))
     anio = pa.get("anio") or date.today().year
     aprobados = pa.get("pilares") or [] if aprobado else []
+    if tareas_por_pilar is not None:
+        # Las tareas van SIEMPRE en vivo (no en el snapshot): reflejan su estado
+        # e inclusión actuales tanto al elegir como en el plan ya aprobado.
+        disponibles = [{**d, "tareas": tareas_por_pilar.get(d["indice"], [])} for d in disponibles]
+        aprobados = [{**a, "tareas": tareas_por_pilar.get(a.get("indice"), [])} for a in aprobados]
     return PlanAnualOut(
         anio=anio,
         aprobado=aprobado,
@@ -618,7 +662,7 @@ async def get_plan_anual(
     plan = await _current_plan(user_id, db)
     if plan is None:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
-    return _plan_anual_out(plan)
+    return _plan_anual_out(plan, await _tareas_por_pilar(plan, db))
 
 
 @router.post("/annual-plan/plan-anual/aprobar", response_model=PlanAnualOut)
@@ -660,8 +704,32 @@ async def aprobar_plan_anual(
         "pilares": snapshot,
     }
     _flag_modified(plan, "plan_anual")
+
+    # Selección por TAREA: las excluidas quedan fuera del plan (incluida=False) —
+    # no se ejecutan ni cuentan para el avance, pero siguen como pendientes.
+    # Al (re)aprobar se resetea todo a incluida y se aplican las exclusiones vigentes.
+    tpp = await _tareas_por_pilar(plan, db)
+    plan_task_ids = {t["id"] for ts in tpp.values() for t in ts}
+    excluir = {str(x) for x in (body.excluir_tareas or [])} & plan_task_ids
+    if plan_task_ids:
+        await db.execute(
+            sa_update(ActionTask)
+            .where(ActionTask.id.in_([uuid.UUID(x) for x in plan_task_ids]))
+            .values(incluida=True)
+        )
+        if excluir:
+            await db.execute(
+                sa_update(ActionTask)
+                .where(ActionTask.id.in_([uuid.UUID(x) for x in excluir]))
+                .values(incluida=False)
+            )
+        # Reflejar la selección en la respuesta sin re-consultar.
+        for ts in tpp.values():
+            for t in ts:
+                t["incluida"] = t["id"] not in excluir
+
     await db.commit()
-    return _plan_anual_out(plan)
+    return _plan_anual_out(plan, tpp)
 
 
 @router.post("/annual-plan/plan-anual/reabrir", response_model=PlanAnualOut)
@@ -680,7 +748,7 @@ async def reabrir_plan_anual(
     plan.plan_anual = pa
     _flag_modified(plan, "plan_anual")
     await db.commit()
-    return _plan_anual_out(plan)
+    return _plan_anual_out(plan, await _tareas_por_pilar(plan, db))
 
 
 # ── Orden del día (cadena): documentos solicitados por prioridad ─────────────

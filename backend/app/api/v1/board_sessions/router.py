@@ -624,9 +624,11 @@ async def run_analyses(
         plan_obj_ids = [o.id for m in plan_months for o in m.objectives]
         tasks_by_obj: dict = {}
         if plan_obj_ids:
+            # Solo las tareas DENTRO del plan (incluida=True): las que el usuario
+            # dejó fuera al aprobar no cuentan para el avance que ve el Consejo.
             tres = await db.execute(
                 select(ActionTask)
-                .where(ActionTask.objective_id.in_(plan_obj_ids))
+                .where(ActionTask.objective_id.in_(plan_obj_ids), ActionTask.incluida.is_(True))
                 .order_by(ActionTask.order_index)
             )
             for t in tres.scalars().all():
