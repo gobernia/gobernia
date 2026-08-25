@@ -21,6 +21,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _build_company_context, _create_with_retry, _tool_input
+from app.services.ai.prompt_loader import load_prompt
 
 _log = logging.getLogger(__name__)
 
@@ -37,23 +38,7 @@ _MOTIVO_SIN_REVISAR = "No se pudo revisar la evidencia con el Auditor en esta se
 _MOTIVO_EXCEDENTE = "No alcanzó a revisarse en esta sesión (se priorizaron las tareas más recientes)."
 _MOTIVO_SIN_VEREDICTO = "El Auditor no emitió un veredicto para esta tarea."
 
-VALIDACION_SYSTEM_PROMPT = """Eres el AUDITOR del Consejo de Administración de esta empresa.
-
-Al sesionar, cada responsable subió (o no) documentos para respaldar su tarea. Tu trabajo es revisar
-esa EVIDENCIA y decir, tarea por tarea, si los documentos REALMENTE sustentan que la tarea se cumplió.
-
-PARA CADA TAREA:
-- `validada`: SOLO si el/los documento(s) adjuntos respaldan de forma clara y concreta que la tarea se
-  realizó. Cita el documento en el `motivo` (qué muestra y por qué basta).
-- `insuficiente`: si el documento no alcanza, no corresponde a lo que pedía la tarea, es genérico, o
-  no puedes leerlo. Explica en el `motivo` por qué no basta y qué haría falta.
-
-REGLAS INQUEBRANTABLES:
-- NUNCA inventes el contenido de un documento que no se adjuntó. Si no puedes leer un documento,
-  marca `insuficiente` diciéndolo — jamás lo des por bueno "por si acaso".
-- Juzga con lo que VES, no con lo que se esperaría que dijera el documento.
-- El `motivo` es breve (1-2 oraciones), concreto y en español, dirigido al dueño.
-- Devuelve un veredicto por CADA tarea, usando su `task_id` EXACTO tal como se te dio."""
+VALIDACION_SYSTEM_PROMPT = load_prompt("validacion_evidencias")  # editable en backend/prompts/validacion_evidencias.md
 
 VALIDACION_TOOL = {
     "name": "validar_evidencias",

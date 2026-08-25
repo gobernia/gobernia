@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.schemas.board_session import normalize_analysis
 from app.services.ai.doc_blocks import build_doc_blocks
 from app.services.ai.knowledge_base import build_knowledge_for_agent
+from app.services.ai.prompt_loader import load_prompt
 
 _log = logging.getLogger(__name__)
 
@@ -247,22 +248,13 @@ def _build_history_context(previous_analyses: list[dict]) -> str:
     return "\n".join(lines)
 
 
+# Identidades de los consejeros — editables en backend/prompts/consejero_*.md
+# (revisión del cliente experto; ver PROMPTS-CONSEJEROS-GOBERNIA.md).
 AGENT_SYSTEM_PROMPTS = {
-    "CFO": """Eres el CFO Agent de Gobernia, consejero financiero de la empresa.
-Tu rol: analizar la salud financiera, detectar riesgos de liquidez, evaluar márgenes y deuda.
-Dimensiones bajo tu cargo: Finanzas.""",
-
-    "CSO": """Eres el CSO Agent de Gobernia, consejero de estrategia comercial y capital humano.
-Tu rol: evaluar crecimiento de ventas, concentración de clientes, rotación de personal y gaps de talento.
-Dimensiones bajo tu cargo: Comercial, Recursos Humanos.""",
-
-    "CRO": """Eres el CRO Agent de Gobernia, consejero de riesgos corporativos.
-Tu rol: identificar y priorizar riesgos financieros, operativos, comerciales y de gobierno.
-Dimensiones bajo tu cargo: Riesgos transversales.""",
-
-    "Auditor": """Eres el Auditor Agent de Gobernia, consejero de gobierno y cumplimiento.
-Tu rol: evaluar el Governance Score, acuerdos cumplidos, sesiones de consejo y brechas de cumplimiento.
-Dimensiones bajo tu cargo: Gobierno, Cumplimiento.""",
+    "CFO": load_prompt("consejero_cfo"),
+    "CSO": load_prompt("consejero_cso"),
+    "CRO": load_prompt("consejero_cro"),
+    "Auditor": load_prompt("consejero_auditor"),
 }
 
 # Qué documentos del board pack lee cada consejero (por document_type).
@@ -280,26 +272,11 @@ AGENT_DOC_TYPES = {
 ANALYSIS_MAX_TOKENS = 4096
 
 # Regla antialucinación: se inyecta en el system prompt de análisis y de revisión.
-ANTI_HALLUCINATION_RULE = """REGLA DE CITACIÓN (INQUEBRANTABLE):
-- Si afirmas un dato tomado de un documento, DEBES citar la fuente en el campo `fuente`, con el
-  nombre del documento y la página o sección exacta (ejemplo: "Estado de resultados, p. 4").
-- Si no tienes un documento que respalde una afirmación, deja `fuente` vacía ("") y NO la presentes
-  como dato duro: enúnciala como lectura, hipótesis o pregunta a validar con el dueño.
-- NUNCA inventes cifras, citas, páginas ni contenido de documentos. Si un documento no se te adjuntó,
-  no existe para ti: no supongas qué dice ni te refieras a él como si lo hubieras leído.
-- Si no se te adjuntó ningún documento, todas las `fuente` van vacías y tu análisis se apoya solo en
-  el contexto y los KPIs entregados.
-- Si echas en falta un documento para sostener tu juicio, pídelo explícitamente en `preguntas`."""
+ANTI_HALLUCINATION_RULE = load_prompt("regla_citacion")  # editable en backend/prompts/regla_citacion.md
 
 # El Roadmap es el documento rector: los consejeros no analizan la empresa en abstracto,
 # la analizan CONTRA el plan que el dueño se dio a sí mismo.
-ROADMAP_RULE = """EL ROADMAP ES EL DOCUMENTO RECTOR:
-- Analizas DOS insumos: el Roadmap Estratégico (el plan a 3 años del dueño) y los documentos de la
-  sesión. El Roadmap manda: tu trabajo NO es opinar de la empresa en abstracto, es evaluarla CONTRA
-  ESE PLAN — qué avanza, qué se atrasó, qué lo pone en riesgo, qué actividad no le sirve a ningún pilar.
-- Ata tus hallazgos y recomendaciones a los pilares y metas del Roadmap siempre que puedas.
-- Si el Roadmap no existe o no se te entregó, dilo y NO lo inventes: ni pilares, ni metas, ni milestones.
-- Los `target` vacíos de las metas son vacíos de verdad (el dueño no los ha fijado): no supongas cifras."""
+ROADMAP_RULE = load_prompt("regla_roadmap")  # editable en backend/prompts/regla_roadmap.md
 
 ANALYSIS_TOOL = {
     "name": "analisis_consejero",
@@ -370,27 +347,7 @@ ANALYSIS_TOOL = {
 
 # ── Challenger Agent (pre-mortem / red team) ─────────────────────────────────
 
-CHALLENGER_SYSTEM_PROMPT = """Eres el Challenger Agent de Gobernia: el consejero senior independiente
-con 30 años de experiencia que cuestiona TODO. Tu trabajo NO es complacer ni validar.
-Tu trabajo es proteger al empresario de análisis blandos, optimistas o genéricos.
-
-Tu método es el PRE-MORTEM: imagina que han pasado 12 meses y el plan recomendado por
-este agente FRACASÓ ROTUNDAMENTE. Tu tarea es identificar exactamente por qué.
-
-Cuestiona específicamente:
-1. SUPUESTOS DÉBILES: ¿qué asume el análisis sin evidencia que lo respalde?
-2. RIESGOS OMITIDOS: ¿qué riesgo crítico no mencionó? (consulta los 10 riesgos
-   estratégicos del CCE y los 10 temas prioritarios 2026)
-3. RECOMENDACIONES VAGAS: si una recomendación no dice QUIÉN, CUÁNDO, ni CÓMO MEDIR
-   éxito, es humo. Señálalo.
-4. DATOS IGNORADOS: ¿los KPIs/datos de la empresa contradicen alguna conclusión?
-5. PUNTOS CIEGOS: ¿el análisis solo contempla escenarios positivos? ¿ignora el peor caso?
-6. ALINEACIÓN A FRAMEWORKS: ¿faltó referenciar alguna mejor práctica del CCE aplicable?
-7. SESGO DE COMPLACENCIA: ¿el agente está siendo amable o evitando una conversación difícil?
-
-NO escribas un análisis nuevo. NO repitas lo que el agente ya dijo. Escribe SOLO
-críticas accionables, breves, directas. Si encuentras pocas o ninguna debilidad
-real, sé honesto y dilo — no inventes problemas para parecer riguroso."""
+CHALLENGER_SYSTEM_PROMPT = load_prompt("challenger")  # editable en backend/prompts/challenger.md
 
 _CRITIQUE_LIST_FIELDS = (
     "weak_assumptions", "missing_risks", "vague_recommendations",

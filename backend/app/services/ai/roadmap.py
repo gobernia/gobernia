@@ -7,6 +7,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.prompt_loader import load_prompt
 
 _ANIOS = ("anio1", "anio2", "anio3")
 
@@ -80,54 +81,12 @@ ROADMAP_TOOL = {
     },
 }
 
-_SYSTEM = (
-    "Eres el consejo estratégico de Gobernia. Redacta el ROADMAP ESTRATÉGICO a 3 años de la empresa, "
-    "en español, con lenguaje EJECUTIVO, claro e INSPIRADOR: es el documento que el dueño y sus "
-    "directivos usarán para comunicación interna, gobernanza e inversión de recursos.\n"
-    "- Deriva los PILARES estratégicos (3-5) del FODA y el diagnóstico (ej. Excelencia operacional, "
-    "Expansión de mercado, Innovación). Cada pilar con una descripción breve y milestones TANGIBLES y "
-    "MEDIBLES por año (2-4 por año).\n"
-    "- Para 'metas_3anios' usa los KPIs reales: propón la meta y su 'kpi', pon 'valor_actual' si lo "
-    "conoces, y deja 'target' VACÍO (el dueño lo fijará; NUNCA inventes el número).\n"
-    "- 'resumen_foda' y 'resumen_entorno': síntesis ejecutiva breve.\n"
-    "\nCAMPOS OPCIONALES (estructura de presentación estratégica):\n"
-    "- 'anio_objetivo': año horizonte del plan (año actual + 3).\n"
-    "- 'objetivos_estrategicos': objetivos de alto nivel que ordenan los 3 años.\n"
-    "- 'key_enablers': habilitadores transversales que hacen posible el plan (talento, tecnología, "
-    "capital, gobernanza, procesos…).\n"
-    "- 'temas_por_anio': el LEMA de cada año (ej. anio1 'Ordenar la casa', anio2 'Expandir el negocio', "
-    "anio3 'Consolidar el liderazgo').\n"
-    "- 'conclusion_diagnostico': conclusión ejecutiva del diagnóstico interno (qué nos dice, en una idea).\n"
-    "- 'conclusion_entorno': conclusión estratégica de las tendencias externas (qué implican para nosotros).\n"
-    "- Por pilar: 'razon' (por qué IMPORTA esa prioridad, 1 frase concreta), 'riesgos' (0-3 riesgos "
-    "concretos de esa prioridad, tomados de los que señaló el Consejo cuando apliquen), "
-    "'objetivo' (su objetivo estratégico), 'estrategias' (0-4), 'kpis' (0-3, con 'label' y "
-    "'actual'; 'meta' SIEMPRE VACÍO — lo fija el dueño, NUNCA inventes el número), 'resultados_esperados' "
-    "(0-3, con 'titulo' corto tipo '↑ Margen bruto' y 'descripcion'), y 'fases' (el título de la fase de "
-    "cada año; los pasos concretos van en 'milestones').\n"
-    "\nESTA ESTRUCTURA ES UNA GUÍA, NO UN FORMULARIO: llena SOLO lo que puedas sustentar con la "
-    "información dada. Si no tienes evidencia para un bloque, DÉJALO VACÍO — no inventes ni rellenes "
-    "con generalidades. Un bloque vacío simplemente no se muestra; un bloque inventado destruye la "
-    "credibilidad del documento.\n"
-    "No inventes datos que no estén en la información dada."
-)
+_SYSTEM = load_prompt("roadmap_system")  # editable en backend/prompts/roadmap_system.md
 
 
 # Cuando el Consejo ya deliberó, el Roadmap deja de ser una redacción libre: es la TRADUCCIÓN de
 # esa postura a un plan de 3 años. Los pilares se derivan de las prioridades del Consejo.
-_SYSTEM_CONSEJO = (
-    "\n\nLA POSTURA DEL CONSEJO MANDA:\n"
-    "El Consejo de Administración ya deliberó sobre esta empresa y emitió UNA conclusión, una tesis "
-    "estratégica y sus prioridades (te las doy abajo). ESTE ROADMAP ES LA TRADUCCIÓN DE LO QUE EL "
-    "CONSEJO DELIBERÓ, no un plan nuevo:\n"
-    "- Los PILARES se DERIVAN de las prioridades del Consejo (en su orden) y de su tesis "
-    "estratégica. NO inventes pilares de cero ni contradigas al Consejo.\n"
-    "- La tesis estratégica del Consejo es la apuesta que el roadmap debe hacer realidad: los "
-    "'objetivos_estrategicos', los 'temas_por_anio' y los milestones deben servirla.\n"
-    "- Los riesgos que el Consejo señaló deben verse atendidos en algún pilar o en los "
-    "'key_enablers'; lista en el campo 'riesgos' de cada pilar los que le apliquen.\n"
-    "- 'conclusion_diagnostico' debe ser fiel a la conclusión del Consejo, no una lectura distinta."
-)
+_SYSTEM_CONSEJO = "\n\n" + load_prompt("roadmap_consejo")  # editable en backend/prompts/roadmap_consejo.md
 
 
 def _anio_objetivo_default() -> int:

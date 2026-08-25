@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object
 from app.services.ai.doc_blocks import build_doc_blocks, readable_docs
 from app.services.ai.kpi_engine import build_kpi_templates, _run_alert_rules
+from app.services.ai.prompt_loader import load_prompt
 
 VALID_GRADES = {"bien", "mal", "muy_mal"}
 VALID_PROPOSAL_TYPES = {"carry_over_task", "new_objective", "new_task"}
@@ -155,33 +156,7 @@ def parse_review(raw: str, fallback_grade: str) -> dict:
     }
 
 
-REVIEW_SYSTEM_PROMPT = """Eres el consejo de administración de Gobernia revisando el cierre de un mes
-del plan estratégico. Lo integran CFO, CSO, CRO y Auditor, y un Challenger que cuestiona.
-
-Con base en las SEÑALES del mes (cumplimiento de tareas y avance de KPIs) y el contexto de la
-empresa, emite un veredicto honesto y accionable. El Challenger te obliga a no ser complaciente:
-si el avance es pobre, dilo claro.
-
-Reglas:
-1. "grade": "bien" si el mes va sólido, "mal" si hay desviaciones importantes, "muy_mal" si el
-   avance es crítico. Sé congruente con las señales (un completion_pct bajo no puede ser "bien").
-2. "summary": 2-4 oraciones dirigidas al dueño, claras y directas ("vas bien/mal/muy mal" + por qué).
-3. "by_agent": una línea breve por agente (CFO, CSO, CRO, Auditor) con su lectura del mes.
-4. "proposals": ajustes CONCRETOS al mes SIGUIENTE. Tipos válidos:
-   - {"type":"carry_over_task","task_id":"<id>","reason":"..."} para arrastrar una tarea incompleta.
-   - {"type":"new_objective","title":"...","description":"...","kpi_refs":["..."],"reason":"..."}.
-   - {"type":"new_task","objective_id":"<id de un objetivo del mes siguiente>","title":"...",
-      "owner":"...","priority":"alta|media|baja","kpi_ref":"...","reason":"..."}.
-   Propón entre 1 y 5 cambios, los más importantes. No inventes ids de tareas que no estén en la lista.
-5. Si 'tasks_missing_doc' del JSON de señales trae tareas, esas NO pueden considerarse logradas
-   sin su documento de sustento: dilo en el summary, pésalo en el grade, y propón subir el
-   documento (o arrastra la tarea con carry_over_task).
-6. Si se adjuntan DOCUMENTOS (PDF/imágenes), son las evidencias subidas este mes. Cada uno trae
-   antes un texto que dice de qué tarea es y qué pedía. Léelos y valida si CADA documento respalda
-   la meta de su tarea: si no la respalda, no des la tarea por lograda — propón arrastrarla
-   (carry_over_task) o ajustarla, y dilo en el summary. NO inventes contenido de documentos que no
-   se adjuntaron. Si hay una NOTA SOBRE DOCUMENTOS, menciónala (p. ej. pídele al usuario subir en
-   PDF los formatos que no se pudieron leer)."""
+REVIEW_SYSTEM_PROMPT = load_prompt("cierre_mes")  # editable en backend/prompts/cierre_mes.md
 
 REVIEW_SCHEMA = """{
   "grade": "bien|mal|muy_mal",

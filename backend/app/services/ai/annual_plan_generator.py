@@ -16,6 +16,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object
+from app.services.ai.prompt_loader import load_prompt
 
 
 # ── Helpers de calendario ───────────────────────────────────────────────────
@@ -146,17 +147,7 @@ def synthesize_diagnostico(agent_analyses: dict[str, dict]) -> str:
 
 # ── Prompts ─────────────────────────────────────────────────────────────────
 
-SKELETON_SYSTEM_PROMPT = """Eres el director estratégico del consejo de Gobernia.
-A partir del diagnóstico de los 4 agentes, diseñas un PLAN ESTRATÉGICO de 12 meses.
-
-Reglas:
-1. Genera EXACTAMENTE 12 meses (month_index 1..12), con progresión lógica:
-   los primeros meses estabilizan y diagnostican; los del medio ejecutan; los últimos
-   consolidan y miden resultados.
-2. Cada mes tiene un "focus" (tema corto, máx 80 caracteres) y 2-4 objetivos.
-3. Cada objetivo: "title" accionable y "kpi_refs" = lista de KPIs (de la lista provista)
-   que ese objetivo busca mover. Usa SOLO labels de la lista de KPIs disponibles.
-4. No inventes KPIs fuera de la lista. Si la lista está vacía, deja kpi_refs como []."""
+SKELETON_SYSTEM_PROMPT = load_prompt("agenda_anual_skeleton")  # editable en backend/prompts/agenda_anual_skeleton.md
 
 SKELETON_SCHEMA = """{
   "months": [
@@ -165,18 +156,7 @@ SKELETON_SCHEMA = """{
   ]
 }"""
 
-MONTH_TASKS_SYSTEM_PROMPT = """Eres el director del consejo. Conviertes los objetivos de UN mes
-en tareas concretas y accionables.
-
-Reglas por tarea:
-1. "title": empieza con verbo en infinitivo, máx 80 caracteres.
-2. "objective_index": índice (0-based) del objetivo al que pertenece, según la lista dada.
-3. "owner": rol responsable (Director General, CFO, Director Comercial, etc.).
-4. "priority": "alta" | "media" | "baja".
-5. "due_day": día del mes (1-28) en que vence.
-6. "kpi_ref": un KPI (de los kpi_refs del objetivo) que la tarea impacta, o null.
-7. "tags": máximo 2 etiquetas cortas en minúsculas.
-Genera entre 2 y 5 tareas por objetivo. Calidad sobre cantidad."""
+MONTH_TASKS_SYSTEM_PROMPT = load_prompt("orden_del_dia_mes")  # editable en backend/prompts/orden_del_dia_mes.md
 
 MONTH_TASKS_SCHEMA = """{
   "tasks": [
@@ -227,16 +207,7 @@ def generate_skeleton(memory_buffer: dict, diagnostico: str, kpi_labels: list[st
 
 _MILESTONE_TYPES = {"trimestral", "semestral", "anual"}
 
-MILESTONES_SYSTEM_PROMPT = """Eres el director estratégico del consejo de Gobernia.
-A partir del diagnóstico, la visión y los KPIs, diseñas los HITOS de un plan estratégico
-de varios años. Para un horizonte de N años generas:
-- un hito TRIMESTRAL por cada trimestre (N×4),
-- un hito SEMESTRAL por cada semestre (N×2),
-- un hito ANUAL por cada año (N).
-Cada hito tiene "title" (corto) y "target" = META MEDIBLE (ej. "alcanzar 11% de margen
-después de impuestos"), atada a un KPI de la lista cuando aplique ("kpi_ref", o null).
-Progresión lógica: lo trimestral aporta a lo semestral, y eso a lo anual.
-Usa SOLO labels de la lista de KPIs provista."""
+MILESTONES_SYSTEM_PROMPT = load_prompt("milestones")  # editable en backend/prompts/milestones.md
 
 MILESTONES_SCHEMA = """{
   "milestones": [
@@ -302,19 +273,7 @@ def quarter_month_indices(year: int, quarter: int) -> list[int]:
     return [base + 1, base + 2, base + 3]
 
 
-QUARTER_SYSTEM_PROMPT = """Eres el director del consejo. Para UN trimestre del plan estratégico,
-diseñas los 3 MESES con objetivos y TAREAS PROFESIONALES Y MEDIBLES (no genéricas).
-
-Reglas de las tareas:
-1. "title": acción concreta y MEDIBLE atada a la meta del trimestre/KPI
-   (ej. "Subir el margen después de impuestos hacia 11%"), no vaguedades.
-2. "owner": rol responsable (CFO, Director Comercial, etc.).
-3. "priority": "alta"|"media"|"baja".
-4. "kpi_ref": un KPI de la lista que la tarea mueve, o null.
-5. "required_doc": el DOCUMENTO/DATO actualizado que SUSTENTA la meta cuando aplica
-   (ej. "estado de resultados del mes"), o null si no requiere sustento.
-6. "due_day": día del mes (1-28).
-Reparte el trabajo en los 3 meses (month_in_quarter 1,2,3). 2-4 tareas por mes. Calidad sobre cantidad."""
+QUARTER_SYSTEM_PROMPT = load_prompt("orden_del_dia_trimestre")  # editable en backend/prompts/orden_del_dia_trimestre.md
 
 QUARTER_SCHEMA = """{
   "months": [
