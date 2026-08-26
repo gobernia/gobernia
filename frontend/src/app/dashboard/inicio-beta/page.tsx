@@ -30,7 +30,7 @@ const MUTED = "#6E7686"
 const CARD  = "#FFFFFF"
 const SAND  = "#E8E3D8"
 const BNAVY = "#152742"
-const ACCENT = "#FF5C1A"
+const ACCENT = "#C2410C"
 const LINE  = "#E2E2DC"
 const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
 
@@ -313,7 +313,7 @@ export default function InicioBetaPage() {
                         <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
                       </span>
                       <span
-                        className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] transition-colors group-hover:border-transparent group-hover:bg-[#FF5C1A] group-hover:text-white"
+                        className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] transition-colors group-hover:border-transparent group-hover:bg-[#C2410C] group-hover:text-white"
                         style={{ borderColor: "rgba(14,22,38,0.18)", color: MUTED }}
                       >
                         →

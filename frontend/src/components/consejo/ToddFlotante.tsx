@@ -17,7 +17,7 @@ const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
 const CARD  = "#FFFFFF"
 const MUTED = "#6E7686"
-const ACCENT = "#FF5C1A"
+const ACCENT = "#C2410C"
 const LINE  = "#E2E2DC"
 
 export default function ToddFlotante() {
@@ -38,7 +38,7 @@ export default function ToddFlotante() {
         aria-label="Pregúntale a Todd, el Secretario del Consejo"
         title="Pregúntale a Todd"
         className="fixed bottom-6 right-6 z-40 grid h-14 w-14 place-items-center rounded-full text-white shadow-lg transition-all hover:scale-105 hover:brightness-95"
-        style={{ background: ACCENT, boxShadow: "0 10px 28px -8px rgba(255,92,26,.55)" }}
+        style={{ background: ACCENT, boxShadow: "0 10px 28px -8px rgba(194,65,12,.55)" }}
       >
         <MessageSquare className="h-6 w-6" />
       </button>

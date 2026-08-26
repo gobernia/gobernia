@@ -28,7 +28,7 @@ const MUTED = "#6E7686"
 const CARD  = "#FFFFFF"
 const SAND  = "#E8E3D8"
 const BNAVY = "#152742"
-const ACCENT = "#FF5C1A"
+const ACCENT = "#C2410C"
 const LINE  = "#E2E2DC"
 // Colores semánticos del FODA (se mantienen).
 const GREEN = "#0f766e"
@@ -407,12 +407,12 @@ export default function DiagnosticoPage() {
         </div>
         {isDatos ? (
           <Link href="/dashboard/datos"
-            className="inline-flex items-center gap-2 rounded-full bg-[#FF5C1A] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+            className="inline-flex items-center gap-2 rounded-full bg-[#C2410C] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
             Completar mis datos
           </Link>
         ) : (
           <button onClick={onGenerate}
-            className="inline-flex items-center gap-2 rounded-full bg-[#FF5C1A] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+            className="inline-flex items-center gap-2 rounded-full bg-[#C2410C] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
             <Sparkles className="h-4 w-4" /> {isFail ? "Reintentar" : "Generar diagnóstico"}
           </button>
         )}
@@ -461,7 +461,7 @@ export default function DiagnosticoPage() {
                   PDF
                 </button>
                 <a href="/onboarding/todd/externo"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#FF5C1A] px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:bg-[#e64f12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+                  className="inline-flex items-center gap-2 rounded-full bg-[#C2410C] px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:bg-[#e64f12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
                   <span className="hidden sm:inline">Continuar al análisis del entorno</span>
                   <span className="sm:hidden">Continuar</span>
                   <ArrowRight className="h-4 w-4" />
@@ -558,7 +558,7 @@ export default function DiagnosticoPage() {
                 Regenerar diagnóstico
               </button>
               <a href="/onboarding/todd/externo"
-                className="inline-flex items-center gap-2 rounded-full bg-[#FF5C1A] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+                className="inline-flex items-center gap-2 rounded-full bg-[#C2410C] text-white text-[13px] font-bold tracking-wide px-5 py-3 hover:bg-[#e64f12] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
                 Continuar al análisis del entorno <ArrowRight className="h-4 w-4" />
               </a>
             </div>

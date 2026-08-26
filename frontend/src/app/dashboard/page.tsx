@@ -182,7 +182,7 @@ const CARD  = "#FFFFFF"
 const SAND  = "#E8E3D8"
 const SAND2 = "#F0ECE3"
 const BNAVY = "#152742"
-const ACCENT = "#FF5C1A"
+const ACCENT = "#C2410C"
 const LINE  = "#E2E2DC"
 
 // Clases compartidas por todos los tiles del bento.
@@ -231,7 +231,7 @@ function Squiggle({ children }: { children: ReactNode }) {
         className="absolute left-0 right-0 -bottom-1.5 h-[7px]"
         style={{
           backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='7' viewBox='0 0 40 7'><path d='M0 4 Q5 0 10 4 T20 4 T30 4 T40 4' fill='none' stroke='%23FF5C1A' stroke-width='2.2'/></svg>\")",
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='7' viewBox='0 0 40 7'><path d='M0 4 Q5 0 10 4 T20 4 T30 4 T40 4' fill='none' stroke='%23C2410C' stroke-width='2.2'/></svg>\")",
           backgroundRepeat: "repeat-x",
           backgroundSize: "20px 7px",
         }}
@@ -452,7 +452,7 @@ function RoadmapOnePager({
           <a href="#prioridades" className="group inline-flex items-center gap-3 text-[12px] font-extrabold uppercase tracking-[0.09em]">
             Ver prioridades
             <span
-              className="grid h-7 w-7 place-items-center rounded-full border text-[12px] transition-colors group-hover:border-transparent group-hover:bg-[#FF5C1A] group-hover:text-white"
+              className="grid h-7 w-7 place-items-center rounded-full border text-[12px] transition-colors group-hover:border-transparent group-hover:bg-[#C2410C] group-hover:text-white"
               style={{ borderColor: "currentColor" }}
             >
               →
@@ -508,7 +508,7 @@ function RoadmapOnePager({
                         className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[12px] transition-colors ${
                           activo
                             ? "bg-white/20 text-white"
-                            : "border group-hover:border-transparent group-hover:bg-[#FF5C1A] group-hover:text-white"
+                            : "border group-hover:border-transparent group-hover:bg-[#C2410C] group-hover:text-white"
                         }`}
                         style={activo ? {} : { borderColor: "rgba(14,22,38,0.18)", color: MUTED }}
                       >

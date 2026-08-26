@@ -557,7 +557,7 @@ const AGENDA_TYPE_META: Record<string, { label: string; color: string }> = {
   informacion:  { label: "Información",  color: "#5a6b82" },
   seguimiento:  { label: "Seguimiento",  color: "#b45309" },
   deliberacion: { label: "Deliberación", color: "#0f766e" },
-  decision:     { label: "Decisión",     color: "#FF5C1A" },
+  decision:     { label: "Decisión",     color: "#C2410C" },
 }
 
 function AgendaMeta({ tarea }: { tarea: BoardTask }) {
@@ -583,7 +583,7 @@ function AgendaMeta({ tarea }: { tarea: BoardTask }) {
       )}
       {tarea.decision_expected && (
         <p className="mt-1 text-[11px] leading-snug line-clamp-2" style={{ color: MUTED }}>
-          <span className="font-bold" style={{ color: "#FF5C1A" }}>Decisión esperada: </span>
+          <span className="font-bold" style={{ color: "#C2410C" }}>Decisión esperada: </span>
           {tarea.decision_expected}
         </p>
       )}

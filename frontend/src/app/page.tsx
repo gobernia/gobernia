@@ -29,7 +29,7 @@ const MUTED = "#6E7686"
 const CARD  = "#FFFFFF"
 const SAND  = "#E8E3D8"
 const BNAVY = "#152742"
-const ACCENT = "#FF5C1A"
+const ACCENT = "#C2410C"
 const LINE  = "#E2E2DC"
 // El CSS global pone h1/h2 en serif (Newsreader). En el bento NO queremos serif:
 // forzamos sans en cada título, igual que en el Inicio.

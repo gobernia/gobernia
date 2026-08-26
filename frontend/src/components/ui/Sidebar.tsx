@@ -29,7 +29,7 @@ const LINKS = [
 
 const INK = "#0E1626"
 const PAPER = "#F2F2F0"
-const ACCENT = "#FF5C1A"
+const ACCENT = "#C2410C"
 
 export default function Sidebar() {
   const pathname = usePathname()
