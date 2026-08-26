@@ -41,9 +41,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Orígenes SIEMPRE permitidos, además de los de la env var ALLOWED_ORIGINS.
+# Así un dominio oficial nuevo no se queda fuera por olvidar actualizar Railway
+# (síntoma: el dashboard carga "vacío" porque el navegador bloquea el API).
+_ORIGENES_OFICIALES = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://gobernia-liard.vercel.app",
+    "https://gobernia.ai",
+    "https://www.gobernia.ai",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=sorted({*settings.ALLOWED_ORIGINS, *_ORIGENES_OFICIALES}),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
