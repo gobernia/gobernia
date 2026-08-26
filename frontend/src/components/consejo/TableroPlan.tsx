@@ -139,7 +139,10 @@ function MenuFlotante({ anchorRef, open, onClose, ancho, altoEstimado = 240, chi
 
   useEffect(() => {
     if (!open) return
-    const cerrar = () => onClose()
+    // Periodo de gracia: el autofoco del input puede provocar un scroll-into-view
+    // al abrir, que sin esto cerraba el popover en el mismo instante.
+    const abiertoEn = Date.now()
+    const cerrar = () => { if (Date.now() - abiertoEn > 350) onClose() }
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     // capture: true atrapa el scroll de contenedores internos (el mes con overflow-x).
     window.addEventListener("scroll", cerrar, true)
