@@ -233,6 +233,10 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                             tags=tspec.get("tags") or [],
                             due_date=due_date_within_month(
                                 year, month, int(tspec.get("due_day", 28))),
+                            # Campos de agenda de gobierno (punto del Orden del Día).
+                            lead_agent=tspec.get("lead_agent"),
+                            agenda_type=tspec.get("agenda_type"),
+                            decision_expected=tspec.get("decision_expected"),
                             order_index=ti, status="pendiente"))
 
         # Paso 5: el Roadmap NACE de la postura del Consejo (no bloquea el plan si falla).

@@ -551,6 +551,46 @@ function DocumentosCelda({ tarea, onRefresh }: {
 }
 
 // ── Una fila de tarea (rejilla en desktop, bloque en móvil) ──
+// ── Metadatos de agenda de gobierno (cada tarea = punto del Orden del Día).
+// Chips dentro de la celda Tarea: se adaptan al estilo Monday sin tocar la rejilla.
+const AGENDA_TYPE_META: Record<string, { label: string; color: string }> = {
+  informacion:  { label: "Información",  color: "#5a6b82" },
+  seguimiento:  { label: "Seguimiento",  color: "#b45309" },
+  deliberacion: { label: "Deliberación", color: "#0f766e" },
+  decision:     { label: "Decisión",     color: "#FF5C1A" },
+}
+
+function AgendaMeta({ tarea }: { tarea: BoardTask }) {
+  const tipo = tarea.agenda_type ? AGENDA_TYPE_META[tarea.agenda_type] : undefined
+  if (!tipo && !tarea.lead_agent && !tarea.decision_expected) return null
+  return (
+    <>
+      {(tipo || tarea.lead_agent) && (
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {tipo && (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+              style={{ color: tipo.color, backgroundColor: `${tipo.color}14`, border: `1px solid ${tipo.color}33` }}>
+              {tipo.label}
+            </span>
+          )}
+          {tarea.lead_agent && (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+              style={{ color: BNAVY, backgroundColor: CARD, border: `1px solid ${LINE}` }}>
+              Lidera {tarea.lead_agent}
+            </span>
+          )}
+        </div>
+      )}
+      {tarea.decision_expected && (
+        <p className="mt-1 text-[11px] leading-snug line-clamp-2" style={{ color: MUTED }}>
+          <span className="font-bold" style={{ color: "#FF5C1A" }}>Decisión esperada: </span>
+          {tarea.decision_expected}
+        </p>
+      )}
+    </>
+  )
+}
+
 function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
   tarea: BoardTask
   sugerencias: string[]
@@ -567,6 +607,7 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
       <div className={`px-4 py-2.5 flex flex-col justify-center min-w-0 ${STICKY_TAREA}`}
         style={{ backgroundColor: CARD }}>
         <p className="text-[13px] font-medium leading-snug" style={{ color: INK }}>{tarea.title}</p>
+        <AgendaMeta tarea={tarea} />
         {tarea.viene_de && (
           <span className="inline-flex items-center gap-1 mt-1 self-start rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{ color: "#b45309", backgroundColor: "#b4530914", border: "1px solid #b4530933" }}>

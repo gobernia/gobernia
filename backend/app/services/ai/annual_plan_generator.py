@@ -44,6 +44,23 @@ def due_date_within_month(year: int, month: int, day: int = 28) -> date:
 _PRIORITIES = {"alta", "media", "baja"}
 
 
+_AGENDA_TYPES = {"informacion", "seguimiento", "deliberacion", "decision"}
+_LEAD_AGENTS = {"CFO", "CSO", "CRO", "Auditor"}
+
+
+def _norm_agenda_fields(t: dict) -> dict:
+    """Campos de agenda de gobierno del punto (revisión del cliente): consejero
+    líder, naturaleza del punto y decisión esperada. None si no vienen o no son válidos."""
+    lead = str(t.get("lead_agent") or "").strip()
+    atype = str(t.get("agenda_type") or "").strip().lower()
+    decision = str(t.get("decision_expected") or "").strip()
+    return {
+        "lead_agent": lead if lead in _LEAD_AGENTS else None,
+        "agenda_type": atype if atype in _AGENDA_TYPES else None,
+        "decision_expected": decision[:400] or None,
+    }
+
+
 def _norm_priority(v) -> str:
     return v.lower() if isinstance(v, str) and v.lower() in _PRIORITIES else "media"
 
@@ -132,6 +149,7 @@ def map_month_tasks(raw: str, objectives: list[dict], year: int, month: int) -> 
             "kpi_ref": str(t["kpi_ref"])[:120] if t.get("kpi_ref") else None,
             "tags": _norm_tags(t.get("tags")),
             "order_index": order,
+            **_norm_agenda_fields(t),
         })
     return out
 
@@ -161,8 +179,10 @@ MONTH_TASKS_SYSTEM_PROMPT = load_prompt("orden_del_dia_mes")  # editable en back
 MONTH_TASKS_SCHEMA = """{
   "tasks": [
     {"objective_index": 0, "title": "string", "description": "string",
-     "owner": "string", "priority": "alta|media|baja", "due_day": 15,
-     "kpi_ref": "KPI label|null", "tags": ["tag"]}
+     "owner": "string", "lead_agent": "CFO|CSO|CRO|Auditor", "priority": "alta|media|baja", "due_day": 15,
+     "kpi_ref": "KPI label|null", "required_doc": "string|null",
+     "agenda_type": "informacion|seguimiento|deliberacion|decision",
+     "decision_expected": "string|null", "tags": ["tag"]}
   ]
 }"""
 
@@ -279,8 +299,10 @@ QUARTER_SCHEMA = """{
   "months": [
     {"month_in_quarter": 1, "focus": "string", "objectives": [
       {"title": "string", "description": "string", "kpi_refs": ["KPI label"], "tasks": [
-        {"title": "string", "owner": "string", "priority": "alta|media|baja",
-         "kpi_ref": "KPI label|null", "required_doc": "string|null", "due_day": 15}
+        {"title": "string", "owner": "string", "lead_agent": "CFO|CSO|CRO|Auditor",
+         "priority": "alta|media|baja", "kpi_ref": "KPI label|null", "required_doc": "string|null",
+         "agenda_type": "informacion|seguimiento|deliberacion|decision",
+         "decision_expected": "string|null", "due_day": 15}
       ]}
     ]}
   ]
@@ -317,6 +339,7 @@ def parse_quarter_plan(raw: str, year: int, quarter: int) -> list[dict]:
                     "required_doc": str(t["required_doc"])[:200] if t.get("required_doc") else None,
                     "tags": _norm_tags(t.get("tags")),
                     "due_day": t.get("due_day", 28),
+                    **_norm_agenda_fields(t),
                 })
             objectives.append({
                 "title": str(o["title"])[:300],

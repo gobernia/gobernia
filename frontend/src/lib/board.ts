@@ -30,6 +30,13 @@ export interface BoardTask {
   pilar_index?: number | null
   // False = quedó FUERA del Plan anual aprobado (pendiente sin ejecutar).
   incluida?: boolean
+  // ── Agenda de gobierno: cada tarea es un punto del Orden del Día ──
+  // Consejero IA que lidera el análisis del punto (CFO|CSO|CRO|Auditor).
+  lead_agent?: string | null
+  // informacion | seguimiento | deliberacion | decision.
+  agenda_type?: string | null
+  // Decisión/recomendación esperada de la sesión, si aplica.
+  decision_expected?: string | null
   // Si la tarea se arrastró de un mes anterior, de dónde viene (p.ej. "Marzo 2026").
   viene_de?: string | null
   // Cuántos documentos de evidencia tiene la tarea.

@@ -25,6 +25,8 @@ export interface Pilar {
   kpis?: KpiPilar[]
   resultados_esperados?: ResultadoEsperado[]
   fases?: Fase
+  /** 0-3 asuntos que el Consejo deberá revisar durante el año por este pilar. */
+  temas_consejo?: string[]
 }
 
 /** Lema de cada año del recorrido (ej. "Ordenar la casa"). */

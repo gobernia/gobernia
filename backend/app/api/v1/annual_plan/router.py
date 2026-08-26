@@ -345,6 +345,9 @@ async def get_board(
             pilar_index=obj_pilar.get(t.objective_id),
             viene_de=viene_de,
             incluida=bool(t.incluida),
+            lead_agent=t.lead_agent,
+            agenda_type=t.agenda_type,
+            decision_expected=t.decision_expected,
             evidencias=evidence_counts.get(t.id, 0),
             validacion=_validacion_out(t.validacion),
         )

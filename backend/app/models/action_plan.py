@@ -55,6 +55,14 @@ class ActionTask(Base, UUIDMixin, TimestampMixin):
     # aprobar el Plan anual: no se ejecuta ni cuenta para el avance, pero queda
     # como pendiente (puede activarla después o eliminarla).
     incluida:     Mapped[bool]              = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
+    # ── Campos de agenda de gobierno (revisión del cliente): cada "tarea" es
+    #    funcionalmente un punto del Orden del Día del Consejo. ──
+    # Consejero IA que lidera el análisis del punto (CFO|CSO|CRO|Auditor).
+    lead_agent:   Mapped[str | None]        = mapped_column(String(20), nullable=True)
+    # Naturaleza del punto: informacion | seguimiento | deliberacion | decision.
+    agenda_type:  Mapped[str | None]        = mapped_column(String(20), nullable=True)
+    # Decisión/recomendación que se espera producir en la sesión, si aplica.
+    decision_expected: Mapped[str | None]   = mapped_column(Text, nullable=True)
     owner:        Mapped[str | None]        = mapped_column(String, nullable=True)
     # Correo del responsable, para enviarle el enlace a sus tareas.
     owner_email:  Mapped[str | None]        = mapped_column(String, nullable=True)

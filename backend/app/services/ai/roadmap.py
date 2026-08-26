@@ -74,6 +74,8 @@ ROADMAP_TOOL = {
                                          }, "required": ["titulo"]}},
                 "fases": _FASES,
                 "milestones": _MILE,
+                "temas_consejo": {"type": "array", "items": {"type": "string"},
+                                  "description": "0-3 asuntos que el Consejo deberá revisar durante el año para asegurar avance del pilar (opcional; solo si puede sustentarse)."},
             }, "required": ["nombre", "descripcion"]}},
         },
         "required": ["vision", "mision", "propuesta_valor", "metas_3anios",
@@ -310,6 +312,7 @@ def _parse_roadmap_dict(d: dict) -> dict:
                         "kpis": _norm_kpis(p.get("kpis")),
                         "resultados_esperados": _norm_resultados(p.get("resultados_esperados")),
                         "fases": _norm_fases(p.get("fases")),
+                        "temas_consejo": _norm_lista(p.get("temas_consejo"))[:3],
                         "milestones": {a: _norm_lista(mi.get(a)) for a in _ANIOS}})
     return {
         "vision": str(d.get("vision") or "").strip(),
@@ -338,5 +341,5 @@ def _pilares_desde_objetivos(out: dict) -> list[dict]:
         pilares.append({"nombre": nombre[:90], "descripcion": nombre, "razon": "",
                         "objetivo": nombre, "estrategias": [], "riesgos": [], "kpis": [],
                         "resultados_esperados": [], "fases": _norm_fases(None),
-                        "milestones": {a: [] for a in _ANIOS}})
+                        "temas_consejo": [], "milestones": {a: [] for a in _ANIOS}})
     return pilares

@@ -325,6 +325,23 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
                 )}
               </div>
             </div>
+
+            {/* Los asuntos que el Consejo revisará en el año por este pilar */}
+            {(pilar.temas_consejo ?? []).length > 0 && (
+              <div className="mt-5 border-t pt-4" style={{ borderColor: "rgba(255,255,255,.16)" }}>
+                <div className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>
+                  Temas para el Consejo
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(pilar.temas_consejo ?? []).map((t, j) => (
+                    <span key={j} className="rounded-full px-3 py-1.5 text-[12.5px] font-medium leading-snug"
+                      style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)" }}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         ) : (
           /* ── Modo edición: todo el pilar es editable ── */

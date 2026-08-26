@@ -22,6 +22,13 @@ class BoardTaskOut(BaseModel):
     pilar_index: int | None = None
     # False = quedó FUERA del Plan anual aprobado (pendiente sin ejecutar).
     incluida: bool = True
+    # ── Agenda de gobierno: cada tarea es un punto del Orden del Día ──
+    # Consejero IA que lidera el análisis del punto (CFO|CSO|CRO|Auditor).
+    lead_agent: str | None = None
+    # informacion | seguimiento | deliberacion | decision.
+    agenda_type: str | None = None
+    # Decisión/recomendación esperada de la sesión, si aplica.
+    decision_expected: str | None = None
     # Cuántas evidencias tiene subidas la tarea.
     evidencias: int = 0
     # Veredicto del Consejo sobre la evidencia: {"estado", "motivo"} o None si nunca se validó.
