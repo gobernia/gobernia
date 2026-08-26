@@ -146,7 +146,7 @@ export default function InicioBetaPage() {
 
           {/* Saludo */}
           <div className="px-1 pb-2">
-            <Eyebrow className="mb-0">{todayLabel()} · Inicio BETA</Eyebrow>
+            <Eyebrow className="mb-0">{todayLabel()} · Secretario</Eyebrow>
             <h1 className="text-[26px] font-bold tracking-[-.02em]" style={{ ...SANS, color: INK }}>
               {greeting()}{userName ? `, ${userName}` : ""}.
             </h1>
@@ -176,14 +176,20 @@ export default function InicioBetaPage() {
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new Event("todd:abrir"))}
-                className="mt-6 inline-flex w-fit items-center gap-2.5 rounded-full px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:brightness-90"
-                style={{ ...SANS, background: ACCENT }}
-              >
-                <MessageSquare className="h-4 w-4" /> Pregúntale a Todd
-              </button>
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new Event("todd:abrir"))}
+                  className="inline-flex w-fit items-center gap-2.5 rounded-full px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:brightness-90"
+                  style={{ ...SANS, background: ACCENT }}
+                >
+                  <MessageSquare className="h-4 w-4" /> Secretario Todd
+                </button>
+                <p className="text-[12.5px] font-semibold leading-snug" style={{ ...SANS, color: MUTED }}>
+                  Todd siempre está disponible en el botón flotante naranja,
+                  abajo a la derecha, desde cualquier página.
+                </p>
+              </div>
             </div>
 
             {/* 2. ÚLTIMA MINUTA */}
