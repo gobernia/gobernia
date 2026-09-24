@@ -2,6 +2,7 @@
 Opus tool-use, sin web. Fallback determinista sin IA. NUNCA inventa el target numérico de las metas."""
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
@@ -262,9 +263,43 @@ def _contexto(memory_buffer: dict, diagnostico_content: dict,
     return system, user
 
 
+_PARAM_FILTRADO = re.compile(r'</parameter>\s*<parameter name="(\w+)">')
+
+
+def _json_de_texto(s: str):
+    """Un objeto/lista que el modelo devolvió como TEXTO JSON (a veces sin cerrar)."""
+    s = s.strip()
+    if not s or s[0] not in "[{":
+        return None
+    for cierre in ("", "}", "]}", '"]}', "]", '"]'):
+        try:
+            return json.loads(s + cierre)
+        except ValueError:
+            continue
+    return None
+
+
+def _reparar_input(d: dict) -> dict:
+    """Corrige dos fallas de formato del modelo en tool use: campos anidados que llegan
+    como texto JSON, y campos que se 'filtran' dentro de otro con marcas </parameter>."""
+    out = dict(d)
+    for k, v in d.items():
+        if isinstance(v, str) and "</parameter>" in v:
+            partes = _PARAM_FILTRADO.split(v)
+            out[k] = partes[0].replace("</parameter>", "").strip()
+            for nombre, valor in zip(partes[1::2], partes[2::2]):
+                out.setdefault(nombre, valor.replace("</parameter>", "").strip())
+    for k, v in list(out.items()):
+        if isinstance(v, str):
+            j = _json_de_texto(v)
+            if j is not None:
+                out[k] = j
+    return out
+
+
 def _tool_input(response) -> dict:
     block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
-    return dict(block.input) if block and isinstance(block.input, dict) else {}
+    return _reparar_input(dict(block.input)) if block and isinstance(block.input, dict) else {}
 
 
 def generate_roadmap(memory_buffer: dict, diagnostico_content: dict,
@@ -333,9 +368,9 @@ def generate_roadmap(memory_buffer: dict, diagnostico_content: dict,
 
 
 def pilar_completo(p: dict) -> bool:
-    """Un pilar está completo si tiene milestones en los 3 años."""
+    """Un pilar está completo si tiene estrategias y milestones en los 3 años."""
     mi = p.get("milestones") or {}
-    return all(mi.get(a) for a in _ANIOS)
+    return bool(p.get("estrategias")) and all(mi.get(a) for a in _ANIOS)
 
 
 def _fusionar_detalle(pilar: dict, det: dict) -> None:
@@ -396,8 +431,8 @@ def completar_pilares(roadmap: dict, system: str, contexto: str, client=None) ->
                     client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=4096,
                     system=system,
                     messages=[{"role": "user", "content": pedido + (
-                        "\n\nATENCIÓN: tu respuesta anterior dejó años sin milestones; "
-                        "los 3 años son OBLIGATORIOS." if intento else "")}],
+                        "\n\nATENCIÓN: tu respuesta anterior quedó incompleta; las estrategias "
+                        "y los milestones de los 3 años son OBLIGATORIOS." if intento else "")}],
                     tools=[DETALLE_PILAR_TOOL], tool_choice={"type": "tool", "name": "detalle_pilar"},
                 )
                 det = _tool_input(r)
