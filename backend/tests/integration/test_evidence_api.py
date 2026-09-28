@@ -109,3 +109,38 @@ async def test_list_evidence(monkeypatch):
     assert r.status_code == 200
     assert len(r.json()) == 1
     assert r.json()[0]["filename"] == "x.pdf"
+
+
+@pytest.mark.asyncio
+async def test_upload_evidence_dispara_revision_del_auditor(monkeypatch):
+    task = _task(status="en_progreso")
+    task.validacion = None
+
+    async def fake_owned(tid, uid, db):
+        return task
+    monkeypatch.setattr("app.api.v1.evidence.router._get_user_task_or_404", fake_owned)
+    monkeypatch.setattr("app.api.v1.evidence.router.upload_to_storage", AsyncMock())
+    monkeypatch.setattr("app.services.evidencia_revision.flag_modified", lambda *a: None)
+    llamadas = []
+
+    async def fake_revisar(tid, uid, rid):
+        llamadas.append((tid, uid, rid))
+    monkeypatch.setattr("app.api.v1.evidence.router.revisar_evidencia_tarea", fake_revisar)
+
+    db = AsyncMock()
+    db.add = MagicMock(); db.flush = AsyncMock(); db.commit = AsyncMock()
+    db.refresh = AsyncMock(side_effect=lambda o: setattr(o, "created_at", NOW))
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.post(
+                f"/api/v1/tasks/{task.id}/evidence",
+                files={"file": ("flujo.pptx", b"PK data", "application/octet-stream")},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert r.status_code == 200
+    assert task.validacion["estado"] == "revisando"
+    assert llamadas == [(task.id, MOCK_USER_ID, task.validacion["revision_id"])]

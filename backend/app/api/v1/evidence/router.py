@@ -1,7 +1,7 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.schemas.evidence import EvidenceOut
 from app.schemas.etapa7 import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_BYTES
 from app.services.documents.storage import generate_storage_key, upload_to_storage, presigned_get_url
 from app.api.v1.action_plans.router import _get_user_task_or_404
+from app.services.evidencia_revision import marcar_revisando, revisar_evidencia_tarea
 
 router = APIRouter()
 
@@ -39,6 +40,7 @@ def _evidence_out(e: Evidence) -> EvidenceOut:
 @router.post("/tasks/{task_id}/evidence", response_model=EvidenceOut)
 async def upload_evidence(
     task_id: uuid.UUID,
+    background: BackgroundTasks,
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
@@ -60,9 +62,12 @@ async def upload_evidence(
     db.add(ev)
     if task.status == "pendiente":
         task.status = "en_progreso"
+    # El Auditor lee el documento YA (en segundo plano), no hasta que se sesione el mes.
+    revision_id = marcar_revisando(task)
     await db.flush()
     await db.commit()
     await db.refresh(ev)
+    background.add_task(revisar_evidencia_tarea, task_id, user_id, revision_id)
     return _evidence_out(ev)
 
 
@@ -99,6 +104,7 @@ async def download_evidence(
 @router.delete("/evidence/{evidence_id}", status_code=204)
 async def delete_evidence(
     evidence_id: uuid.UUID,
+    background: BackgroundTasks,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
@@ -106,6 +112,18 @@ async def delete_evidence(
     ev = res.scalar_one_or_none()
     if not ev:
         raise HTTPException(status_code=404, detail="Evidencia no encontrada")
-    await _get_user_task_or_404(ev.action_task_id, user_id, db)
+    task = await _get_user_task_or_404(ev.action_task_id, user_id, db)
     await db.delete(ev)
+    await db.flush()
+    # El veredicto anterior ya no aplica: se revisa de nuevo lo que quede, o se limpia.
+    quedan = (await db.execute(
+        select(Evidence.id).where(Evidence.action_task_id == task.id).limit(1)
+    )).first()
+    revision_id = None
+    if quedan:
+        revision_id = marcar_revisando(task)
+    else:
+        task.validacion = None
     await db.commit()
+    if revision_id:
+        background.add_task(revisar_evidencia_tarea, task.id, user_id, revision_id)

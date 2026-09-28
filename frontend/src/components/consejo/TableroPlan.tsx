@@ -377,14 +377,15 @@ function detalleError(err: unknown): string | undefined {
   return (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
 }
 
-// ── Badge de validación del Consejo ──
-// La validación la hace el Consejo al sesionar el mes; aquí solo se muestra su resultado.
+// ── Badge de validación del Auditor ──
+// El Auditor lee el documento en cuanto se sube (y de nuevo al sesionar el mes).
 const VALIDACION: Record<ValidacionEstado, {
   color: string; label: string; Icon: typeof ShieldCheck
 }> = {
-  validada:     { color: "#0f766e", label: "Validada por el Consejo", Icon: ShieldCheck },
+  validada:     { color: "#0f766e", label: "Validado por el Auditor", Icon: ShieldCheck },
   insuficiente: { color: "#b45309", label: "Falta sustento",          Icon: AlertTriangle },
   sin_revisar:  { color: MUTED,    label: "Sin revisar",             Icon: Clock },
+  revisando:    { color: BNAVY,    label: "La IA lo está leyendo…",  Icon: Loader2 },
 }
 
 function ValidacionBadge({ validacion, tieneEvidencia }: {
@@ -404,7 +405,7 @@ function ValidacionBadge({ validacion, tieneEvidencia }: {
         title={motivo || label}
         className="inline-flex items-center gap-1 self-start rounded-full px-1.5 py-0.5 text-[10px] font-medium"
         style={{ color, backgroundColor: `${color}14`, border: `1px solid ${color}33` }}>
-        <Icon className="h-3 w-3 shrink-0" />
+        <Icon className={`h-3 w-3 shrink-0 ${estado === "revisando" ? "animate-spin" : ""}`} />
         <span className="truncate">{label}</span>
       </span>
       {estado === "insuficiente" && motivo && (
@@ -781,6 +782,15 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
     return () => { aliveRef.current = false }
   }, [])
 
+  // Mientras el Auditor lee algún documento, el tablero se refresca solo hasta tener el veredicto.
+  const hayRevisando = meses.some(m =>
+    [...m.tareas, ...(m.arrastradas ?? [])].some(t => t.validacion?.estado === "revisando"))
+  useEffect(() => {
+    if (!hayRevisando) return
+    const id = window.setTimeout(() => setTick(t => t + 1), 6000)
+    return () => window.clearTimeout(id)
+  }, [hayRevisando, tick])
+
   // Si Todd (el flotante) cambia una tarea, el tablero se refresca solo.
   useEffect(() => {
     const onCambio = () => setTick(t => t + 1)
@@ -926,7 +936,7 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
         <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: MUTED }} />
         <span>
           Cada responsable sube en <strong className="font-medium" style={{ color: INK }}>Documentos</strong> la
-          evidencia de su tarea. La validación la hace el Consejo al sesionar el mes.
+          evidencia de su tarea. El Auditor la lee en cuanto se sube y te dice si tiene sustento.
         </span>
       </p>
 

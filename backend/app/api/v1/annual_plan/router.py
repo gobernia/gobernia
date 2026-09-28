@@ -65,6 +65,7 @@ from app.schemas.orden_cadena import (
     AcuerdoPunto,
 )
 from app.services.governance.pilar_link import _norm
+from app.services.evidencia_revision import validacion_visible
 
 router = APIRouter()
 
@@ -332,9 +333,7 @@ async def get_board(
 
     def _validacion_out(v: dict | None) -> dict | None:
         # Al frontend solo le importa el veredicto, no el rastro interno (validated_at, sesión).
-        if not v:
-            return None
-        return {"estado": v.get("estado"), "motivo": v.get("motivo")}
+        return validacion_visible(v)
 
     def _board_task(t: ActionTask, viene_de: str | None = None) -> BoardTaskOut:
         return BoardTaskOut(
