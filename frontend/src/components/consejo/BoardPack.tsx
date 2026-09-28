@@ -11,8 +11,8 @@ import {
   uploadBoardDoc,
 } from "@/lib/boardDocs"
 
-const ACCEPT = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx"
-const UNREADABLE = /\.(xlsx|xls|docx|doc)$/i
+const ACCEPT = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx,.pptx"
+const UNREADABLE = /\.xls$/i
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -62,7 +62,7 @@ export default function BoardPack({
     setError(null)
     setWarning(
       UNREADABLE.test(file.name)
-        ? "Los Excel y Word no se pueden leer: súbelos en PDF. Board IA verá que existe el archivo, pero no podrá leer su contenido."
+        ? "Los Excel antiguos (.xls) no se pueden leer: guárdalo como .xlsx o PDF. Board IA verá que existe el archivo, pero no podrá leer su contenido."
         : null,
     )
     try {
@@ -196,7 +196,7 @@ export default function BoardPack({
               {busy ? "Subiendo…" : "Subir documento"}
             </button>
             <p className="text-[10px] text-gray-400">
-              PDF e imágenes se leen completos. Los Excel y Word no se pueden leer: súbelos en PDF.
+              PDF, imágenes, Word, Excel y PowerPoint se leen completos.
             </p>
           </div>
 

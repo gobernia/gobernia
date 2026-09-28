@@ -70,7 +70,7 @@ export default function EvidenceSection({
         )}
       </div>
       <input ref={inputRef} type="file" className="hidden" onChange={onPick}
-        accept=".pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg" />
+        accept=".pdf,.docx,.xlsx,.xls,.pptx,.png,.jpg,.jpeg" />
       <button type="button" disabled={busy} onClick={() => inputRef.current?.click()}
         className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--gob-navy)] hover:underline disabled:opacity-50">
         <Upload className="h-3.5 w-3.5" /> {busy ? "Subiendo…" : "Subir evidencia"}

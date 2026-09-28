@@ -2,14 +2,18 @@
 Bloques multimodales para Claude: PDFs e imágenes en base64.
 
 Claude lee PDFs e imágenes de forma nativa (no hace falta extraer texto).
-Los formatos que no puede leer (.xlsx, .docx, ...) no se adjuntan: se convierten
+PowerPoint, Word y Excel (.pptx, .docx, .xlsx) se adjuntan como TEXTO extraído.
+Los formatos que no se pueden leer (.xls, ...) no se adjuntan: se convierten
 en una NOTA para que el agente pida al dueño subirlos en PDF.
 
 - classify_docs(docs)           → (legibles con kind/media_type, ilegibles)
 - readable_docs(docs, ...)      → (seleccionados, nota)  — clasifica y aplica los topes
 - build_doc_blocks(documents)   → lista de bloques {"type": "document"|"image"|"text"}
 """
+import base64
 from pathlib import Path
+
+from app.services.documents.text_extract import DOCX, PPTX, XLSX, extraer_texto
 
 # Tope de documentos por llamada (es decir, POR AGENTE: se aplica después del ruteo).
 MAX_DOCS = 8
@@ -25,6 +29,9 @@ _READABLE_EXTENSIONS = {
     ".png":  ("image", "image/png"),
     ".jpg":  ("image", "image/jpeg"),
     ".jpeg": ("image", "image/jpeg"),
+    ".pptx": ("text", PPTX),
+    ".docx": ("text", DOCX),
+    ".xlsx": ("text", XLSX),
 }
 
 
@@ -111,6 +118,14 @@ def build_doc_blocks(documents: list[dict] | None) -> list[dict]:
     """
     blocks: list[dict] = []
     for d in (documents or []):
+        if d.get("kind") == "text":
+            texto = extraer_texto(base64.b64decode(d["data"]), d["media_type"])
+            encabezado = d.get("label") or "Documento"
+            blocks.append({"type": "text", "text": (
+                f"{encabezado}\n<contenido>\n{texto}\n</contenido>" if texto
+                else f"{encabezado}: no se pudo extraer su contenido (archivo dañado o vacío)."
+            )})
+            continue
         if d.get("label"):
             blocks.append({"type": "text", "text": d["label"]})
         block_type = "document" if d.get("kind") == "pdf" else "image"

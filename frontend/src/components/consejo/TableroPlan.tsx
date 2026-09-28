@@ -511,7 +511,7 @@ function DocumentosCelda({ tarea, onRefresh }: {
       {error && <p className="text-[10px] leading-snug" style={{ color: "#b45309" }}>{error}</p>}
 
       <input ref={inputRef} type="file" className="hidden" onChange={subir}
-        accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx" />
+        accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx,.pptx" />
 
       <MenuFlotante anchorRef={verBtnRef} open={open} onClose={() => setOpen(false)} ancho={288} altoEstimado={260}>
         <div role="dialog" aria-label="Documentos de la tarea"

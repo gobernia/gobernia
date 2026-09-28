@@ -168,7 +168,7 @@ export default function ConsejerosPage() {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                  accept=".pdf,.docx,.xlsx,.xls,.pptx,.png,.jpg,.jpeg"
                   className="hidden"
                   onChange={e => onFile(e.target.files?.[0] ?? null)}
                 />

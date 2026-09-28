@@ -29,6 +29,11 @@ redis==5.2.1
 python-multipart==0.0.19  # file uploads
 boto3==1.35.81            # AWS S3
 
+# Lectura de Office para los consejeros (PowerPoint, Word, Excel → texto)
+python-pptx==1.0.2
+python-docx==1.1.2
+openpyxl==3.1.5
+
 # HTTP client
 httpx==0.28.1
 
