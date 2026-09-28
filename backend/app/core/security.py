@@ -1,6 +1,7 @@
 import time
 import httpx
 from jose import jwt, JWTError, ExpiredSignatureError
+from jose.exceptions import JWKError
 from fastapi import HTTPException, status
 
 from app.core.config import settings
@@ -51,7 +52,6 @@ def verify_supabase_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token malformado")
 
     kid = header.get("kid")
-    alg = header.get("alg", "ES256")
 
     keys = _fetch_jwks()
 
@@ -62,15 +62,17 @@ def verify_supabase_token(token: str) -> dict:
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Clave pública no encontrada")
 
+    # El algoritmo lo dicta la LLAVE publicada por Supabase, nunca el header del token:
+    # aceptar el 'alg' del token permite ataques de confusión de algoritmo.
     try:
         payload = jwt.decode(
             token,
             public_key,
-            algorithms=[alg],
+            algorithms=[public_key.get("alg") or "ES256"],
             options={"verify_aud": False},
         )
         return payload
     except ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expirado")
-    except JWTError as e:
+    except (JWTError, JWKError) as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Token inválido: {e}")

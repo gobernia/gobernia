@@ -105,7 +105,7 @@ function Prioridad({ nivel }: { nivel: BoardTask["priority"] }) {
 // Se posiciona con `position: fixed` a partir del getBoundingClientRect() del botón
 // disparador, así NINGÚN overflow lo recorta (el bug de la última fila). Voltea hacia
 // arriba si no hay espacio abajo, se clampea al borde derecho, y se cierra con clic
-// fuera, Escape, scroll (con capture, para atrapar el scroll horizontal del mes) y resize.
+// fuera o con Escape; con scroll y resize se reposiciona para seguir al botón.
 function MenuFlotante({ anchorRef, open, onClose, ancho, altoEstimado = 240, children }: {
   anchorRef: React.RefObject<HTMLButtonElement | null>
   open: boolean
@@ -120,40 +120,37 @@ function MenuFlotante({ anchorRef, open, onClose, ancho, altoEstimado = 240, chi
 
   useLayoutEffect(() => {
     if (!open) return
-    const btn = anchorRef.current
-    if (!btn) return
-    const rect = btn.getBoundingClientRect()
-    // Voltea hacia arriba solo si no cabe abajo Y sí cabe arriba.
-    const flipUp = rect.bottom + altoEstimado > window.innerHeight && rect.top > altoEstimado
-    // Alinea a la izquierda del botón y clampea para no salirse por la derecha.
-    let left = rect.left
-    const maxLeft = window.innerWidth - ancho - 8
-    if (left > maxLeft) left = maxLeft
-    if (left < 8) left = 8
-    setCoords(
-      flipUp
-        ? { left, top: null, bottom: window.innerHeight - rect.top + 4 }
-        : { left, top: rect.bottom + 4, bottom: null },
-    )
-  }, [open, anchorRef, ancho, altoEstimado])
-
-  useEffect(() => {
-    if (!open) return
-    // Periodo de gracia: el autofoco del input puede provocar un scroll-into-view
-    // al abrir, que sin esto cerraba el popover en el mismo instante.
-    const abiertoEn = Date.now()
-    const cerrar = () => { if (Date.now() - abiertoEn > 350) onClose() }
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    const posicionar = () => {
+      const btn = anchorRef.current
+      if (!btn) return
+      const rect = btn.getBoundingClientRect()
+      // Voltea hacia arriba solo si no cabe abajo Y sí cabe arriba.
+      const flipUp = rect.bottom + altoEstimado > window.innerHeight && rect.top > altoEstimado
+      // Alinea a la izquierda del botón y clampea para no salirse por la derecha.
+      let left = rect.left
+      const maxLeft = window.innerWidth - ancho - 8
+      if (left > maxLeft) left = maxLeft
+      if (left < 8) left = 8
+      setCoords(
+        flipUp
+          ? { left, top: null, bottom: window.innerHeight - rect.top + 4 }
+          : { left, top: rect.bottom + 4, bottom: null },
+      )
+    }
+    posicionar()
+    // Con scroll o resize (teclado del celular, foco en un campo) el menú SIGUE al botón;
+    // antes se cerraba y el dueño no alcanzaba a escribir el correo del responsable.
     // capture: true atrapa el scroll de contenedores internos (el mes con overflow-x).
-    window.addEventListener("scroll", cerrar, true)
-    window.addEventListener("resize", cerrar)
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("scroll", posicionar, true)
+    window.addEventListener("resize", posicionar)
     window.addEventListener("keydown", onKey)
     return () => {
-      window.removeEventListener("scroll", cerrar, true)
-      window.removeEventListener("resize", cerrar)
+      window.removeEventListener("scroll", posicionar, true)
+      window.removeEventListener("resize", posicionar)
       window.removeEventListener("keydown", onKey)
     }
-  }, [open, onClose])
+  }, [open, anchorRef, ancho, altoEstimado, onClose])
 
   if (!open) return null
 
@@ -270,12 +267,12 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
                   if (e.key === "Enter") { e.preventDefault(); confirmar(valor, correo) }
                   else if (e.key === "Escape") { e.preventDefault(); cerrar() }
                 }}
-                placeholder="Correo (opcional, para enviarle sus tareas)"
+                placeholder="Correo (opcional, para compartirle sus tareas)"
                 className="w-full rounded-lg px-2.5 py-2 text-sm placeholder:text-[color:inherit] focus-visible:outline-none focus-visible:ring-2"
                 style={{ border: `1px solid ${LINE}`, backgroundColor: CARD, color: INK, outlineColor: BNAVY }}
               />
               <p className="text-[10px] leading-snug" style={{ color: MUTED }}>
-                Con su correo podrás enviarle un enlace a sus tareas.
+                Con su correo generamos un enlace a sus puntos para que se lo compartas. No necesita crear cuenta.
               </p>
               {correo.trim() && (
                 <button type="button" onClick={copiarEnlace}
