@@ -390,11 +390,11 @@ async def test_analyse_rutea_presentation_al_cso_y_no_al_cfo():
 
 
 @pytest.mark.asyncio
-async def test_analyse_xlsx_no_se_adjunta_pero_genera_nota():
-    docs = [_document("cifras.xlsx", "financial")]
+async def test_analyse_xls_antiguo_no_se_adjunta_pero_genera_nota():
+    docs = [_document("cifras.xls", "financial")]
     calls, _ = await _analyse_capturando_documentos(docs)
     assert calls["CFO"]["documents"] == []
-    assert "cifras.xlsx" in calls["CFO"]["documents_note"]
+    assert "cifras.xls" in calls["CFO"]["documents_note"]
     assert "PDF" in calls["CFO"]["documents_note"]
 
 
@@ -658,13 +658,13 @@ async def test_la_nota_de_documentos_es_por_agente():
         calls[kw["agent"]] = kw
         return _ok(kw["agent"])
 
-    docs = [_document("finanzas.xlsx", "financial"), _document("junta.pdf", "presentation")]
+    docs = [_document("finanzas.xls", "financial"), _document("junta.pdf", "presentation")]
     r = await _analyse(docs, fake_analysis)
     assert r.status_code == 200, r.text
 
-    assert "finanzas.xlsx" in calls["CFO"]["documents_note"]
+    assert "finanzas.xls" in calls["CFO"]["documents_note"]
     assert calls["CFO"]["documents"] == []
     # El CSO sí recibió su documento y su nota no habla de finanzas.
     assert len(calls["CSO"]["documents"]) == 1
-    assert "finanzas.xlsx" not in calls["CSO"]["documents_note"]
+    assert "finanzas.xls" not in calls["CSO"]["documents_note"]
     assert calls["CSO"]["documents_note"] == ""
