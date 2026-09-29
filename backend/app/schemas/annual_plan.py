@@ -33,12 +33,15 @@ class AnnualPlanOut(BaseModel):
     diagnostico_summary: str | None = None
     genesis_session_id:  str | None = None
     horizon_years:       int = 3
+    periodicidad:        str = "mensual"
     milestones:          dict | None = None
     months:              list[MonthlyPlanOut] = Field(default_factory=list)
 
 
 class GeneratePlanRequest(BaseModel):
     horizon_years: int = Field(default=3, ge=1, le=3)
+    # mensual | trimestral | semestral. Si no viene, se usa la que eligió en el onboarding.
+    periodicidad: str | None = None
 
 
 class AnnualPlanStatusOut(BaseModel):

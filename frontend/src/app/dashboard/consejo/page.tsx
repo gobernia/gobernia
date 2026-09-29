@@ -257,7 +257,7 @@ export default function ConsejoPage() {
                           {mes.label}
                           {mes.es_mes_actual && (
                             <span className="text-[10px] font-extrabold uppercase tracking-[0.09em]" style={{ color: ACCENT }}>
-                              Mes en curso
+                              En curso
                             </span>
                           )}
                         </span>

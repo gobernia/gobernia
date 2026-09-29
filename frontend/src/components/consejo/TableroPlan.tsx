@@ -9,7 +9,7 @@ import {
   Upload, Paperclip, Download, Trash2, ShieldCheck, AlertTriangle, Clock, Info, Link2,
 } from "lucide-react"
 import {
-  BoardMes, BoardTask, TaskStatus, Validacion, ValidacionEstado,
+  BoardMes, BoardTask, Periodicidad, TaskStatus, Validacion, ValidacionEstado,
   getBoardFull, setTaskEstado, setTaskOwner, setTaskIncluida, eliminarTarea, abrirSesionMes,
 } from "@/lib/board"
 import {
@@ -657,12 +657,12 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
 }
 
 // ── Botón "Sesionar {mes}" ──
-function SesionarBtn({ label, cargando, onClick }: {
-  label: string; cargando: boolean; onClick: () => void
+function SesionarBtn({ label, unidad, cargando, onClick }: {
+  label: string; unidad: string; cargando: boolean; onClick: () => void
 }) {
   return (
     <button type="button" onClick={onClick} disabled={cargando}
-      aria-label={`Sesionar ${label}: convocar al Consejo a evaluar este mes`}
+      aria-label={`Sesionar ${label}: convocar al Consejo a evaluar este ${unidad}`}
       className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
       style={{ border: `1px solid ${LINE}`, color: MUTED, outlineColor: BNAVY }}>
       {cargando
@@ -692,9 +692,13 @@ function EncabezadoColumnas() {
 }
 
 // ── Grupo de un mes ──
-function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSesionar, sesionando }: {
+// Nombre del bloque según la periodicidad del plan (mes, trimestre o semestre).
+const UNIDAD: Record<Periodicidad, string> = { mensual: "mes", trimestral: "trimestre", semestral: "semestre" }
+
+function MesGrupo({ mes, index, unidad, sugerencias, onEstado, onOwner, onRefresh, onSesionar, sesionando }: {
   mes: BoardMes
   index: number
+  unidad: string
   sugerencias: string[]
   onEstado: (taskId: string, s: TaskStatus) => void
   onOwner: (taskId: string, owner: string, email: string | null) => void
@@ -714,13 +718,13 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSes
         {mes.es_mes_actual && (
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
             style={{ backgroundColor: BNAVY, color: CARD }}>
-            Mes actual
+            {unidad.charAt(0).toUpperCase() + unidad.slice(1)} actual
           </span>
         )}
         <span className="ml-auto text-xs" style={{ color: MUTED }}>
           {mes.tareas.length} {mes.tareas.length === 1 ? "tarea" : "tareas"}
         </span>
-        <SesionarBtn label={mes.label} cargando={sesionando} onClick={onSesionar} />
+        <SesionarBtn label={mes.label} unidad={unidad} cargando={sesionando} onClick={onSesionar} />
       </header>
 
       {/* La rejilla vive en su propio contenedor con scroll horizontal (la columna Tarea
@@ -766,6 +770,7 @@ function MesGrupo({ mes, index, sugerencias, onEstado, onOwner, onRefresh, onSes
 export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: number }) {
   const router = useRouter()
   const [meses, setMeses] = useState<BoardMes[]>([])
+  const [periodicidad, setPeriodicidad] = useState<Periodicidad>("mensual")
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading")
   // Mes que se está sesionando (por month_index), para el estado de carga del botón.
   const [sesionandoMes, setSesionandoMes] = useState<number | null>(null)
@@ -804,8 +809,9 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
 
   useEffect(() => {
     getBoardFull()
-      .then(({ meses: m, pendientes: p }) => {
+      .then(({ meses: m, pendientes: p, periodicidad: per }) => {
         if (!aliveRef.current) return
+        setPeriodicidad(per)
         // Meses con tareas propias o con tareas arrastradas (mes actual).
         setMeses(m.filter(x => x.tareas.length > 0 || (x.arrastradas?.length ?? 0) > 0))
         setPendientes(p)
@@ -949,7 +955,7 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
       )}
 
       {meses.map((mes, i) => (
-        <MesGrupo key={mes.month_index} mes={mes} index={i} sugerencias={sugerencias}
+        <MesGrupo key={mes.month_index} mes={mes} index={i} unidad={UNIDAD[periodicidad]} sugerencias={sugerencias}
           onEstado={cambiarEstado} onOwner={cambiarOwner} onRefresh={refrescarTablero}
           onSesionar={() => sesionarMes(mes)} sesionando={sesionandoMes === mes.month_index} />
       ))}

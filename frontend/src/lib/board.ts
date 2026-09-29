@@ -60,7 +60,11 @@ interface BoardResponse {
   meses: BoardMes[]
   // Tareas que quedaron FUERA del plan del año (pendientes sin ejecutar).
   pendientes?: BoardTask[]
+  // Cada fila de `meses` es un bloque de este tamaño.
+  periodicidad?: Periodicidad
 }
+
+export type Periodicidad = "mensual" | "trimestral" | "semestral"
 
 /** El tablero completo, agrupado por mes. */
 export async function getBoard(): Promise<BoardMes[]> {
@@ -69,9 +73,14 @@ export async function getBoard(): Promise<BoardMes[]> {
 }
 
 /** El tablero + las tareas pendientes fuera del plan (para el banco del Board). */
-export async function getBoardFull(): Promise<{ meses: BoardMes[]; pendientes: BoardTask[] }> {
+export async function getBoardFull(): Promise<{
+  meses: BoardMes[]; pendientes: BoardTask[]; periodicidad: Periodicidad
+}> {
   const r = await api.get<BoardResponse>("/annual-plan/board")
-  return { meses: r.data?.meses ?? [], pendientes: r.data?.pendientes ?? [] }
+  return {
+    meses: r.data?.meses ?? [], pendientes: r.data?.pendientes ?? [],
+    periodicidad: r.data?.periodicidad ?? "mensual",
+  }
 }
 
 /** Mete o saca una tarea del plan del año (False = pendiente fuera del plan). */

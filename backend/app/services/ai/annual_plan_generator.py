@@ -311,16 +311,23 @@ QUARTER_SCHEMA = """{
 
 def parse_quarter_plan(raw: str, year: int, quarter: int) -> list[dict]:
     """Parsea a EXACTAMENTE 3 meses (con month_index global), cada uno con objectives+tasks."""
+    return parse_block_plan(raw, quarter_month_indices(year, quarter))
+
+
+def parse_block_plan(raw: str, idxs: list[int]) -> list[dict]:
+    """Parsea un bloque de N meses (N = len(idxs), índices GLOBALES) a EXACTAMENTE N meses,
+    cada uno con objectives+tasks. Acepta `month_in_quarter` o `month_in_period`."""
+    n = len(idxs)
     parsed = _extract_json_object(raw) or {}
     by_pos: dict[int, dict] = {}
     for m in (parsed.get("months") or []):
         if not isinstance(m, dict):
             continue
         try:
-            pos = int(m.get("month_in_quarter"))
+            pos = int(m.get("month_in_period") or m.get("month_in_quarter"))
         except (TypeError, ValueError):
             continue
-        if not 1 <= pos <= 3:
+        if not 1 <= pos <= n:
             continue
         objectives = []
         for o in (m.get("objectives") or []):
@@ -347,11 +354,14 @@ def parse_quarter_plan(raw: str, year: int, quarter: int) -> list[dict]:
                 "kpi_refs": [str(k)[:120] for k in (o.get("kpi_refs") or []) if k][:5],
                 "tasks": tasks,
             })
-        by_pos[pos] = {"focus": str(m["focus"])[:300] if m.get("focus") else None,
-                       "objectives": objectives}
-    idxs = quarter_month_indices(year, quarter)
+        prev = by_pos.get(pos)
+        if prev:  # el modelo repitió el mismo mes: se juntan sus objetivos
+            prev["objectives"].extend(objectives)
+        else:
+            by_pos[pos] = {"focus": str(m["focus"])[:300] if m.get("focus") else None,
+                           "objectives": objectives}
     return [{"month_index": idxs[p - 1], **by_pos.get(p, {"focus": None, "objectives": []})}
-            for p in (1, 2, 3)]
+            for p in range(1, n + 1)]
 
 
 def generate_quarter_plan(memory_buffer: dict, kpi_labels: list[str], milestones: dict,
@@ -375,6 +385,101 @@ def generate_quarter_plan(memory_buffer: dict, kpi_labels: list[str], milestones
         messages=[{"role": "user", "content": user_prompt}],
     )
     return parse_quarter_plan(response.content[0].text, year, quarter)
+
+
+BLOCK_SCHEMA = QUARTER_SCHEMA.replace('"month_in_quarter": 1', '"month_in_period": 1')
+
+# Instrucción por periodicidad. El prompt base (orden_del_dia_trimestre.md, del cliente)
+# describe el bloque de 3 meses con agenda mensual; aquí se ajusta al ritmo que eligió el dueño.
+_INSTRUCCION_PERIODO = {
+    "trimestral": (
+        "PERIODICIDAD ELEGIDA POR EL DUEÑO: TRIMESTRAL. El Consejo revisa el plan UNA vez por "
+        "trimestre, así que diseña UN SOLO orden del día para TODO el trimestre: entre 4 y 8 puntos "
+        "EN TOTAL sumando los 3 meses (no por mes; cuéntalos antes de responder). Usa `month_in_period` (1-3) y `due_day` para repartir las fechas "
+        "límite a lo largo del trimestre según cuándo debe estar lista cada información; un mes "
+        "puede quedar sin puntos."
+    ),
+    "semestral": (
+        "PERIODICIDAD ELEGIDA POR EL DUEÑO: SEMESTRAL. El Consejo revisa el plan UNA vez por "
+        "semestre. Este bloque abarca 6 MESES (no 3): diseña UN SOLO orden del día para TODO el "
+        "semestre, entre 4 y 8 puntos EN TOTAL sumando los 6 meses (cuéntalos antes de responder). Usa `month_in_period` (1-6) y `due_day` para "
+        "repartir las fechas límite a lo largo de los 6 meses; varios meses pueden quedar sin puntos."
+    ),
+}
+
+
+def block_month_indices(year: int, first_month_in_year: int, n_months: int) -> list[int]:
+    """Índices de mes GLOBALES (1-based) de un bloque de N meses dentro de un año del plan."""
+    base = (year - 1) * 12 + (first_month_in_year - 1)
+    return [base + i for i in range(1, n_months + 1)]
+
+
+def generate_block_plan(memory_buffer: dict, kpi_labels: list[str], milestones: dict,
+                        year: int, first_month_in_year: int, periodicidad: str) -> list[dict]:
+    """Paso 2 (trimestral/semestral): UN orden del día para un bloque de 3 o 6 meses.
+    Devuelve los N meses del bloque (los puntos quedan en el mes de su fecha límite).
+    Sin API key → meses vacíos (no lanza)."""
+    from app.services.periodicidad import meses_por_periodo, norm_periodicidad
+
+    p = norm_periodicidad(periodicidad)
+    n = meses_por_periodo(p)
+    idxs = block_month_indices(year, first_month_in_year, n)
+    if not settings.ANTHROPIC_API_KEY:
+        return parse_block_plan("", idxs)
+    trimestres = {(first_month_in_year - 1) // 3 + 1 + i for i in range(n // 3)}
+    semestre = (first_month_in_year - 1) // 6 + 1
+    hitos_ctx = [
+        m for m in (milestones or {}).get("items", [])
+        if m.get("year") == year and (
+            m.get("type") not in ("trimestral", "semestral")
+            or (m.get("type") == "trimestral" and m.get("period") in trimestres)
+            or (m.get("type") == "semestral" and m.get("period") == semestre))
+    ]
+    etiqueta = f"TRIMESTRE {min(trimestres)}" if p == "trimestral" else f"SEMESTRE {semestre}"
+    user_prompt = (
+        f"{_company_line(memory_buffer)}\n"
+        f"AÑO {year}, {etiqueta}.\n"
+        f"HITOS RELEVANTES: {hitos_ctx or 'ninguno'}\n"
+        f"KPIs DISPONIBLES (usa solo estos labels): {kpi_labels or 'ninguno'}\n\n"
+        f"{_INSTRUCCION_PERIODO[p]}\n\n"
+        f"Responde ÚNICAMENTE con JSON válido:\n{BLOCK_SCHEMA}"
+    )
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    mensajes = [{"role": "user", "content": user_prompt}]
+    response = _create_with_retry(
+        client, model=settings.AI_MODEL, max_tokens=4096,
+        system=QUARTER_SYSTEM_PROMPT, messages=mensajes,
+    )
+    raw = response.content[0].text
+    meses = parse_block_plan(raw, idxs)
+    # El orden del día de UNA sesión del Consejo lleva 4-8 puntos. Si se pasó, se le pide
+    # UNA vez que priorice y fusione (tope fijo: nunca más de un reintento).
+    total = _puntos(meses)
+    if total > MAX_PUNTOS_POR_BLOQUE:
+        response = _create_with_retry(
+            client, model=settings.AI_MODEL, max_tokens=4096,
+            system=QUARTER_SYSTEM_PROMPT,
+            messages=mensajes + [
+                {"role": "assistant", "content": raw},
+                {"role": "user", "content": (
+                    f"Propusiste {total} puntos y el orden del día de este bloque admite como MÁXIMO "
+                    f"{MAX_PUNTOS_POR_BLOQUE}. Fusiona los asuntos relacionados y deja fuera los "
+                    "menos relevantes, conservando sus fechas repartidas en el periodo. Responde "
+                    "ÚNICAMENTE con el JSON completo corregido."
+                )},
+            ],
+        )
+        corregido = parse_block_plan(response.content[0].text, idxs)
+        if 0 < _puntos(corregido) <= total:
+            meses = corregido
+    return meses
+
+
+MAX_PUNTOS_POR_BLOQUE = 8
+
+
+def _puntos(meses: list[dict]) -> int:
+    return sum(len(o["tasks"]) for m in meses for o in m["objectives"])
 
 
 def generate_month_tasks(focus, objectives: list[dict], memory_buffer: dict,

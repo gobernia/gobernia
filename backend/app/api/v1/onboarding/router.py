@@ -10,6 +10,7 @@ Cada etapa tendrá su propio endpoint POST que:
 import uuid
 from datetime import datetime, timezone
 
+from app.services.periodicidad import periodicidad_de_onboarding
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -84,6 +85,8 @@ async def get_session(
         "memory_buffer": session.memory_buffer,
         "governance_score": session.governance_score,
         "completed_at": session.completed_at,
+        # La periodicidad de tareas que eligió con Todd (o None si no la eligió).
+        "periodicidad_tareas": periodicidad_de_onboarding(session.memory_buffer),
     }
 
 

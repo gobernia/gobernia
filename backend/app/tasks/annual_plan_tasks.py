@@ -13,7 +13,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 from app.tasks.worker import celery_app
 from app.services.ai.agents.deliberacion import run_deliberacion_fundacional
 from app.services.ai.annual_plan_generator import (
-    generate_milestones, generate_quarter_plan, month_calendar,
+    generate_block_plan, generate_milestones, generate_quarter_plan, month_calendar,
     compute_active_month_index, due_date_within_month, synthesize_diagnostico,
 )
 
@@ -87,17 +87,34 @@ async def _entrypoint(annual_plan_id: str) -> dict:
 _MONTH_CONCURRENCY = 5
 
 
-async def _generate_all_quarters(memory_buffer, kpi_labels, milestones, horizon):
-    """Genera los quarters del horizonte EN PARALELO. Devuelve lista de quarter_results."""
-    sem = asyncio.Semaphore(_MONTH_CONCURRENCY)
-    quarters = [(y, q) for y in range(1, horizon + 1) for q in range(1, 5)]
+async def _generate_all_quarters(memory_buffer, kpi_labels, milestones, horizon,
+                                 periodicidad: str = "mensual"):
+    """Genera los bloques del horizonte EN PARALELO. Devuelve una lista de bloques, cada uno
+    con sus meses. Mensual: trimestres con agenda por mes (como siempre). Trimestral y
+    semestral: un orden del día por bloque de 3 o 6 meses."""
+    from app.services.periodicidad import meses_por_periodo, norm_periodicidad
 
-    async def _one_quarter(y, q):
+    sem = asyncio.Semaphore(_MONTH_CONCURRENCY)
+    p = norm_periodicidad(periodicidad)
+    if p == "mensual":
+        quarters = [(y, q) for y in range(1, horizon + 1) for q in range(1, 5)]
+
+        async def _one_quarter(y, q):
+            async with sem:
+                return await asyncio.to_thread(
+                    generate_quarter_plan, memory_buffer, kpi_labels, milestones, y, q)
+
+        return await asyncio.gather(*[_one_quarter(y, q) for (y, q) in quarters])
+
+    n = meses_por_periodo(p)
+    bloques = [(y, m) for y in range(1, horizon + 1) for m in range(1, 13, n)]
+
+    async def _one_block(y, m):
         async with sem:
             return await asyncio.to_thread(
-                generate_quarter_plan, memory_buffer, kpi_labels, milestones, y, q)
+                generate_block_plan, memory_buffer, kpi_labels, milestones, y, m, p)
 
-    return await asyncio.gather(*[_one_quarter(y, q) for (y, q) in quarters])
+    return await asyncio.gather(*[_one_block(y, m) for (y, m) in bloques])
 
 
 async def _run_generation(annual_plan_id: str, db) -> None:
@@ -191,7 +208,7 @@ async def _run_generation(annual_plan_id: str, db) -> None:
 
         # Paso 3: generar los N×4 quarters EN PARALELO
         quarter_results = await _generate_all_quarters(
-            memory_buffer, kpi_labels, milestones, horizon)
+            memory_buffer, kpi_labels, milestones, horizon, plan.periodicidad or "mensual")
 
         # Paso 4: persistir N×12 meses → objetivos → tareas (secuencial, rápido)
         created_objectives: list[Objective] = []

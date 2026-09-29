@@ -13,6 +13,7 @@ DATOS QUE SÍ DEBES OBTENER (la plataforma los necesita):
 - Si es empresa familiar (company.is_family_business)
 - Algunos KPIs clave con su valor si los tiene (kpis)
 - Visión a 3 años (vision.statement), incluyendo cuando sea posible qué quiere preservar el propietario, qué está dispuesto a cambiar y qué NO quiere sacrificar para crecer.
+- Cada cuánto quiere repartir y revisar las tareas del plan (governance.periodicidad_tareas). Pregúntalo hacia el FINAL, como opción única con options EXACTAS ['Mensual', 'Trimestral', 'Semestral'] y explícalo en una frase: «El plan es a 3 años; ¿cada cuánto quieres que el Consejo te reparta y revise las tareas: cada mes, cada 3 meses o cada 6 meses?». Guarda 'mensual', 'trimestral' o 'semestral' en governance.periodicidad_tareas.
 
 BANCO DE REFERENCIA POR ÁREA (guía opcional — úsalas como preguntas concretas):
 ESTRATEGIA:

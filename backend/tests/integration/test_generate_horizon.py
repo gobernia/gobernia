@@ -88,3 +88,44 @@ async def test_generate_rechaza_horizon_invalido():
         app.dependency_overrides.clear()
 
     assert r.status_code == 422
+
+
+async def _generar(monkeypatch, body: dict, memory_extra: dict | None = None) -> AnnualPlan:
+    async def fake_seed(db, plan_id):
+        return 13
+    monkeypatch.setattr("app.api.v1.annual_plan.router.seed_default_themes", fake_seed)
+    monkeypatch.setattr("app.tasks.annual_plan_tasks.generate_annual_plan_task.delay", lambda *a, **k: None)
+    onb = _onboarding_completo()
+    onb.memory_buffer = {**onb.memory_buffer, **(memory_extra or {})}
+    onb_result = MagicMock(); onb_result.scalar_one_or_none.return_value = onb
+    plan_result = MagicMock(); plan_result.scalar_one_or_none.return_value = None
+    db = AsyncMock(); db.execute = AsyncMock(side_effect=[onb_result, plan_result])
+    db.add = MagicMock(); db.flush = AsyncMock(); db.commit = AsyncMock()
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            await c.post("/api/v1/annual-plan/generate", json=body)
+    finally:
+        app.dependency_overrides.clear()
+    return next(call.args[0] for call in db.add.call_args_list if isinstance(call.args[0], AnnualPlan))
+
+
+@pytest.mark.asyncio
+async def test_generate_usa_la_periodicidad_del_onboarding(monkeypatch):
+    plan = await _generar(monkeypatch, {"horizon_years": 3},
+                          {"governance": {"periodicidad_tareas": "Trimestral"}})
+    assert plan.periodicidad == "trimestral"
+
+
+@pytest.mark.asyncio
+async def test_generate_la_eleccion_explicita_gana_al_onboarding(monkeypatch):
+    plan = await _generar(monkeypatch, {"horizon_years": 3, "periodicidad": "semestral"},
+                          {"governance": {"periodicidad_tareas": "trimestral"}})
+    assert plan.periodicidad == "semestral"
+
+
+@pytest.mark.asyncio
+async def test_generate_sin_eleccion_es_mensual(monkeypatch):
+    plan = await _generar(monkeypatch, {"horizon_years": 3})
+    assert plan.periodicidad == "mensual"

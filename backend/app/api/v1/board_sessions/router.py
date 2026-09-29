@@ -59,6 +59,7 @@ from app.services.ai.agents.base import (
 from app.services.ai.doc_blocks import build_doc_blocks, classify_docs, select_for_agent
 from app.services.documents.storage import download_from_storage
 from app.services.evidencia_revision import validacion_visible
+from app.services.periodicidad import etiqueta_periodo, meses_por_periodo, periodo_de_mes
 from app.api.v1.board_sessions.documents import router as documents_router
 
 _log = logging.getLogger(__name__)
@@ -106,7 +107,8 @@ _VEREDICTO_LABEL = {
 
 
 def _format_avance_tareas(months, tasks_by_obj: dict, active_index: int,
-                          evidencias: dict | None = None) -> str | None:
+                          evidencias: dict | None = None,
+                          periodicidad: str | None = None) -> str | None:
     """
     Bloque de texto 'AVANCE DEL PLAN' para los consejeros y la deliberación: totales de
     cumplimiento (hechas / en proceso / sin ejecutar) + el detalle de las tareas del periodo
@@ -143,22 +145,30 @@ def _format_avance_tareas(months, tasks_by_obj: dict, active_index: int,
         f"{sin_ejecutar} sin ejecutar (de {len(all_tasks)} tareas)."
     ]
 
-    actual = next((m for m in months if m.month_index == active_index), None)
-    if actual is not None:
-        actual_tasks = [t for o in actual.objectives for t in tasks_by_obj.get(o.id, [])]
-        label = f"{_MONTH_NAMES[actual.period_month]} {actual.period_year}"
+    # El "periodo actual" es el bloque (mes, trimestre o semestre) que contiene el mes activo.
+    periodo_activo = periodo_de_mes(active_index, periodicidad)
+    del_periodo = [m for m in months if periodo_de_mes(m.month_index, periodicidad) == periodo_activo]
+    if del_periodo:
+        actual_tasks = [t for m in del_periodo for o in m.objectives for t in tasks_by_obj.get(o.id, [])]
+        if meses_por_periodo(periodicidad) == 1:
+            label = f"{_MONTH_NAMES[del_periodo[0].period_month]} {del_periodo[0].period_year}"
+        else:
+            label = etiqueta_periodo([(m.period_year, m.period_month) for m in del_periodo],
+                                     periodicidad, periodo_activo)
         lines.append(f"\nTareas del periodo actual ({label}):")
         lines.extend(_line(t) for t in actual_tasks) if actual_tasks else \
-            lines.append("  (sin tareas asignadas a este mes)")
+            lines.append("  (sin tareas asignadas a este mes)" if meses_por_periodo(periodicidad) == 1
+                         else "  (sin tareas asignadas a este periodo)")
 
     arrastradas = [
         (m, t)
-        for m in months if m.month_index < active_index
+        for m in months if periodo_de_mes(m.month_index, periodicidad) < periodo_activo
         for o in m.objectives for t in tasks_by_obj.get(o.id, [])
         if t.status != "completada"
     ]
     if arrastradas:
-        lines.append("\nTareas arrastradas de meses anteriores (incompletas):")
+        previos = "meses" if meses_por_periodo(periodicidad) == 1 else "periodos"
+        lines.append(f"\nTareas arrastradas de {previos} anteriores (incompletas):")
         for m, t in arrastradas:
             origen = f"{_MONTH_NAMES[m.period_month]} {m.period_year}"
             lines.append(_line(t, sufijo=f" — viene de {origen}"))
@@ -693,7 +703,7 @@ async def run_analyses(
             )
             evidencias_por_tarea = dict(eres.all())
         avance_tareas = _format_avance_tareas(
-            plan_months, tasks_by_obj, active_index, evidencias_por_tarea)
+            plan_months, tasks_by_obj, active_index, evidencias_por_tarea, plan.periodicidad)
 
     # VALIDACIÓN DE EVIDENCIAS: el Consejo (Auditor) lee la evidencia de las tareas del periodo y
     # valida cada una. Alcance acotado por costo: las tareas del mes activo + las arrastradas que
@@ -702,11 +712,12 @@ async def run_analyses(
     validacion_candidates: list[dict] = []
     if plan is not None:
         cand_tasks: list[ActionTask] = []
-        actual_m = next((m for m in plan_months if m.month_index == active_index), None)
-        if actual_m is not None:
-            cand_tasks.extend(t for o in actual_m.objectives for t in tasks_by_obj.get(o.id, []))
+        periodo_activo = periodo_de_mes(active_index, plan.periodicidad)
         for m in plan_months:
-            if m.month_index < active_index:
+            if periodo_de_mes(m.month_index, plan.periodicidad) == periodo_activo:
+                cand_tasks.extend(t for o in m.objectives for t in tasks_by_obj.get(o.id, []))
+        for m in plan_months:
+            if periodo_de_mes(m.month_index, plan.periodicidad) < periodo_activo:
                 for o in m.objectives:
                     for t in tasks_by_obj.get(o.id, []):
                         if t.status in ("completada", "en_progreso"):

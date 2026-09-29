@@ -36,6 +36,7 @@ def _task(objective_id, *, title="Tarea", owner=None, status="pendiente",
     t.created_at = NOW; t.updated_at = NOW
     t.kpi_ref = None; t.description = None; t.source_agent = None; t.tags = None
     t.validacion = validacion
+    t.incluida = True
     return t
 
 
@@ -210,7 +211,7 @@ async def test_board_empty_when_no_plan():
         app.dependency_overrides.clear()
 
     assert r.status_code == 200
-    assert r.json() == {"meses": []}
+    assert r.json()["meses"] == []
 
 
 # ── PATCH /tasks/{id}/estado ──────────────────────────────────────────────────
@@ -276,3 +277,46 @@ async def test_estado_tarea_de_otro_usuario_404():
         app.dependency_overrides.clear()
 
     assert r.status_code == 404
+
+
+
+@pytest.mark.asyncio
+async def test_board_trimestral_agrupa_los_meses_del_trimestre():
+    """Con periodicidad trimestral, cada fila del tablero es un trimestre con todas sus tareas."""
+    plan = AnnualPlan(id=uuid.uuid4(), user_id=MOCK_USER_ID, title="P",
+                      start_date=date.today(), status="active")
+    plan.horizon_years = 1
+    plan.periodicidad = "trimestral"
+
+    meses, tareas = [], []
+    for i in range(1, 5):  # meses 1-4: trimestre 1 = meses 1-3, trimestre 2 = mes 4
+        obj = Objective(id=uuid.uuid4(), monthly_plan_id=uuid.uuid4(), title=f"O{i}", order_index=0)
+        m = MonthlyPlan(id=uuid.uuid4(), annual_plan_id=plan.id, month_index=i,
+                        period_year=2026, period_month=2 + i, status="locked")
+        m.objectives = [obj]
+        meses.append(m)
+        if i != 2:  # el mes 2 queda sin puntos
+            tareas.append(_task(obj.id, title=f"Punto {i}", due_date=date(2026, 2 + i, 20)))
+
+    from unittest.mock import AsyncMock, MagicMock
+    r1 = MagicMock(); r1.scalar_one_or_none.return_value = plan
+    r2 = MagicMock(); r2.scalars.return_value.all.return_value = meses
+    r3 = MagicMock(); r3.scalars.return_value.all.return_value = tareas
+    r4 = MagicMock(); r4.all.return_value = []
+    db = AsyncMock(); db.execute = AsyncMock(side_effect=[r1, r2, r3, r4])
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.get("/api/v1/annual-plan/board")
+    finally:
+        app.dependency_overrides.clear()
+
+    body = r.json()
+    assert body["periodicidad"] == "trimestral"
+    filas = body["meses"]
+    assert [f["label"] for f in filas] == ["Trimestre 1 · Mar–May 2026", "Trimestre 2 · Jun 2026"]
+    assert [t["title"] for t in filas[0]["tareas"]] == ["Punto 1", "Punto 3"]
+    assert filas[0]["es_mes_actual"] is True and filas[1]["es_mes_actual"] is False
+    assert filas[0]["arrastradas"] == []  # las del propio trimestre no se arrastran

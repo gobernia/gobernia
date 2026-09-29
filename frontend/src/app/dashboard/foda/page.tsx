@@ -7,6 +7,14 @@ import { Loader2, TrendingUp, Compass, AlertTriangle, ShieldAlert, ArrowRight, D
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import { Foda, FodaOut, getFoda, downloadFodaPdf } from "@/lib/foda"
 import { generateAnnualPlan } from "@/lib/annualPlan"
+import api from "@/lib/api"
+
+type Periodicidad = "mensual" | "trimestral" | "semestral"
+const PERIODICIDADES: { value: Periodicidad; label: string }[] = [
+  { value: "mensual", label: "Tareas cada mes" },
+  { value: "trimestral", label: "Tareas cada 3 meses" },
+  { value: "semestral", label: "Tareas cada 6 meses" },
+]
 
 /**
  * La matriz se lee como matriz: columnas = origen (interno / externo),
@@ -49,11 +57,20 @@ export default function FodaPage() {
   const [generando, setGenerando] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [genErr, setGenErr] = useState<string | null>(null)
+  // Cada cuánto se reparten las tareas del plan; viene marcada con lo que eligió con Todd.
+  const [periodicidad, setPeriodicidad] = useState<Periodicidad>("mensual")
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    api.get<{ periodicidad_tareas?: Periodicidad | null }>("/onboarding/my-session",
+      { validateStatus: s => s === 200 || s === 204 })
+      .then(r => { if (r.data?.periodicidad_tareas) setPeriodicidad(r.data.periodicidad_tareas) })
+      .catch(() => {})
+  }, [])
 
   const generarPlan = async () => {
     setGenerando(true); setGenErr(null)
-    try { await generateAnnualPlan(3); router.push("/dashboard/plan") }
+    try { await generateAnnualPlan(3, periodicidad); router.push("/dashboard/plan") }
     catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setGenErr(detail ?? "No se pudo iniciar la generación del plan. Intenta de nuevo.")
@@ -95,6 +112,12 @@ export default function FodaPage() {
               {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               PDF
             </button>
+            <select value={periodicidad} disabled={generando}
+              onChange={e => setPeriodicidad(e.target.value as Periodicidad)}
+              aria-label="Cada cuánto se reparten las tareas del plan"
+              className="border border-gray-200 text-sm font-medium text-gray-700 px-3 py-2.5 rounded-xl bg-white hover:border-[var(--gob-navy)] transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+              {PERIODICIDADES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
             <button onClick={generarPlan} disabled={generando}
               className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
               {generando ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando…</> : <>
@@ -209,7 +232,13 @@ export default function FodaPage() {
                   <p className="text-sm text-gray-500 leading-relaxed">
                     Con la matriz lista, tu Consejo puede convertirla en un plan de trabajo a tres años.
                   </p>
-                  <button onClick={generarPlan} disabled={generando}
+                  <select value={periodicidad} disabled={generando}
+              onChange={e => setPeriodicidad(e.target.value as Periodicidad)}
+              aria-label="Cada cuánto se reparten las tareas del plan"
+              className="border border-gray-200 text-sm font-medium text-gray-700 px-3 py-2.5 rounded-xl bg-white hover:border-[var(--gob-navy)] transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
+              {PERIODICIDADES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+            <button onClick={generarPlan} disabled={generando}
                     className="w-full inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-5 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
                     {generando ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando tu plan…</> : <>Generar mi plan a 3 años <ArrowRight className="h-4 w-4" /></>}
                   </button>

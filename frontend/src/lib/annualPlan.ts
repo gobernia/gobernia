@@ -70,6 +70,7 @@ export interface AnnualPlan {
   genesis_session_id: string | null
   months: MonthlyPlan[]
   horizon_years: number
+  periodicidad?: "mensual" | "trimestral" | "semestral"
   milestones: { items: Milestone[] } | null
 }
 
@@ -93,8 +94,14 @@ export async function getAnnualPlanStatus(): Promise<AnnualPlanStatus> {
   return r.data
 }
 
-export async function generateAnnualPlan(horizonYears: number = 3): Promise<AnnualPlanStatus> {
-  const r = await api.post<AnnualPlanStatus>("/annual-plan/generate", { horizon_years: horizonYears })
+// periodicidad: cada cuánto se reparten las tareas. Sin ella, el servidor usa la del onboarding.
+export async function generateAnnualPlan(
+  horizonYears: number = 3,
+  periodicidad?: "mensual" | "trimestral" | "semestral",
+): Promise<AnnualPlanStatus> {
+  const r = await api.post<AnnualPlanStatus>("/annual-plan/generate", {
+    horizon_years: horizonYears, ...(periodicidad ? { periodicidad } : {}),
+  })
   return r.data
 }
 

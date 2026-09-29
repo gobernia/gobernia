@@ -28,6 +28,9 @@ class AnnualPlan(Base, UUIDMixin, TimestampMixin):
     diagnostico_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     horizon_years: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    # Cada cuánto se reparten y revisan las tareas: mensual | trimestral | semestral.
+    periodicidad: Mapped[str] = mapped_column(String(12), nullable=False, default="mensual",
+                                              server_default="mensual")
     milestones: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     roadmap: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Plan anual: las 3-5 prioridades APROBADAS para el año en curso, elegidas del roadmap.

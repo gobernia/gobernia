@@ -66,6 +66,10 @@ from app.schemas.orden_cadena import (
 )
 from app.services.governance.pilar_link import _norm
 from app.services.evidencia_revision import validacion_visible
+from app.services.periodicidad import (
+    PERIODICIDAD_DEFAULT, etiqueta_periodo, meses_por_periodo, norm_periodicidad,
+    periodicidad_de_onboarding, periodo_de_mes,
+)
 
 router = APIRouter()
 
@@ -172,10 +176,12 @@ async def generate_plan(
             active_month_index=compute_active_month_index(existing.start_date, date.today(), total_months=(existing.horizon_years or 1) * 12),
         )
 
+    periodicidad = norm_periodicidad(
+        body.periodicidad or periodicidad_de_onboarding(onboarding.memory_buffer) or PERIODICIDAD_DEFAULT)
     plan = AnnualPlan(
         user_id=user_id, title=f"Plan estratégico de {body.horizon_years} año(s)",
         start_date=date.today(), status="generating",
-        horizon_years=body.horizon_years,
+        horizon_years=body.horizon_years, periodicidad=periodicidad,
     )
     db.add(plan)
     await db.flush()
@@ -257,6 +263,7 @@ async def get_plan(
         status=plan.status, diagnostico_summary=plan.diagnostico_summary,
         genesis_session_id=str(plan.genesis_session_id) if plan.genesis_session_id else None,
         horizon_years=plan.horizon_years,
+        periodicidad=norm_periodicidad(getattr(plan, "periodicidad", None)),
         milestones=plan.milestones,
         months=months_out,
     )
@@ -356,42 +363,70 @@ async def get_board(
         ts.sort(key=lambda t: t.order_index)
         return ts
 
+    # Con periodicidad trimestral/semestral el tablero agrupa los meses en su bloque: cada
+    # bloque es UNA fila de la vista (con su orden del día). Mensual = un bloque por mes.
+    periodicidad = norm_periodicidad(getattr(plan, "periodicidad", None))
+    k = meses_por_periodo(periodicidad)
+    bloques: list[list[MonthlyPlan]] = []
+    for m in months:
+        if bloques and periodo_de_mes(bloques[-1][0].month_index, periodicidad) == periodo_de_mes(m.month_index, periodicidad):
+            bloques[-1].append(m)
+        else:
+            bloques.append([m])
+    periodo_activo = periodo_de_mes(active, periodicidad)
+
+    def _label(bloque: list[MonthlyPlan]) -> str:
+        if k == 1:
+            m = bloque[0]
+            return f"{_MONTH_NAMES[m.period_month]} {m.period_year}"
+        return etiqueta_periodo([(m.period_year, m.period_month) for m in bloque], periodicidad,
+                                periodo_de_mes(bloque[0].month_index, periodicidad))
+
+    def _bloque_tareas(bloque: list[MonthlyPlan]) -> list[ActionTask]:
+        if k == 1:
+            return _month_tareas(bloque[0])
+        ts = [t for m in bloque for t in _month_tareas(m)]
+        ts.sort(key=lambda t: (t.due_date is None, t.due_date, t.order_index))
+        return ts
+
     meses_out = []
     # Las tareas que el usuario dejó FUERA del plan al aprobarlo (incluida=False):
     # no se ejecutan ni cuentan para el avance, pero quedan visibles como
     # pendientes (activables o eliminables) en su propia lista.
     pendientes_out: list[BoardTaskOut] = []
-    for m in months:
-        mes_label = f"{_MONTH_NAMES[m.period_month]} {m.period_year}"
+    for bloque in bloques:
+        label = _label(bloque)
+        periodo = periodo_de_mes(bloque[0].month_index, periodicidad)
         pendientes_out.extend(
-            _board_task(t, viene_de=mes_label) for t in _month_tareas(m) if not t.incluida
+            _board_task(t, viene_de=label) for t in _bloque_tareas(bloque) if not t.incluida
         )
 
-        # Las tareas PROPIAS del mes (con su status real). Los meses pasados NO se mutan.
-        tareas = [_board_task(t) for t in _month_tareas(m) if t.incluida]
+        # Las tareas PROPIAS del periodo (con su status real). Los pasados NO se mutan.
+        tareas = [_board_task(t) for t in _bloque_tareas(bloque) if t.incluida]
 
-        # El arrastre es a nivel de VISTA: solo el mes actual reúne, en una lista aparte,
-        # las tareas incompletas cuyos meses ya pasaron (marcadas con su mes de origen).
+        # El arrastre es a nivel de VISTA: solo el periodo actual reúne, en una lista aparte,
+        # las tareas incompletas cuyos periodos ya pasaron (marcadas con su periodo de origen).
         arrastradas: list[BoardTaskOut] = []
-        if m.month_index == active:
-            for prev in months:
-                if prev.month_index >= active:
+        if periodo == periodo_activo:
+            for prev in bloques:
+                if periodo_de_mes(prev[0].month_index, periodicidad) >= periodo_activo:
                     continue
-                prev_label = f"{_MONTH_NAMES[prev.period_month]} {prev.period_year}"
-                for t in _month_tareas(prev):
+                prev_label = _label(prev)
+                for t in _bloque_tareas(prev):
                     if t.status != "completada" and t.incluida:
                         arrastradas.append(_board_task(t, viene_de=prev_label))
 
+        primero = bloque[0]
         meses_out.append(BoardMonthOut(
-            month_index=m.month_index,
-            period_year=m.period_year,
-            period_month=m.period_month,
-            label=f"{_MONTH_NAMES[m.period_month]} {m.period_year}",
-            es_mes_actual=(m.month_index == active),
+            month_index=primero.month_index,
+            period_year=primero.period_year,
+            period_month=primero.period_month,
+            label=label,
+            es_mes_actual=(periodo == periodo_activo),
             tareas=tareas,
             arrastradas=arrastradas,
         ))
-    return BoardOut(meses=meses_out, pendientes=pendientes_out)
+    return BoardOut(meses=meses_out, pendientes=pendientes_out, periodicidad=periodicidad)
 
 
 # ── Roadmap estratégico ───────────────────────────────────────────────────────

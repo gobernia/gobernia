@@ -52,3 +52,5 @@ class BoardOut(BaseModel):
     # Tareas que quedaron FUERA del plan del año (incluida=False): visibles como
     # pendientes para activarlas después o eliminarlas.
     pendientes: list[BoardTaskOut] = Field(default_factory=list)
+    # mensual | trimestral | semestral: cada fila de `meses` es un bloque de ese tamaño.
+    periodicidad: str = "mensual"
