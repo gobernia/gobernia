@@ -77,7 +77,7 @@ def test_avance_y_acuerdos_previos_van_al_prompt(monkeypatch):
 
     # El system prompt gana la sección de seguimiento (evaluar el cumplimiento).
     assert DELIBERACION_SEGUIMIENTO_SYSTEM in captured["system"]
-    assert "EVALÚA EL CUMPLIMIENTO" in captured["system"]
+    assert "EVALÚA LA SESIÓN Y EL AVANCE DEL ROADMAP" in captured["system"]
 
 
 def test_solo_avance_tambien_activa_seguimiento(monkeypatch):

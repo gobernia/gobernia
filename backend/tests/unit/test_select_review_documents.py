@@ -19,8 +19,8 @@ def test_filtra_legibles_y_anota_no_legibles():
     evs = [
         _ev("estado.pdf", t1, key="k1"),
         _ev("foto.png", t1, key="k2"),
-        _ev("hoja.xlsx", t1, key="k3"),
-        _ev("doc.docx", t1, key="k4"),
+        _ev("hoja.xls", t1, key="k3"),
+        _ev("viejo.doc", t1, key="k4"),
     ]
     tasks_by_id = {t1: _task("Margen 11%", required_doc="estado de resultados")}
     selected, note = select_review_documents(evs, tasks_by_id)
@@ -28,7 +28,7 @@ def test_filtra_legibles_y_anota_no_legibles():
     assert keys == {"k1", "k2"}
     kinds = {s["s3_key"]: s["kind"] for s in selected}
     assert kinds["k1"] == "pdf" and kinds["k2"] == "image"
-    assert "hoja.xlsx" in note and "doc.docx" in note
+    assert "hoja.xls" in note and "viejo.doc" in note
     pdf = next(s for s in selected if s["s3_key"] == "k1")
     assert "Margen 11%" in pdf["label"] and "estado de resultados" in pdf["label"]
 

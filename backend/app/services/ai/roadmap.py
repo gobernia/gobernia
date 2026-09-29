@@ -333,7 +333,7 @@ def generate_roadmap(memory_buffer: dict, diagnostico_content: dict,
                              "milestones por año se piden después, pilar por pilar."}],
                 tools=[ROADMAP_TOOL], tool_choice={"type": "tool", "name": "roadmap_estrategico"},
             )
-            if response.stop_reason == "max_tokens":
+            if getattr(response, "stop_reason", None) == "max_tokens":
                 _log.warning("roadmap: respuesta principal truncada por max_tokens")
             return _tool_input(response)
 

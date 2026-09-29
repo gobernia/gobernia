@@ -25,6 +25,7 @@ _PILAR_KEYS = {
     "nombre", "descripcion", "milestones",
     # nuevos (por pilar)
     "objetivo", "estrategias", "kpis", "resultados_esperados", "fases",
+    "razon", "riesgos", "temas_consejo",
 }
 
 
