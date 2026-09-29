@@ -64,6 +64,13 @@ export default function ConsejoPage() {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null)
   // Los meses del Plan anual: son las únicas fechas sesionables en el modal.
   const [meses, setMeses] = useState<BoardMes[]>([])
+  // Con plan trimestral/semestral, una sesión se nombra por su bloque ("Trimestre 2 · …", "T2"),
+  // no por el primer mes del bloque.
+  const bloqueDe = (year: number, month: number) => {
+    const m = meses.find(x => x.period_year === year && x.period_month === month)
+    const match = m?.label.match(/^(Trimestre|Semestre) (\d+)/)
+    return match ? { label: m!.label, corto: `${match[1][0]}${match[2]}` } : null
+  }
   const [showSetupModal, setShowSetupModal] = useState(false)
   const [showModal, setShowModal] = useState(false)
   // Periodo que se está creando ("year-month"), para el spinner de esa fila.
@@ -329,12 +336,14 @@ export default function ConsejoPage() {
                       <div className="flex items-center gap-4 min-w-0">
                         <span className="w-10 h-10 rounded-[16px] border-2 flex items-center justify-center shrink-0 transition-colors" style={{ borderColor: LINE }}>
                           <span className="text-xs font-bold" style={{ color: MUTED }}>
-                            {s.period_month === 0 ? "Año" : MONTH_NAMES[s.period_month]?.slice(0, 3)}
+                            {s.period_month === 0 ? "Año"
+                              : bloqueDe(s.period_year, s.period_month)?.corto ?? MONTH_NAMES[s.period_month]?.slice(0, 3)}
                           </span>
                         </span>
                         <span className="min-w-0">
                           <span className="block text-sm font-medium truncate" style={{ color: INK }}>
-                            {s.period_label ?? (s.period_month === 0 ? `Todo el plan · ${s.period_year}` : `${MONTH_NAMES[s.period_month]} ${s.period_year}`)}
+                            {s.period_label ?? (s.period_month === 0 ? `Todo el plan · ${s.period_year}`
+                              : bloqueDe(s.period_year, s.period_month)?.label ?? `${MONTH_NAMES[s.period_month]} ${s.period_year}`)}
                           </span>
                           <span className="block text-xs mt-0.5" style={{ color: MUTED }}>
                             {STATUS_LABEL[s.status ?? ""] ?? "Borrador"}
