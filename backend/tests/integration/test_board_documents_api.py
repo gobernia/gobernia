@@ -53,14 +53,17 @@ def _document(filename="estado.pdf", document_type="financial", doc_id=None):
     )
 
 
-def _db_override(board_session=None, documents=None, document=None, added=None):
+def _db_override(board_session=None, documents=None, document=None, added=None, repo_documents=None):
     async def override():
         db = AsyncMock()
 
         async def execute_se(query, *args, **kwargs):
             q = str(query)
             result = MagicMock()
-            if "FROM documents" in q:
+            if "FROM documents" in q and "board_session_id IS NULL" in q:
+                # Repositorio de la empresa ("Mis consejeros").
+                result.scalars.return_value.all.return_value = list(repo_documents or [])
+            elif "FROM documents" in q:
                 result.scalar_one_or_none.return_value = document
                 result.scalars.return_value.all.return_value = list(documents or [])
             elif "onboarding_sessions" in q:
@@ -336,7 +339,7 @@ class _FakePersistSession:
         return None
 
 
-async def _analyse_capturando_documentos(documents):
+async def _analyse_capturando_documentos(documents, repo_documents=None):
     """Corre /analyse con los documentos dados y devuelve {agente: kwargs de run_agent_analysis}."""
     from app.models.board_session import BoardSession
 
@@ -347,7 +350,8 @@ async def _analyse_capturando_documentos(documents):
         return {"summary": "ok", "findings": [], "alerts": [],
                 "recommendations": [], "preguntas": []}
 
-    app.dependency_overrides[get_db] = _db_override(_board_session(), documents=documents)
+    app.dependency_overrides[get_db] = _db_override(
+        _board_session(), documents=documents, repo_documents=repo_documents)
     app.dependency_overrides[get_current_user_id] = _user_override
 
     with patch("app.api.v1.board_sessions.router.run_agent_analysis", side_effect=fake_analysis), \
@@ -387,6 +391,19 @@ async def test_analyse_rutea_presentation_al_cso_y_no_al_cfo():
     assert calls["CFO"]["documents"] == []
     assert len(calls["CSO"]["documents"]) == 1
     assert "junta.pdf" in calls["CSO"]["documents"][0]["label"]
+
+
+@pytest.mark.asyncio
+async def test_analyse_incluye_el_repositorio_de_mis_consejeros_por_competencia():
+    """Los documentos de "Mis consejeros" llegan a la sesión, después de los de la sesión."""
+    repo = _document("estados_2025.pdf", "financial")
+    repo.board_session_id = None
+    calls, _ = await _analyse_capturando_documentos(
+        [_document("junta.pdf", "presentation")], repo_documents=[repo])
+    cfo = [d["label"] for d in calls["CFO"]["documents"]]
+    assert len(cfo) == 1 and "estados_2025.pdf" in cfo[0] and "repositorio de la empresa" in cfo[0]
+    cso = [d["label"] for d in calls["CSO"]["documents"]]
+    assert len(cso) == 1 and "junta.pdf" in cso[0]
 
 
 @pytest.mark.asyncio

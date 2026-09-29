@@ -43,13 +43,13 @@ def _pdf(name="estado.pdf", doc_type="financial"):
 
 # ── doc_blocks ────────────────────────────────────────────────────────────────
 
-def test_readable_docs_filtra_xlsx_y_genera_nota():
-    docs = [_pdf(), _pdf("hoja.xlsx", "financial"), _pdf("foto.png", "presentation")]
+def test_readable_docs_filtra_xls_antiguo_y_genera_nota():
+    docs = [_pdf(), _pdf("hoja.xls", "financial"), _pdf("foto.png", "presentation")]
     selected, note = readable_docs(docs)
     assert [d["filename"] for d in selected] == ["estado.pdf", "foto.png"]
     assert selected[0]["kind"] == "pdf" and selected[0]["media_type"] == "application/pdf"
     assert selected[1]["kind"] == "image" and selected[1]["media_type"] == "image/png"
-    assert "hoja.xlsx" in note and "PDF" in note
+    assert "hoja.xls" in note and "PDF" in note
 
 
 def test_readable_docs_topa_y_anota_truncado():
@@ -95,8 +95,15 @@ def test_ruteo_presentation_al_cso_no_al_cfo():
 def test_ruteo_auditor_y_cro():
     # `other` es material de apoyo general: lo leen todos (ver test más abajo).
     assert AGENT_DOC_TYPES["Auditor"] == {"audit_plan", "financial", "internal_rules",
-                                          "bylaws", "other"}
-    assert AGENT_DOC_TYPES["CRO"] == {"financial", "audit_plan", "presentation", "other"}
+                                          "bylaws", "family_protocol", "other"}
+    assert AGENT_DOC_TYPES["CRO"] == {"financial", "audit_plan", "presentation", "org_chart",
+                                      "family_protocol", "other"}
+
+
+def test_todo_tipo_de_documento_lo_lee_algun_consejero():
+    from app.schemas.etapa7 import DOCUMENT_TYPE_LABELS
+    leidos = set().union(*AGENT_DOC_TYPES.values())
+    assert set(DOCUMENT_TYPE_LABELS) <= leidos
 
 
 # ── run_agent_analysis: tool-use + documentos adjuntos ────────────────────────
@@ -158,7 +165,7 @@ def test_analysis_adjunta_los_documentos_como_bloques():
 def test_analysis_sin_documentos_manda_texto_plano():
     _, captured = _run_with_capture()
     assert isinstance(captured["messages"][0]["content"], str)
-    assert "No se adjuntó ningún documento" in captured["messages"][0]["content"]
+    assert "No hay ningún documento de tu competencia" in captured["messages"][0]["content"]
 
 
 def test_revision_devuelve_el_mismo_esquema_con_tool_use():

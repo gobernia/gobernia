@@ -88,3 +88,17 @@ def test_acuerdos_previos_marca_vencido():
 
 def test_acuerdos_previos_vacio_devuelve_none():
     assert _format_acuerdos_previos([], date(2026, 7, 1)) is None
+
+
+def test_avance_marca_evidencia_y_veredicto_del_auditor():
+    from types import SimpleNamespace
+    import uuid as _uuid
+    from datetime import datetime, timezone
+    t1 = SimpleNamespace(id=_uuid.uuid4(), title="Flujo de caja", status="completada", owner="Ana",
+                         validacion={"estado": "insuficiente", "motivo": "Solo cubre 2 meses."})
+    t2 = SimpleNamespace(id=_uuid.uuid4(), title="Acta firmada", status="completada", owner=None, validacion=None)
+    obj = SimpleNamespace(id="o1")
+    mes = SimpleNamespace(month_index=1, period_month=9, period_year=2026, objectives=[obj])
+    txt = _format_avance_tareas([mes], {"o1": [t1, t2]}, active_index=1, evidencias={t1.id: 2})
+    assert "Flujo de caja (resp. Ana) · evidencia: 2 documento(s); Auditor: falta sustento — Solo cubre 2 meses." in txt
+    assert "Acta firmada · sin evidencia" in txt

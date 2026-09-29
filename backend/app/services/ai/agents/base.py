@@ -262,9 +262,9 @@ AGENT_SYSTEM_PROMPTS = {
 # el dueño lo sube, se le cobra el storage y ningún agente lo abre jamás.
 AGENT_DOC_TYPES = {
     "CFO":     {"financial", "business_plan", "other"},
-    "Auditor": {"audit_plan", "financial", "internal_rules", "bylaws", "other"},
-    "CSO":     {"presentation", "business_plan", "other"},
-    "CRO":     {"financial", "audit_plan", "presentation", "other"},
+    "Auditor": {"audit_plan", "financial", "internal_rules", "bylaws", "family_protocol", "other"},
+    "CSO":     {"presentation", "business_plan", "org_chart", "other"},
+    "CRO":     {"financial", "audit_plan", "presentation", "org_chart", "family_protocol", "other"},
 }
 
 # Tokens del análisis del consejero. El esquema pide summary + findings + alerts +
@@ -625,9 +625,11 @@ def run_agent_analysis(
     documents: list[dict] | None = None,
     documents_note: str = "",
     roadmap: dict | None = None,
+    avance_tareas: str | None = None,
 ) -> dict:
     """
     Llama a Claude con el contexto completo y retorna el análisis estructurado.
+    `avance_tareas`: avance del tablero con la evidencia de cada punto y el veredicto del Auditor.
     `documents`: board pack del agente — [{kind, media_type, data (base64), label}].
     `documents_note`: aviso sobre documentos que no se pudieron adjuntar (xlsx/docx...).
     `roadmap`: Roadmap Estratégico del dueño (documento rector). None → el prompt lo dice.
@@ -659,13 +661,14 @@ def run_agent_analysis(
 
     if documents:
         docs_intro = (
-            "\nDOCUMENTOS DE LA SESIÓN (los de tu competencia): se adjuntan antes de estas "
-            "instrucciones, cada uno precedido por su descripción. Léelos y apóyate en ellos; "
+            "\nDOCUMENTOS DE TU COMPETENCIA (los de esta sesión y los del repositorio de la empresa): "
+            "se adjuntan antes de estas instrucciones, cada uno precedido por su descripción "
+            "(que dice de dónde viene y cuándo se subió). Léelos y apóyate en ellos; "
             "cita documento y página en `fuente` cada vez que uses un dato de ellos.\n"
         )
     else:
         docs_intro = (
-            "\nNo se adjuntó ningún documento de tu competencia a esta sesión: trabaja solo con el "
+            "\nNo hay ningún documento de tu competencia (ni en la sesión ni en el repositorio): trabaja solo con el "
             "contexto y los KPIs, deja todas las `fuente` vacías y, si necesitas un documento para "
             "sostener tu juicio, pídelo en `preguntas`.\n"
         )
@@ -675,7 +678,10 @@ def run_agent_analysis(
         f"Estás analizando el periodo: {_period_label(period_year, period_month)}.\n\n"
         f"{company_ctx}\n\n"
         f"{roadmap_ctx}\n\n"
-        f"{kpi_ctx}\n"
+        + (f"AVANCE DEL TABLERO (lo que reporta la Dirección, con la evidencia subida y el veredicto "
+           f"del Auditor al leerla; una tarea sin evidencia o con 'falta sustento' NO está "
+           f"demostrada):\n{avance_tareas.strip()}\n\n" if avance_tareas and avance_tareas.strip() else "")
+        + f"{kpi_ctx}\n"
         f"{history_ctx}\n"
         f"{docs_intro}"
         f"{nota_docs}\n"

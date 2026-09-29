@@ -17,7 +17,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -58,9 +58,13 @@ from app.services.ai.agents.base import (
 )
 from app.services.ai.doc_blocks import build_doc_blocks, classify_docs, select_for_agent
 from app.services.documents.storage import download_from_storage
+from app.services.evidencia_revision import validacion_visible
 from app.api.v1.board_sessions.documents import router as documents_router
 
 _log = logging.getLogger(__name__)
+
+# Documentos del repositorio de la empresa que se consideran por sesión (los más recientes).
+_MAX_DOCS_REPOSITORIO = 12
 
 router = APIRouter(prefix="/board-sessions", tags=["board-sessions"])
 router.include_router(documents_router)
@@ -93,11 +97,22 @@ _STATUS_LABEL = {
 }
 
 
-def _format_avance_tareas(months, tasks_by_obj: dict, active_index: int) -> str | None:
+_VEREDICTO_LABEL = {
+    "validada": "validada (la evidencia lo sustenta)",
+    "insuficiente": "falta sustento",
+    "revisando": "revisándose",
+    "sin_revisar": "sin revisar",
+}
+
+
+def _format_avance_tareas(months, tasks_by_obj: dict, active_index: int,
+                          evidencias: dict | None = None) -> str | None:
     """
-    Bloque de texto 'AVANCE DEL PLAN' para la deliberación: totales de cumplimiento
-    (hechas / en proceso / sin ejecutar) + el detalle de las tareas del periodo actual y las
-    incompletas arrastradas de meses anteriores. Devuelve None si el plan no tiene tareas.
+    Bloque de texto 'AVANCE DEL PLAN' para los consejeros y la deliberación: totales de
+    cumplimiento (hechas / en proceso / sin ejecutar) + el detalle de las tareas del periodo
+    actual y las incompletas arrastradas de meses anteriores. Con `evidencias` ({task_id: nº de
+    documentos}), cada tarea dice si tiene evidencia y qué dictaminó el Auditor al leerla.
+    Devuelve None si el plan no tiene tareas.
     """
     all_tasks = [t for m in months for o in m.objectives for t in tasks_by_obj.get(o.id, [])]
     if not all_tasks:
@@ -107,10 +122,21 @@ def _format_avance_tareas(months, tasks_by_obj: dict, active_index: int) -> str 
     en_proceso = sum(1 for t in all_tasks if t.status == "en_progreso")
     sin_ejecutar = len(all_tasks) - hechas - en_proceso
 
+    def _evidencia(t) -> str:
+        if evidencias is None:
+            return ""
+        n = evidencias.get(t.id, 0)
+        if not n:
+            return " · sin evidencia"
+        v = validacion_visible(getattr(t, "validacion", None)) or {}
+        veredicto = _VEREDICTO_LABEL.get(v.get("estado") or "sin_revisar", "sin revisar")
+        motivo = f" — {v['motivo']}" if v.get("motivo") else ""
+        return f" · evidencia: {n} documento(s); Auditor: {veredicto}{motivo}"
+
     def _line(t, sufijo: str = "") -> str:
         estado = _STATUS_LABEL.get(t.status, t.status)
         resp = f" (resp. {t.owner})" if t.owner else ""
-        return f"  - [{estado}] {t.title}{resp}{sufijo}"
+        return f"  - [{estado}] {t.title}{resp}{sufijo}{_evidencia(t)}"
 
     lines = [
         f"Totales del plan: {hechas} completada(s), {en_proceso} en proceso, "
@@ -591,6 +617,27 @@ async def run_analyses(
         }
         for d in docs_result.scalars().all()
     ]
+    # Repositorio de la empresa ("Mis consejeros"): también llega a cada consejero según su
+    # competencia. Va DESPUÉS de los de la sesión: con el tope por agente, ganan los de hoy.
+    repo_result = await db.execute(
+        select(Document)
+        .where(Document.user_id == user_id, Document.board_session_id.is_(None))
+        .order_by(Document.created_at.desc())
+        .limit(_MAX_DOCS_REPOSITORIO)
+    )
+    board_docs += [
+        {
+            "s3_key": d.s3_key,
+            "filename": d.filename,
+            "document_type": d.document_type,
+            "label": (
+                f"Documento «{d.filename}» "
+                f"({DOCUMENT_TYPE_LABELS.get(d.document_type, d.document_type)}) "
+                f"del repositorio de la empresa, subido el {d.created_at:%d/%m/%Y}."
+            ),
+        }
+        for d in repo_result.scalars().all()
+    ]
     # Se clasifican aquí, pero los topes (nº de documentos y bytes) y la nota se aplican
     # POR AGENTE, después del ruteo: si no, 8 láminas de hoy dejan al CFO sin el estado
     # financiero de ayer, y el CSO recibe avisos sobre documentos que no son de su competencia.
@@ -636,7 +683,17 @@ async def run_analyses(
         active_index = compute_active_month_index(
             plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12
         )
-        avance_tareas = _format_avance_tareas(plan_months, tasks_by_obj, active_index)
+        plan_task_ids = [t.id for ts in tasks_by_obj.values() for t in ts]
+        evidencias_por_tarea: dict = {}
+        if plan_task_ids:
+            eres = await db.execute(
+                select(Evidence.action_task_id, func.count(Evidence.id))
+                .where(Evidence.action_task_id.in_(plan_task_ids))
+                .group_by(Evidence.action_task_id)
+            )
+            evidencias_por_tarea = dict(eres.all())
+        avance_tareas = _format_avance_tareas(
+            plan_months, tasks_by_obj, active_index, evidencias_por_tarea)
 
     # VALIDACIÓN DE EVIDENCIAS: el Consejo (Auditor) lee la evidencia de las tareas del periodo y
     # valida cada una. Alcance acotado por costo: las tareas del mes activo + las arrastradas que
@@ -733,6 +790,7 @@ async def run_analyses(
                 documents=docs,
                 documents_note=note,
                 roadmap=roadmap,
+                avance_tareas=avance_tareas,
             )
         )
         critique = await anyio.to_thread.run_sync(
