@@ -656,19 +656,30 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
   )
 }
 
-// ── Botón "Sesionar {mes}" ──
-function SesionarBtn({ label, unidad, cargando, onClick }: {
-  label: string; unidad: string; cargando: boolean; onClick: () => void
+// ── Barra "Sesionar" al pie de cada periodo (mes, trimestre o semestre) ──
+function SesionarBarra({ label, unidad, actual, cargando, onClick }: {
+  label: string; unidad: string; actual: boolean; cargando: boolean; onClick: () => void
 }) {
   return (
     <button type="button" onClick={onClick} disabled={cargando}
       aria-label={`Sesionar ${label}: convocar al Consejo a evaluar este ${unidad}`}
-      className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-      style={{ border: `1px solid ${LINE}`, color: MUTED, outlineColor: BNAVY }}>
-      {cargando
-        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        : <Gavel className="h-3.5 w-3.5" />}
-      Sesionar
+      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset hover:brightness-95"
+      style={{
+        borderTop: `1px solid ${LINE}`, outlineColor: BNAVY,
+        backgroundColor: actual ? BNAVY : SAND, color: actual ? CARD : INK,
+      }}>
+      <span className="flex items-center gap-2.5 min-w-0">
+        {cargando
+          ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          : <Gavel className="h-4 w-4 shrink-0" />}
+        <span className="min-w-0">
+          <span className="block text-sm font-bold truncate">Sesionar {label}</span>
+          <span className="block text-[11px]" style={{ color: actual ? "rgba(255,255,255,.7)" : MUTED }}>
+            El Consejo evalúa las tareas de este {unidad}
+          </span>
+        </span>
+      </span>
+      <ArrowRight className="h-4 w-4 shrink-0" />
     </button>
   )
 }
@@ -724,7 +735,6 @@ function MesGrupo({ mes, index, unidad, sugerencias, onEstado, onOwner, onRefres
         <span className="ml-auto text-xs" style={{ color: MUTED }}>
           {mes.tareas.length} {mes.tareas.length === 1 ? "tarea" : "tareas"}
         </span>
-        <SesionarBtn label={mes.label} unidad={unidad} cargando={sesionando} onClick={onSesionar} />
       </header>
 
       {/* La rejilla vive en su propio contenedor con scroll horizontal (la columna Tarea
@@ -762,6 +772,10 @@ function MesGrupo({ mes, index, unidad, sugerencias, onEstado, onOwner, onRefres
           </div>
         </div>
       </div>
+
+      {/* Sesionar este periodo: al pie de cada mes, trimestre o semestre */}
+      <SesionarBarra label={mes.label} unidad={unidad} actual={mes.es_mes_actual}
+        cargando={sesionando} onClick={onSesionar} />
     </section>
   )
 }

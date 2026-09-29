@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowRight, Loader2, Upload, FileText, Trash2, CheckCircle2, Clock, Play } from "lucide-react"
+import { ArrowRight, Loader2, Upload, FileText, Trash2, CheckCircle2, Clock } from "lucide-react"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import { getDocumentos, subirDocumento, eliminarDocumento, type DocumentoRepo, type TipoDocumento } from "@/lib/documentos"
 
@@ -101,8 +101,8 @@ export default function ConsejerosPage() {
             <Prose>
               <p className="text-sm leading-relaxed" style={{ color: INK2 }}>
                 Cada consejero analiza tu empresa desde su especialidad y deja por escrito sus
-                hallazgos, alertas y preguntas para la junta. Puedes conversar con cualquiera de
-                ellos dentro de una Sesión de Consejo.
+                hallazgos, alertas y preguntas para la junta. Las sesiones se convocan desde Board IA,
+                al pie de cada periodo del tablero; ahí puedes conversar con cualquiera de ellos.
               </p>
             </Prose>
 
@@ -121,16 +121,6 @@ export default function ConsejerosPage() {
                     <span className="font-extrabold uppercase tracking-[0.08em]" style={{ color: ACCENT }}>Lee</span>{" "}
                     {a.docs}
                   </p>
-                  <Link
-                    href="/dashboard/consejo?sesionar=1"
-                    className="flex w-full items-center justify-between rounded-[20px] px-3 py-2.5 text-xs font-medium transition-all duration-150"
-                    style={{ border: `1px solid ${LINE}`, color: INK2 }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = BNAVY; e.currentTarget.style.color = BNAVY }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = LINE; e.currentTarget.style.color = INK2 }}
-                  >
-                    Iniciar sesión
-                    <Play className="h-3 w-3" />
-                  </Link>
                 </motion.div>
               ))}
             </div>
