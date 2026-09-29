@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowRight, Loader2, Upload, FileText, Trash2, CheckCircle2, Clock } from "lucide-react"
+import { ArrowRight, Loader2, Upload, FileText, Trash2, CheckCircle2, Clock, Play } from "lucide-react"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import { getDocumentos, subirDocumento, eliminarDocumento, type DocumentoRepo, type TipoDocumento } from "@/lib/documentos"
 
@@ -27,11 +27,12 @@ const LINE  = "#E2E2DC"
 const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
 
 const AGENTS = [
-  { tag: "Consejero en", name: "Finanzas",      desc: "Rentabilidad, flujo de caja y estructura de capital.", docs: "Estados financieros" },
-  { tag: "Consejero en", name: "Estrategia",    desc: "Posicionamiento, mercado y crecimiento a largo plazo.", docs: "Plan de negocios y presentaciones" },
-  { tag: "Consejero en", name: "Riesgos",       desc: "Riesgos operativos, legales y planes de mitigación.", docs: "Actas, estatutos y reglamentos" },
-  { tag: "Consejero en", name: "Auditoría",     desc: "Cumplimiento, control interno y Governance Score.", docs: "Planes de auditoría y reglamentos" },
-  { tag: "Consejero",    name: "Independiente", desc: "El Retador: cuestiona cada decisión con un pre-mortem antes de actuar.", docs: "Lee el contexto completo" },
+  { tag: "Consejero en", name: "Finanzas",      area: "CFO",     desc: "Rentabilidad, flujo de caja y estructura de capital.", docs: "Estados financieros" },
+  { tag: "Consejero en", name: "Estrategia",    area: "CSO",     desc: "Posicionamiento, mercado y crecimiento a largo plazo.", docs: "Plan de negocios y presentaciones" },
+  { tag: "Consejero en", name: "Riesgos",       area: "CRO",     desc: "Riesgos operativos, legales y planes de mitigación.", docs: "Actas, estatutos y reglamentos" },
+  { tag: "Consejero en", name: "Auditoría",     area: "Auditor", desc: "Cumplimiento, control interno y Governance Score.", docs: "Planes de auditoría y reglamentos" },
+  // El Independiente (Retador) cuestiona a los demás: su sesión convoca al Consejo completo.
+  { tag: "Consejero",    name: "Independiente", area: null,      desc: "El Retador: cuestiona cada decisión con un pre-mortem antes de actuar.", docs: "Lee el contexto completo" },
 ]
 
 export default function ConsejerosPage() {
@@ -101,8 +102,8 @@ export default function ConsejerosPage() {
             <Prose>
               <p className="text-sm leading-relaxed" style={{ color: INK2 }}>
                 Cada consejero analiza tu empresa desde su especialidad y deja por escrito sus
-                hallazgos, alertas y preguntas para la junta. Las sesiones se convocan desde Board IA,
-                al pie de cada periodo del tablero; ahí puedes conversar con cualquiera de ellos.
+                hallazgos, alertas y preguntas para la junta. Desde aquí puedes sesionar con un consejero
+                sobre su área; para convocar al Consejo completo, usa Board IA al pie de cada periodo.
               </p>
             </Prose>
 
@@ -121,6 +122,16 @@ export default function ConsejerosPage() {
                     <span className="font-extrabold uppercase tracking-[0.08em]" style={{ color: ACCENT }}>Lee</span>{" "}
                     {a.docs}
                   </p>
+                  <Link
+                    href={a.area ? `/dashboard/consejo?sesionar=1&area=${a.area}` : "/dashboard/consejo?sesionar=1"}
+                    className="flex w-full items-center justify-between rounded-[20px] px-3 py-2.5 text-xs font-medium transition-all duration-150"
+                    style={{ border: `1px solid ${LINE}`, color: INK2 }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = BNAVY; e.currentTarget.style.color = BNAVY }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = LINE; e.currentTarget.style.color = INK2 }}
+                  >
+                    {a.area ? `Sesionar con ${a.name}` : "Sesionar con todo el Consejo"}
+                    <Play className="h-3 w-3" />
+                  </Link>
                 </motion.div>
               ))}
             </div>

@@ -685,3 +685,18 @@ async def test_la_nota_de_documentos_es_por_agente():
     assert len(calls["CSO"]["documents"]) == 1
     assert "finanzas.xls" not in calls["CSO"]["documents_note"]
     assert calls["CSO"]["documents_note"] == ""
+
+
+@pytest.mark.asyncio
+async def test_sesion_por_area_solo_analiza_ese_consejero():
+    """Desde "Mis consejeros" se sesiona por área: solo corre el consejero pedido."""
+    llamados = []
+
+    def fake(**kw):
+        llamados.append(kw["agent"])
+        return _ok(kw["agent"])
+
+    r = await _analyse([_document("estados.pdf", "financial")], fake, agents=("CFO",))
+    assert r.status_code == 200, r.text
+    assert llamados == ["CFO"]
+    assert set(r.json()["analyses"]) == {"CFO"}

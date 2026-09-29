@@ -37,6 +37,9 @@ const ETAPAS = [
   { n: 7, label: "Documentos" }, { n: 8, label: "Visión" },
 ]
 
+// Consejero por área → nombre visible.
+const AREA_LABEL: Record<string, string> = { CFO: "Finanzas", CSO: "Estrategia", CRO: "Riesgos", Auditor: "Auditoría" }
+
 const MONTH_NAMES = [
   "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -64,6 +67,10 @@ export default function ConsejoPage() {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null)
   // Los meses del Plan anual: son las únicas fechas sesionables en el modal.
   const [meses, setMeses] = useState<BoardMes[]>([])
+  // Sesión por área (desde "Mis consejeros"): solo analiza ese consejero.
+  const [areaSesion, setAreaSesion] = useState<string | null>(null)
+  const irASesion = (sessionId: string) =>
+    router.push(`/dashboard/sesion/${sessionId}${areaSesion ? `?area=${areaSesion}` : ""}`)
   // Con plan trimestral/semestral, una sesión se nombra por su bloque ("Trimestre 2 · …", "T2"),
   // no por el primer mes del bloque.
   const bloqueDe = (year: number, month: number) => {
@@ -109,8 +116,13 @@ export default function ConsejoPage() {
     // Deep-link desde "Mis consejeros": /dashboard/consejo?sesionar=1 abre
     // directo el selector de periodo de la nueva sesión. setState diferido a un
     // microtask para no disparar renders en cascada (regla set-state-in-effect).
-    if (new URLSearchParams(window.location.search).get("sesionar") === "1") {
-      queueMicrotask(() => setShowModal(true))
+    const qs = new URLSearchParams(window.location.search)
+    if (qs.get("sesionar") === "1") {
+      const area = qs.get("area")
+      queueMicrotask(() => {
+        setAreaSesion(area && AREA_LABEL[area] ? area : null)
+        setShowModal(true)
+      })
     }
   }, [hydrate, reset])
 
@@ -122,6 +134,7 @@ export default function ConsejoPage() {
 
   const openModal = () => {
     setCreateError(null)
+    setAreaSesion(null)
     setShowModal(true)
   }
 
@@ -141,14 +154,14 @@ export default function ConsejoPage() {
     try {
       const r = await api.post("/board-sessions", { period_year: y, period_month: m })
       setShowModal(false)
-      router.push(`/dashboard/sesion/${r.data.board_session_id}`)
+      irASesion(r.data.board_session_id)
     } catch (e: unknown) {
       const status = (e as { response?: { status?: number } })?.response?.status
       if (status === 409) {
         const existing = sesionDe(y, m)
         if (existing) {
           setShowModal(false)
-          router.push(`/dashboard/sesion/${existing.board_session_id}`)
+          irASesion(existing.board_session_id)
           return
         }
       }
@@ -216,8 +229,14 @@ export default function ConsejoPage() {
               className="fixed z-50 inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto rounded-[26px] shadow-xl p-8 space-y-6" style={{ background: CARD }}>
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-lg font-bold" style={{ ...SANS, color: INK }}>Nueva sesión de Consejo</h2>
-                  <p className="text-xs mt-0.5" style={{ color: MUTED }}>Los meses de tu Plan anual — pasados, en curso y por venir</p>
+                  <h2 className="text-lg font-bold" style={{ ...SANS, color: INK }}>
+                    {areaSesion ? `Sesión con el consejero de ${AREA_LABEL[areaSesion]}` : "Nueva sesión de Consejo"}
+                  </h2>
+                  <p className="text-xs mt-0.5" style={{ color: MUTED }}>
+                    {areaSesion
+                      ? "Elige el periodo: solo este consejero analizará tu empresa en su área"
+                      : "Los periodos de tu Plan anual — pasados, en curso y por venir"}
+                  </p>
                 </div>
                 <button onClick={() => setShowModal(false)} className="transition-colors hover:opacity-70" style={{ color: MUTED }}>
                   <X className="h-4 w-4" />

@@ -15,6 +15,9 @@ import ConclusionConsejo from "@/components/consejo/ConclusionConsejo"
 import VocesConsejo from "@/components/consejo/VocesConsejo"
 import { AGENTS, Acuerdo, Analysis, Conclusion } from "@/components/consejo/shared"
 
+// Consejero por área → nombre visible (sesión por área desde "Mis consejeros").
+const AREA_LABEL: Record<string, string> = { CFO: "Finanzas", CSO: "Estrategia", CRO: "Riesgos", Auditor: "Auditoría" }
+
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -47,6 +50,12 @@ export default function SessionPage() {
   const router   = useRouter()
   const params   = useParams()
   const id       = params.id as string
+  // Sesión por área (desde "Mis consejeros"): solo analiza ese consejero.
+  const [area, setArea] = useState<string | null>(null)
+  useEffect(() => {
+    const a = new URLSearchParams(window.location.search).get("area")
+    if (a && AREA_LABEL[a]) queueMicrotask(() => setArea(a))
+  }, [])
 
   const [session,       setSession]       = useState<SessionDetail | null>(null)
   const [loadError,     setLoadError]     = useState<string | null>(null)
@@ -115,7 +124,7 @@ export default function SessionPage() {
     setAnalyseError(null)
     try {
       const r = await api.post(`/board-sessions/${id}/analyse`, {
-        agents: ["CFO", "CSO", "CRO", "Auditor"],
+        agents: area ? [area] : ["CFO", "CSO", "CRO", "Auditor"],
       }, { timeout: 600000 })  // 10 min — análisis con Challenger puede tomar 2-5 min
       setSession(prev =>
         prev ? {
@@ -336,12 +345,13 @@ export default function SessionPage() {
 
                     <div className="space-y-2">
                       <p className="text-base font-medium text-black">
-                        Tu Consejo está listo para analizar
+                        {area ? `Tu consejero de ${AREA_LABEL[area]} está listo para analizar`
+                          : "Tu Consejo está listo para analizar"}
                       </p>
                       <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
-                        Los cinco consejeros con IA revisarán tu perfil y los documentos que hayas
-                        subido, y el Retador aplicará un pre-mortem a cada análisis antes de
-                        mostrártelo.
+                        {area
+                          ? `Revisará tu empresa desde su área (${AREA_LABEL[area].toLowerCase()}) con los documentos de su competencia, y el Retador aplicará un pre-mortem a su análisis.`
+                          : "Los cinco consejeros con IA revisarán tu perfil y los documentos que hayas subido, y el Retador aplicará un pre-mortem a cada análisis antes de mostrártelo."}
                       </p>
                     </div>
 
@@ -353,7 +363,7 @@ export default function SessionPage() {
                       onClick={runAnalysis}
                       className="inline-flex items-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium px-6 py-3 rounded-xl hover:bg-[var(--gob-ink)] transition-colors"
                     >
-                      Iniciar análisis
+                      {area ? `Iniciar análisis de ${AREA_LABEL[area]}` : "Iniciar análisis"}
                     </button>
                   </div>
                 </div>
@@ -375,7 +385,7 @@ export default function SessionPage() {
                       className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[var(--gob-navy)] transition-colors disabled:opacity-50"
                     >
                       <RotateCcw className={`h-3.5 w-3.5 ${analysing ? "animate-spin" : ""}`} />
-                      Actualizar análisis
+                      {area ? `Actualizar análisis de ${AREA_LABEL[area]}` : "Actualizar análisis"}
                     </button>
                   </div>
 
