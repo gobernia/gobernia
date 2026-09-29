@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user_id, get_db
 from app.models.chat_message import ChatMessage
 from app.services.ai.task_adapter import adapt_task
-from app.services.ai.todd_secretario import run_todd_secretario_turn
+from app.services.ai.todd_secretario import bloques_de_documento, run_todd_secretario_turn
+from app.services.documents.storage import download_from_storage
 from app.api.v1.todd_secretario.service import (
     TODD_SECRETARIO_AGENT,
     build_contexto,
@@ -103,8 +104,17 @@ async def enviar_mensaje(
     mensajes.append({"role": "user", "content": body.content})
 
     # Turno de Todd (llamada de red → hilo aparte para no bloquear el event loop).
+    # Todd puede abrir los documentos de la empresa (solo los del inventario de ESTE usuario).
+    abrir = contexto.pop("_documentos_abrir", {})
+
+    def leer_documento(ref: str) -> list[dict]:
+        doc = abrir.get(ref)
+        if doc is None:
+            return [{"type": "text", "text": f"No existe un documento con la referencia «{ref}»."}]
+        return bloques_de_documento(doc["filename"], download_from_storage(doc["s3_key"]))
+
     turn = await anyio.to_thread.run_sync(
-        lambda: run_todd_secretario_turn(mensajes, contexto)
+        lambda: run_todd_secretario_turn(mensajes, contexto, leer_documento)
     )
     reply = turn.get("reply") or ""
     accion = turn.get("accion")

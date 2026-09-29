@@ -10,6 +10,10 @@ Cuando el dueño dice que NO puede con una tarea, Todd usa la herramienta
 
 Lógica pura salvo `run_todd_secretario_turn` (la llamada a Sonnet).
 """
+import base64
+from pathlib import Path
+from typing import Callable
+
 import anthropic
 
 from app.core.config import settings
@@ -46,6 +50,52 @@ PROPONER_CAMBIO_TOOL = {
         "required": ["task_id", "motivo"],
     },
 }
+
+
+# ── Herramienta: abrir un documento de la empresa para leer su contenido ───────
+LEER_DOCUMENTO_TOOL = {
+    "name": "leer_documento",
+    "description": (
+        "Abre un documento de la lista DOCUMENTOS DE LA EMPRESA y te entrega su contenido. "
+        "Úsala cuando el dueño pregunte por lo que DICE un documento (cifras, conclusiones, "
+        "si respalda un punto, etc.). No la uses si basta con saber que existe o su veredicto."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "ref": {"type": "string", "description": "La referencia EXACTA del documento (p. ej. E1 o D3)."},
+        },
+        "required": ["ref"],
+    },
+}
+
+# Rondas máximas de lectura por turno (acota costo y latencia).
+_MAX_LECTURAS = 3
+# Un documento más grande que esto no se adjunta (la API corta la request a 32 MB en base64).
+_MAX_BYTES_DOC = 10 * 1024 * 1024
+
+
+def bloques_de_documento(filename: str, raw: bytes | None) -> list[dict]:
+    """Contenido de un documento como bloques para el modelo: PDF/imagen nativos, Office como texto."""
+    from app.services.ai.doc_blocks import classify_document
+    from app.services.documents.text_extract import extraer_texto
+
+    if raw is None:
+        return [{"type": "text", "text": f"No se pudo descargar «{filename}» del almacenamiento."}]
+    if len(raw) > _MAX_BYTES_DOC:
+        return [{"type": "text", "text": f"«{filename}» es demasiado grande para leerlo aquí (más de 10 MB)."}]
+    kind_media = classify_document(filename)
+    if kind_media is None:
+        ext = Path(filename).suffix or "este formato"
+        return [{"type": "text", "text": f"«{filename}» está en {ext}, que no puedo leer. Pide subirlo en PDF."}]
+    kind, media_type = kind_media
+    if kind == "text":
+        texto = extraer_texto(raw, media_type)
+        return [{"type": "text", "text": f"Contenido de «{filename}»:\n{texto}" if texto
+                 else f"«{filename}» está vacío o dañado; no pude extraer su contenido."}]
+    data = base64.b64encode(raw).decode("ascii")
+    return [{"type": "document" if kind == "pdf" else "image",
+             "source": {"type": "base64", "media_type": media_type, "data": data}}]
 
 
 # ── Render del contexto a texto legible para el prompt ────────────────────────
@@ -135,6 +185,25 @@ def _render_acuerdos(acuerdos: list) -> str:
     return "\n".join(lineas)
 
 
+def _render_documentos(documentos: list) -> str:
+    documentos = documentos or []
+    if not documentos:
+        return "DOCUMENTOS DE LA EMPRESA: todavía no se ha subido ninguno."
+    etiquetas = {"validada": "el Auditor lo validó", "insuficiente": "el Auditor dice que falta sustento",
+                 "revisando": "el Auditor lo está revisando", "sin_revisar": "sin revisar"}
+    lineas = [f"DOCUMENTOS DE LA EMPRESA ({len(documentos)}, del más reciente al más antiguo):"]
+    for d in documentos:
+        extra = []
+        if d.get("fecha"):
+            extra.append(f"subido {d['fecha']}")
+        if d.get("veredicto"):
+            ver = etiquetas.get(d["veredicto"], d["veredicto"])
+            extra.append(ver + (f": {d['motivo']}" if d.get("motivo") else ""))
+        lineas.append(f"  - [{d['ref']}] «{d['nombre']}» — {d['origen']}"
+                      + (f" ({'; '.join(extra)})" if extra else ""))
+    return "\n".join(lineas)
+
+
 def build_system_prompt(contexto: dict) -> str:
     contexto = contexto or {}
     empresa = contexto.get("empresa") or "la empresa"
@@ -156,13 +225,19 @@ def build_system_prompt(contexto: dict) -> str:
         "tiempo, personal, o no le aplica), NO la des por perdida: usa la herramienta "
         "`proponer_cambio_de_tarea` con el task_id EXACTO de esa tarea y el motivo que te dio, "
         "para ofrecerle una alternativa realista que él pueda confirmar. Usa la herramienta solo "
-        "cuando haya una tarea puntual señalada; para dudas generales, responde con texto.\n\n"
+        "cuando haya una tarea puntual señalada; para dudas generales, responde con texto.\n"
+        "4. Como Secretario custodias los DOCUMENTOS de la empresa (lista abajo). Si te preguntan "
+        "qué se ha subido, de quién o si algo tiene sustento, responde con la lista. Si te preguntan "
+        "por lo que DICE un documento, ábrelo con `leer_documento` antes de responder; nunca "
+        "supongas su contenido. Cita el nombre del documento en tu respuesta.\n\n"
         "───────────────────────── CONTEXTO ACTUAL ─────────────────────────\n"
         + _render_tablero(contexto.get("tablero"))
         + "\n\n"
         + _render_roadmap(contexto.get("roadmap"))
         + "\n\n"
         + _render_acuerdos(contexto.get("acuerdos_abiertos"))
+        + "\n\n"
+        + _render_documentos(contexto.get("documentos"))
     )
 
 
@@ -227,11 +302,17 @@ def _parse_response(response) -> dict:
     return {"reply": reply, "accion": accion}
 
 
-def run_todd_secretario_turn(mensajes: list[dict], contexto: dict) -> dict:
+def run_todd_secretario_turn(
+    mensajes: list[dict],
+    contexto: dict,
+    leer_documento: Callable[[str], list[dict]] | None = None,
+) -> dict:
     """Un turno del chat de Todd secretario.
 
     `mensajes`: transcript [{role, content}] (role: user | assistant | todd).
-    `contexto`: {empresa, tablero, roadmap, acuerdos_abiertos} ya armado por el router.
+    `contexto`: {empresa, tablero, roadmap, acuerdos_abiertos, documentos} ya armado por el router.
+    `leer_documento(ref)`: devuelve el contenido de un documento como bloques; si viene, Todd
+    puede abrir documentos (hasta _MAX_LECTURAS por turno).
 
     Devuelve: {"reply": str, "accion": None | {"tipo": "proponer_cambio", "task_id": str, "motivo": str}}
     El router resuelve la accion (ownership + adapt_task) y le añade la `propuesta`.
@@ -240,16 +321,33 @@ def run_todd_secretario_turn(mensajes: list[dict], contexto: dict) -> dict:
     if not settings.ANTHROPIC_API_KEY:
         return {"reply": _fallback_reply(contexto), "accion": None}
 
+    tools = [PROPONER_CAMBIO_TOOL] + ([LEER_DOCUMENTO_TOOL] if leer_documento else [])
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
-        response = _create_with_retry(
-            client,
-            model=settings.AI_MODEL,
-            max_tokens=1500,
-            system=build_system_prompt(contexto),
-            messages=_to_anthropic_messages(mensajes),
-            tools=[PROPONER_CAMBIO_TOOL],
-        )
+        system = build_system_prompt(contexto)
+        conversacion = _to_anthropic_messages(mensajes)
+        for ronda in range(_MAX_LECTURAS + 1):
+            ultima = ronda == _MAX_LECTURAS
+            response = _create_with_retry(
+                client,
+                model=settings.AI_MODEL,
+                max_tokens=1500,
+                system=system,
+                messages=conversacion,
+                # En la última ronda ya no se permite abrir más documentos: debe responder.
+                tools=[PROPONER_CAMBIO_TOOL] if ultima else tools,
+            )
+            lecturas = [b for b in response.content
+                        if getattr(b, "type", None) == "tool_use" and b.name == LEER_DOCUMENTO_TOOL["name"]]
+            if not lecturas or ultima:
+                return _parse_response(response)
+            conversacion.append({"role": "assistant", "content": [b.model_dump() for b in response.content]})
+            resultados = []
+            for b in lecturas:
+                ref = str((b.input or {}).get("ref") or "").strip()
+                resultados.append({"type": "tool_result", "tool_use_id": b.id,
+                                   "content": leer_documento(ref)})
+            conversacion.append({"role": "user", "content": resultados})
         return _parse_response(response)
     except Exception:
         return {"reply": _fallback_reply(contexto), "accion": None}

@@ -14,13 +14,19 @@ from app.models.action_plan import ActionTask
 from app.models.annual_plan import AnnualPlan, MonthlyPlan, Objective
 from app.models.board_session import BoardSession
 from app.models.compromiso import Compromiso
+from app.models.document import Document
+from app.models.evidence import Evidence
 from app.models.onboarding_session import OnboardingSession
+from app.schemas.etapa7 import DOCUMENT_TYPE_LABELS
+from app.services.evidencia_revision import validacion_visible
 
 # Discriminador para reusar ChatMessage sin columnas nuevas.
 TODD_SECRETARIO_AGENT = "todd_secretario"
 
 # Tope de tareas que se listan en el prompt (el prompt no debe crecer sin límite).
 _MAX_TAREAS = 40
+# Tope de documentos en el inventario de Todd (los más recientes).
+_MAX_DOCUMENTOS = 60
 _ESTADOS = ("pendiente", "en_progreso", "completada")
 
 
@@ -137,9 +143,61 @@ async def build_contexto(user_id: str, db: AsyncSession) -> dict:
         for c in acuerdos_rows
     ]
 
+    documentos, abrir = await documentos_del_usuario(user_id, db, tareas)
+
     return {
         "empresa": empresa,
         "tablero": tablero,
         "roadmap": roadmap_resumen,
         "acuerdos_abiertos": acuerdos,
+        "documentos": documentos,
+        # Solo para el router (abrir un documento por su ref); no se renderiza en el prompt.
+        "_documentos_abrir": abrir,
     }
+
+
+async def documentos_del_usuario(
+    user_id: str, db: AsyncSession, tareas: list[ActionTask] | None = None,
+) -> tuple[list[dict], dict[str, dict]]:
+    """Inventario de TODOS los documentos de la empresa para Todd: evidencias de los puntos del
+    tablero, repositorio de "Mis consejeros" y documentos de sesiones del Consejo.
+
+    Devuelve (inventario para el prompt, {ref: {s3_key, filename}} para abrirlos). El `ref`
+    (E1, D1…) es lo único que Todd ve; la llave de almacenamiento nunca llega al modelo.
+    """
+    if tareas is None:
+        tareas = []
+    por_tarea = {t.id: t for t in tareas}
+    items: list[tuple] = []  # (fecha, prefijo, dict_visible, s3_key)
+
+    if por_tarea:
+        evs = (await db.execute(
+            select(Evidence).where(Evidence.action_task_id.in_(list(por_tarea)))
+        )).scalars().all()
+        for e in evs:
+            t = por_tarea[e.action_task_id]
+            v = validacion_visible(t.validacion) or {}
+            items.append((e.created_at, "E", {
+                "nombre": e.filename,
+                "origen": f"evidencia del punto «{t.title}»" + (f" (responsable: {t.owner})" if t.owner else ""),
+                "veredicto": v.get("estado"),
+                "motivo": v.get("motivo") or "",
+            }, e.s3_key))
+
+    docs = (await db.execute(select(Document).where(Document.user_id == user_id))).scalars().all()
+    for d in docs:
+        tipo = DOCUMENT_TYPE_LABELS.get(d.document_type, d.document_type)
+        origen = ("documento de una sesión del Consejo" if d.board_session_id
+                  else "repositorio de la empresa (Mis consejeros)")
+        items.append((d.created_at, "D", {"nombre": d.filename, "origen": f"{origen} · {tipo}"}, d.s3_key))
+
+    items.sort(key=lambda x: x[0], reverse=True)
+    inventario: list[dict] = []
+    abrir: dict[str, dict] = {}
+    cuenta = {"E": 0, "D": 0}
+    for fecha, pref, vis, key in items[:_MAX_DOCUMENTOS]:
+        cuenta[pref] += 1
+        ref = f"{pref}{cuenta[pref]}"
+        inventario.append({"ref": ref, "fecha": fecha.date().isoformat() if fecha else None, **vis})
+        abrir[ref] = {"s3_key": key, "filename": vis["nombre"]}
+    return inventario, abrir

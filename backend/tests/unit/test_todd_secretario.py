@@ -98,3 +98,22 @@ def test_turn_excepcion_cae_a_fallback(monkeypatch):
     out = ts.run_todd_secretario_turn([{"role": "user", "content": "hola"}], _contexto())
     assert out["accion"] is None
     assert out["reply"]
+
+
+# ── Documentos: Todd custodia y puede abrir los documentos de la empresa ──────
+
+def test_prompt_incluye_inventario_de_documentos():
+    from app.services.ai.todd_secretario import build_system_prompt
+    ctx = {"documentos": [{"ref": "E1", "fecha": "2026-09-20", "nombre": "acta.pdf",
+                           "origen": "evidencia del punto «Gobierno»", "veredicto": "insuficiente",
+                           "motivo": "Falta la firma."}]}
+    p = build_system_prompt(ctx)
+    assert "[E1] «acta.pdf»" in p and "falta sustento: Falta la firma." in p
+
+
+def test_bloques_de_documento_por_formato():
+    from app.services.ai.todd_secretario import bloques_de_documento
+    assert bloques_de_documento("a.pdf", b"%PDF")[0]["type"] == "document"
+    assert bloques_de_documento("a.png", b"x")[0]["type"] == "image"
+    assert "no puedo leer" in bloques_de_documento("a.xls", b"x")[0]["text"]
+    assert "No se pudo descargar" in bloques_de_documento("a.pdf", None)[0]["text"]

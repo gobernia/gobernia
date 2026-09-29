@@ -48,7 +48,7 @@ def _patch_common(monkeypatch, turn, anchor=None):
                 "acuerdos_abiertos": []}
     monkeypatch.setattr(f"{R}.get_anchor_board_session_id", fake_anchor)
     monkeypatch.setattr(f"{R}.build_contexto", fake_ctx)
-    monkeypatch.setattr(f"{R}.run_todd_secretario_turn", lambda mensajes, contexto: turn)
+    monkeypatch.setattr(f"{R}.run_todd_secretario_turn", lambda mensajes, contexto, leer_documento=None: turn)
 
 
 @pytest.mark.asyncio
