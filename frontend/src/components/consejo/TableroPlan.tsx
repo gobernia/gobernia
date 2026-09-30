@@ -239,6 +239,10 @@ function ResponsableCelda({ owner, ownerEmail, sugerencias, onChange }: {
             Sin asignar
           </span>
         )}
+        {/* Flecha: deja claro que se despliega el menú del responsable */}
+        <ChevronDown aria-hidden
+          className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          style={{ color: MUTED }} />
       </button>
 
       <MenuFlotante anchorRef={btnRef} open={open} onClose={cerrar} ancho={256} altoEstimado={200}>

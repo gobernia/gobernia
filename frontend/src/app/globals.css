@@ -207,6 +207,15 @@
   h1, h2 {
     font-family: var(--font-heading);
   }
+  /* Tailwind v4 deja la flecha normal en los botones: todo lo pulsable muestra la manito,
+     y lo deshabilitado dice que no se puede. Una clase cursor-* en el elemento gana. */
+  button, [role="button"], a[href], select, summary, label[for],
+  input[type="checkbox"], input[type="radio"], input[type="file"], input[type="submit"] {
+    cursor: pointer;
+  }
+  button:disabled, [role="button"][aria-disabled="true"], select:disabled, input:disabled {
+    cursor: not-allowed;
+  }
 }
 
 /* ── Menú lateral (bento): pestaña activa con "hueco" ───────
