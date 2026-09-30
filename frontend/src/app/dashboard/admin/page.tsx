@@ -4,7 +4,7 @@
 // Solo lectura. El servidor rechaza a cualquiera que no esté en SUPERADMIN_EMAILS.
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react"
-import { Loader2, Search, ShieldAlert, CreditCard } from "lucide-react"
+import { Loader2, Search, ShieldAlert, CreditCard, Download } from "lucide-react"
 import { PageShell, PageHeader } from "@/components/ui/PageShell"
 import { getAdminResumen, type AdminResumen, type AdminUsuario } from "@/lib/admin"
 
@@ -32,6 +32,37 @@ function hace(iso: string | null): string {
   if (dias === 1) return "Ayer"
   if (dias < 30) return `Hace ${dias} días`
   return fecha(iso)
+}
+
+/** CSV con BOM (Excel abre bien los acentos) de los usuarios visibles. */
+function descargarCsv(usuarios: AdminUsuario[], etiquetaEtapa: Record<string, string>) {
+  const cols: [string, (u: AdminUsuario) => string | number][] = [
+    ["Correo", u => u.email],
+    ["Empresa", u => u.empresa ?? ""],
+    ["Industria", u => u.industria ?? ""],
+    ["Etapa", u => etiquetaEtapa[u.etapa] ?? u.etapa],
+    ["Fecha de registro", u => u.registrado?.slice(0, 10) ?? ""],
+    ["Último acceso", u => u.ultimo_acceso?.slice(0, 10) ?? ""],
+    ["Periodicidad", u => (u.periodicidad && PERIODICIDAD[u.periodicidad]) ?? ""],
+    ["Tareas completadas", u => u.tareas_completadas],
+    ["Tareas totales", u => u.tareas_total],
+    ["Sesiones", u => u.sesiones],
+    ["Última sesión", u => u.ultima_sesion?.slice(0, 10) ?? ""],
+    ["Documentos", u => u.documentos],
+  ]
+  const celda = (v: string | number) => {
+    const t = String(v)
+    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t
+  }
+  const lineas = [cols.map(([h]) => celda(h)).join(","),
+    ...usuarios.map(u => cols.map(([, f]) => celda(f(u))).join(","))]
+  const blob = new Blob(["\uFEFF" + lineas.join("\r\n")], { type: "text/csv;charset=utf-8" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `usuarios-gobernia-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function Metrica({ label, valor, sub }: { label: string; valor: number | string; sub?: string }) {
@@ -151,12 +182,20 @@ export default function AdminPage() {
                         <button type="button" className="underline" onClick={() => setEtapa("")}>quitar filtro</button></>}
                     </p>
                   </div>
-                  <label className="flex items-center gap-2 rounded-[14px] px-3 py-2 w-full sm:w-72"
-                    style={{ background: CARD, border: `1px solid ${LINE}` }}>
-                    <Search className="h-4 w-4 shrink-0" style={{ color: MUTED }} />
-                    <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar correo o empresa"
-                      className="w-full bg-transparent text-sm outline-none" style={{ color: INK }} />
-                  </label>
+                  <div className="flex w-full sm:w-auto flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2 rounded-[14px] px-3 py-2 flex-1 sm:w-72 sm:flex-none"
+                      style={{ background: CARD, border: `1px solid ${LINE}` }}>
+                      <Search className="h-4 w-4 shrink-0" style={{ color: MUTED }} />
+                      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar correo o empresa"
+                        className="w-full bg-transparent text-sm outline-none" style={{ color: INK }} />
+                    </label>
+                    <button type="button" onClick={() => descargarCsv(usuarios, etiquetaEtapa)}
+                      disabled={usuarios.length === 0}
+                      className="inline-flex items-center gap-2 rounded-[14px] px-4 py-2 text-sm font-bold text-white transition-colors hover:brightness-90 disabled:opacity-50"
+                      style={{ ...SANS, background: BNAVY }}>
+                      <Download className="h-4 w-4" /> Descargar CSV
+                    </button>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto rounded-[26px]" style={{ background: CARD, border: `1px solid ${LINE}` }}>
