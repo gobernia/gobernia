@@ -155,7 +155,7 @@ def _format_avance_tareas(months, tasks_by_obj: dict, active_index: int,
         else:
             label = etiqueta_periodo([(m.period_year, m.period_month) for m in del_periodo],
                                      periodicidad, periodo_activo)
-        lines.append(f"\nTareas del periodo actual ({label}):")
+        lines.append(f"\nTareas del periodo que se sesiona ({label}) — revísalas UNA POR UNA:")
         lines.extend(_line(t) for t in actual_tasks) if actual_tasks else \
             lines.append("  (sin tareas asignadas a este mes)" if meses_por_periodo(periodicidad) == 1
                          else "  (sin tareas asignadas a este periodo)")
@@ -690,8 +690,14 @@ async def run_analyses(
             )
             for t in tres.scalars().all():
                 tasks_by_obj.setdefault(t.objective_id, []).append(t)
-        active_index = compute_active_month_index(
-            plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12
+        # El periodo que se evalúa es el DE LA SESIÓN (sesionar agosto revisa las tareas de
+        # agosto, o de su trimestre/semestre), no el mes de hoy. "Todo el plan" (mes 0) o un
+        # periodo fuera del plan → el periodo en curso.
+        active_index = next(
+            (m.month_index for m in plan_months
+             if m.period_year == bs.period_year and m.period_month == bs.period_month),
+            compute_active_month_index(
+                plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12),
         )
         plan_task_ids = [t.id for ts in tasks_by_obj.values() for t in ts]
         evidencias_por_tarea: dict = {}

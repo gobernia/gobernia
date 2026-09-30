@@ -44,7 +44,7 @@ def test_avance_totales_periodo_y_arrastradas():
     # Totales: 1 completada, 1 en proceso, 2 sin ejecutar, de 4.
     assert "1 completada(s), 1 en proceso, 2 sin ejecutar (de 4 tareas)" in txt
     # Periodo actual (Marzo 2026) con su tarea propia y responsable.
-    assert "Tareas del periodo actual (Marzo 2026):" in txt
+    assert "Tareas del periodo que se sesiona (Marzo 2026)" in txt
     assert "[sin ejecutar] Marzo propia (resp. Ventas)" in txt
     # Arrastradas: las incompletas de meses anteriores, con su origen. La completada NO se arrastra.
     assert "Tareas arrastradas de meses anteriores (incompletas):" in txt
@@ -62,7 +62,7 @@ def test_avance_mes_actual_sin_arrastre():
     months = [_month(1, 1, [_obj("o1")])]
     tasks_by_obj = {"o1": [_task("Sola", "pendiente")]}
     txt = _format_avance_tareas(months, tasks_by_obj, active_index=1)
-    assert "Tareas del periodo actual (Enero 2026):" in txt
+    assert "Tareas del periodo que se sesiona (Enero 2026)" in txt
     assert "arrastradas" not in txt.lower()
 
 

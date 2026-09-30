@@ -36,7 +36,7 @@ from app.services.ai.prompt_loader import load_prompt
 
 _log = logging.getLogger(__name__)
 
-DELIBERACION_MAX_TOKENS = 4096
+DELIBERACION_MAX_TOKENS = 8192
 
 MIN_ACUERDOS = 3
 MAX_ACUERDOS = 7
@@ -100,6 +100,32 @@ DELIBERACION_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
+            "revision_puntos": {
+                "type": "array",
+                "description": (
+                    "La revisión del ORDEN DEL DÍA del periodo que se sesiona: UN elemento por cada "
+                    "tarea/punto listado en 'Tareas del periodo que se sesiona' (y las arrastradas "
+                    "que el Consejo revise). Vacío solo si no se entregó avance del plan."
+                ),
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "punto": {"type": "string", "description": "Título EXACTO de la tarea/punto, copiado literal."},
+                        "estado": {
+                            "type": "string",
+                            "enum": ["cumplido", "parcial", "no_cumplido", "sin_evidencia"],
+                            "description": (
+                                "cumplido = hecho Y demostrado (evidencia validada); parcial = avanzó "
+                                "pero no está completo o su sustento no basta; no_cumplido = no se "
+                                "hizo; sin_evidencia = se reporta pero no hay documento que lo pruebe."
+                            ),
+                        },
+                        "lectura": {"type": "string", "description": "Qué muestran el estado, la evidencia y el veredicto del Auditor. 1-2 oraciones."},
+                        "decision": {"type": "string", "description": "Qué decide o recomienda el Consejo sobre este punto. 1 oración."},
+                    },
+                    "required": ["punto", "estado", "lectura", "decision"],
+                },
+            },
             "conclusion": {
                 "type": "string",
                 "description": (
@@ -167,9 +193,34 @@ DELIBERACION_TOOL = {
                 },
             },
         },
-        "required": ["conclusion", "avance_roadmap", "riesgos", "acuerdos"],
+        "required": ["conclusion", "avance_roadmap", "riesgos", "acuerdos", "revision_puntos"],
     },
 }
+
+_ESTADOS_PUNTO = {"cumplido", "parcial", "no_cumplido", "sin_evidencia"}
+
+
+def _norm_revision(v) -> list[dict]:
+    if isinstance(v, str):  # a veces el modelo manda la lista como texto JSON
+        try:
+            v = json.loads(v)
+        except ValueError:
+            return []
+    out = []
+    for r in (v if isinstance(v, list) else []):
+        if not isinstance(r, dict):
+            continue
+        punto = str(r.get("punto") or "").strip()
+        if not punto:
+            continue
+        estado = str(r.get("estado") or "").strip().lower()
+        out.append({
+            "punto": punto,
+            "estado": estado if estado in _ESTADOS_PUNTO else "sin_evidencia",
+            "lectura": str(r.get("lectura") or "").strip(),
+            "decision": str(r.get("decision") or "").strip(),
+        })
+    return out
 
 
 # ── La deliberación FUNDACIONAL ───────────────────────────────────────────────
@@ -543,6 +594,11 @@ def run_deliberacion(
         f"{pilares_ctx}\n"
         "Delibera y emite la postura del Consejo con la herramienta 'conclusion_consejo'. "
         "Resuelve las contradicciones entre consejeros, no las promedies. "
+        + ("PRIMERO revisa, en `revision_puntos`, CADA tarea del periodo que se sesiona (qué se hizo, "
+           "qué no, con qué evidencia y qué dictaminó el Auditor) y DESPUÉS concluye: la conclusión y "
+           "los acuerdos deben salir de esa revisión, no de un resumen general de la empresa. "
+           if avance_ctx else "")
+        + 
         f"Entre {MIN_ACUERDOS} y {MAX_ACUERDOS} acuerdos."
     )
 
@@ -589,4 +645,6 @@ def run_deliberacion(
         "avance_roadmap": avance,
         "riesgos": riesgos,
         "acuerdos": acuerdos or _fallback(analyses, roadmap, period_year, period_month)["acuerdos"],
+        # Sin avance del plan no hay orden del día que revisar: no se aceptan puntos inventados.
+        "revision_puntos": _norm_revision(data.get("revision_puntos")) if avance_ctx else [],
     }

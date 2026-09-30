@@ -11,7 +11,16 @@ import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { getRoadmap } from "@/lib/roadmap"
 import AcuerdoRow from "./AcuerdoRow"
-import { ALERT_COLOR, ALERT_LABEL, ALERT_ORDER, Acuerdo, Conclusion, toRiesgo } from "./shared"
+import {
+  ALERT_COLOR, ALERT_LABEL, ALERT_ORDER, Acuerdo, Conclusion, EstadoPunto, toRiesgo,
+} from "./shared"
+
+const ESTADO_PUNTO: Record<EstadoPunto, { label: string; color: string }> = {
+  cumplido:      { label: "Cumplido",      color: "#0f766e" },
+  parcial:       { label: "Parcial",       color: "#b45309" },
+  no_cumplido:   { label: "No cumplido",   color: "#b91c1c" },
+  sin_evidencia: { label: "Sin evidencia", color: "#5a6b82" },
+}
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
@@ -55,6 +64,11 @@ export default function ConclusionConsejo({
     .filter(r => r.texto)
     .sort((a, b) => ALERT_ORDER[a.nivel] - ALERT_ORDER[b.nivel])
 
+  const revision = conclusion.revision_puntos ?? []
+  const conteo = (Object.keys(ESTADO_PUNTO) as EstadoPunto[])
+    .map(e => ({ e, n: revision.filter(r => r.estado === e).length }))
+    .filter(x => x.n > 0)
+
   const acuerdos = conclusion.acuerdos ?? []
   const sinDueno = acuerdos.filter(a => !(a.responsable_nombre ?? "").trim()).length
 
@@ -77,6 +91,46 @@ export default function ConclusionConsejo({
           />
         </div>
       </div>
+
+      {/* ── Revisión del orden del día: punto por punto, qué se hizo y qué no ── */}
+      {revision.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-lg font-bold tracking-tight text-[var(--gob-ink)]">
+              Revisión del orden del día
+            </h3>
+            <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              {conteo.map(({ e, n }) => (
+                <span key={e} className="font-medium" style={{ color: ESTADO_PUNTO[e].color }}>
+                  {n} {ESTADO_PUNTO[e].label.toLowerCase()}
+                </span>
+              ))}
+            </p>
+          </div>
+          <ul className="divide-y divide-[var(--gob-rule)] rounded-2xl border border-[var(--gob-rule)] bg-white">
+            {revision.map((r, i) => {
+              const est = ESTADO_PUNTO[r.estado] ?? ESTADO_PUNTO.sin_evidencia
+              return (
+                <li key={i} className="px-5 py-4 space-y-1.5">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-sm font-semibold leading-snug text-[var(--gob-ink)] max-w-[60ch]">{r.punto}</p>
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ color: est.color, backgroundColor: `${est.color}14`, border: `1px solid ${est.color}33` }}>
+                      {est.label}
+                    </span>
+                  </div>
+                  {r.lectura && <p className="text-sm leading-relaxed text-[var(--gob-charcoal)] max-w-[70ch]">{r.lectura}</p>}
+                  {r.decision && (
+                    <p className="text-xs leading-relaxed text-[var(--gob-muted)] max-w-[70ch]">
+                      <span className="font-semibold text-[var(--gob-navy)]">El Consejo: </span>{r.decision}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* ── Avance del Roadmap ── */}
       {conclusion.avance_roadmap && (

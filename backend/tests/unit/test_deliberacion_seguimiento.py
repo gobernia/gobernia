@@ -123,3 +123,20 @@ def test_bloques_vacios_o_espacios_no_activan_seguimiento(monkeypatch):
     )
     assert "AVANCE DEL PLAN" not in captured["messages"][0]["content"]
     assert DELIBERACION_SEGUIMIENTO_SYSTEM not in captured["system"]
+
+
+def test_revision_de_puntos_se_normaliza():
+    from app.services.ai.agents.deliberacion import _norm_revision
+    out = _norm_revision([
+        {"punto": "Cierre contable", "estado": "Cumplido", "lectura": "ok", "decision": "cerrar"},
+        {"punto": "Liquidez", "estado": "raro", "lectura": "", "decision": ""},
+        {"punto": "", "estado": "cumplido"},
+    ])
+    assert [r["estado"] for r in out] == ["cumplido", "sin_evidencia"]
+    assert _norm_revision('[{"punto": "X", "estado": "parcial", "lectura": "", "decision": ""}]')[0]["estado"] == "parcial"
+
+
+def test_la_revision_va_primero_en_el_esquema():
+    """El Consejo revisa los puntos ANTES de concluir (y así no se trunca al final)."""
+    from app.services.ai.agents.deliberacion import DELIBERACION_TOOL
+    assert list(DELIBERACION_TOOL["input_schema"]["properties"])[0] == "revision_puntos"

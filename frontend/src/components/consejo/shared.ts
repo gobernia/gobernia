@@ -94,11 +94,23 @@ export interface Riesgo {
   fuente?: string
 }
 
+export type EstadoPunto = "cumplido" | "parcial" | "no_cumplido" | "sin_evidencia"
+
+/** La revisión del Consejo de UN punto del orden del día del periodo sesionado. */
+export interface RevisionPunto {
+  punto: string
+  estado: EstadoPunto
+  lectura: string
+  decision: string
+}
+
 export interface Conclusion {
   conclusion: string
   avance_roadmap: string
   riesgos: (Riesgo | string)[]
   acuerdos: Acuerdo[]
+  // Sesiones anteriores a esta función no la traen.
+  revision_puntos?: RevisionPunto[]
 }
 
 /** Normaliza un riesgo de la conclusión (mismo semáforo que las alertas). */
