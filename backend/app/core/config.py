@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Redis / Celery
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # Super admin: correos con acceso al panel /dashboard/admin (env: SUPERADMIN_EMAILS='["a@b.com"]').
+    SUPERADMIN_EMAILS: list[str] = ["info@ketingmedia.com"]
+
     # CORS
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
 

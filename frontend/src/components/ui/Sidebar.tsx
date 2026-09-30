@@ -5,13 +5,14 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Home, Users, FileSearch, Library,
-  Settings, LogOut, Menu, X, ImagePlus, Loader2, UsersRound, MessagesSquare,
+  Settings, LogOut, Menu, X, ImagePlus, Loader2, UsersRound, MessagesSquare, ShieldCheck,
 } from "lucide-react"
 import { Map, CalendarCheck } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 import { getLogo, uploadLogo, LOGO_ACCEPT } from "@/lib/logo"
+import { esAdmin } from "@/lib/admin"
 
 // Menú lateral bento: riel oscuro pegado al borde. Arriba, el LOGO DE LA EMPRESA
 // (clic para cambiarlo). Abajo, el logo de Gobernia sobre "Mi perfil". La pestaña
@@ -42,8 +43,12 @@ export default function Sidebar() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Super admin: el enlace al panel solo aparece para quien el servidor reconoce como admin.
+  const [admin, setAdmin] = useState(false)
+
   useEffect(() => {
     getLogo().then(r => setLogo(r.logo)).catch(() => {})
+    esAdmin().then(setAdmin)
   }, [])
 
   const onLogoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,6 +123,15 @@ export default function Sidebar() {
         <div className="px-1 pb-1 opacity-70">
           <GoberniaLogo variant="inverse" size={15} />
         </div>
+        {admin && (
+          <Link
+            href="/dashboard/admin"
+            onClick={() => setOpen(false)}
+            {...itemProps(isActive("/dashboard/admin", false), notch)}
+          >
+            <ShieldCheck className="h-[19px] w-[19px] shrink-0" /> Super admin
+          </Link>
+        )}
         <Link
           href="/dashboard/datos"
           onClick={() => setOpen(false)}
