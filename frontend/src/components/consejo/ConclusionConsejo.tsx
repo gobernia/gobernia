@@ -84,10 +84,10 @@ export default function ConclusionConsejo({
         <p className="text-[10px] font-medium tracking-[0.18em] uppercase text-[var(--gob-navy)]">
           La conclusión del Consejo
         </p>
-        <div className="mt-4 space-y-4 max-w-[64ch]">
+        <div className="mt-4 space-y-3 max-w-[72ch]">
           <Parrafos
             texto={conclusion.conclusion || "El Consejo no emitió conclusión en esta sesión."}
-            className="text-xl sm:text-2xl font-medium leading-[1.45] tracking-[-0.01em] text-[var(--gob-ink)]"
+            className="text-base sm:text-[17px] leading-relaxed text-[var(--gob-ink)]"
           />
         </div>
       </div>
