@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/cookies" },
   title: "Política de cookies — Gobernia",
   description: "Qué cookies usa Gobernia y para qué.",
 }
@@ -44,7 +45,7 @@ export default function CookiesPage() {
 
       <h2>4. Contacto</h2>
       <p>
-        Dudas sobre esta política: <strong>[privacidad@gobernia.mx]</strong>. Más detalle sobre el
+        Dudas sobre esta política: <strong>privacidad@gobernia.ai</strong>. Más detalle sobre el
         tratamiento de tus datos en el <a href="/legal/privacidad">Aviso de privacidad</a>.
       </p>
     </>

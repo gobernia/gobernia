@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/privacidad" },
   title: "Aviso de privacidad — Gobernia",
   description: "Cómo Gobernia recaba, usa y protege tus datos personales y la información de tu empresa.",
 }
@@ -74,7 +75,7 @@ export default function AvisoPrivacidadPage() {
         Puedes ejercer en cualquier momento tus derechos de <strong>Acceso, Rectificación,
         Cancelación u Oposición</strong> (ARCO), así como revocar tu consentimiento o limitar el
         uso o divulgación de tus datos, escribiendo a
-        <strong> [privacidad@gobernia.mx]</strong> con: (i) tu nombre y correo asociado a la cuenta,
+        <strong> privacidad@gobernia.ai</strong> con: (i) tu nombre y correo asociado a la cuenta,
         (ii) el derecho que deseas ejercer y (iii) una descripción clara de tu solicitud.
         Responderemos en los plazos que establece la LFPDPPP.
       </p>
@@ -103,7 +104,7 @@ export default function AvisoPrivacidadPage() {
       <h2>11. Contacto</h2>
       <p>
         Para cualquier duda sobre este aviso o el tratamiento de tus datos:
-        <strong> [privacidad@gobernia.mx]</strong>.
+        <strong> privacidad@gobernia.ai</strong>.
       </p>
     </>
   )

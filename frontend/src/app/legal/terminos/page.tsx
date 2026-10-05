@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/legal/terminos" },
   title: "Términos y condiciones — Gobernia",
   description: "Condiciones de uso de la plataforma Gobernia.",
 }
@@ -44,7 +45,7 @@ export default function TerminosPage() {
       <ul>
         <li>Debes proporcionar información veraz y mantener la confidencialidad de tus credenciales.</li>
         <li>Eres responsable de la actividad que ocurra en tu cuenta.</li>
-        <li>Notifícanos de inmediato cualquier uso no autorizado en <strong>[hola@gobernia.mx]</strong>.</li>
+        <li>Notifícanos de inmediato cualquier uso no autorizado en <strong>hola@gobernia.ai</strong>.</li>
       </ul>
 
       <h2>4. Uso aceptable</h2>
@@ -117,7 +118,7 @@ export default function TerminosPage() {
       </p>
 
       <h2>13. Contacto</h2>
-      <p>Dudas sobre estos términos: <strong>[hola@gobernia.mx]</strong>.</p>
+      <p>Dudas sobre estos términos: <strong>hola@gobernia.ai</strong>.</p>
     </>
   )
 }

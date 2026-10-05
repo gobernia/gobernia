@@ -3,6 +3,7 @@ import { Inter, Newsreader } from "next/font/google"
 import AuthSync from "@/components/AuthSync"
 import CookieBanner from "@/components/CookieBanner"
 import "./globals.css"
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/seo"
 
 // Sistema de 2 roles: Inter para interfaz y cuerpo (máxima legibilidad, incluso en
 // datos densos), Newsreader (serif) para los títulos (gravedad institucional).
@@ -10,31 +11,21 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-news", display: "swap" })
 
 export const metadata: Metadata = {
-  title: "GOBERNIA — La evolución del Consejo de Administración",
-  description:
-    "Cinco consejeros con IA sesionan sobre tu empresa cada mes: detectan riesgos y proponen decisiones accionables. Las mejores prácticas corporativas, por una fracción del costo — sin contratar consultores.",
-  keywords: [
-    "consejo de administración con IA",
-    "consejeros con IA para empresas",
-    "junta directiva virtual",
-    "consejeros corporativos",
-    "CFO IA",
-    "análisis estratégico mensual",
-    "Gobernia",
-  ],
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   openGraph: {
-    title: "GOBERNIA — La evolución del Consejo de Administración",
-    description:
-      "Cinco consejeros con IA analizan tu empresa cada mes, detectan riesgos y proponen decisiones. Sin consultores, sin esperas.",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     type: "website",
     locale: "es_MX",
-    siteName: "GOBERNIA",
+    siteName: SITE_NAME,
   },
   twitter: {
     card: "summary_large_image",
-    title: "GOBERNIA — Tu Consejo de administración con IA",
-    description:
-      "Cinco consejeros con IA sesionan sobre tu empresa cada mes.",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
 }
 

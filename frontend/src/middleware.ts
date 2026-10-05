@@ -4,8 +4,29 @@ import { NextResponse, type NextRequest } from "next/server"
 // /t = escritorio público del responsable (enlace mágico, sin login).
 const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/auth/callback", "/landing-2", "/v2", "/legal", "/c", "/t"]
 
+// Archivos para buscadores e IAs: deben responder siempre, sin pasar por el login.
+const SEO_FILES = ["/robots.txt", "/sitemap.xml", "/llms.txt", "/opengraph-image", "/twitter-image"]
+
+// Dominio de despliegue de Vercel: sus páginas PÚBLICAS se redirigen al dominio oficial para
+// que buscadores e IAs no vean contenido duplicado (la app privada sigue funcionando ahí).
+const HOST_DESPLIEGUE = "gobernia-liard.vercel.app"
+const DOMINIO_OFICIAL = "https://www.gobernia.ai"
+const PUBLICAS_SEO = ["/", "/sign-up", "/legal", "/v2", "/landing-2", ...SEO_FILES]
+
+const coincide = (lista: string[], pathname: string) =>
+  lista.some(p => pathname === p || pathname.startsWith(p + "/") || (p !== "/" && pathname.startsWith(p)))
+
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, search } = request.nextUrl
+
+  if (request.headers.get("host") === HOST_DESPLIEGUE && coincide(PUBLICAS_SEO, pathname)
+      && !pathname.startsWith("/sign-in")) {
+    return NextResponse.redirect(`${DOMINIO_OFICIAL}${pathname}${search}`, 308)
+  }
+
+  if (SEO_FILES.some(p => pathname === p || pathname.startsWith(p))) {
+    return NextResponse.next()
+  }
 
   if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next()
