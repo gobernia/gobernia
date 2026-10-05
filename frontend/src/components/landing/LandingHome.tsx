@@ -17,6 +17,7 @@ import { motion, useScroll, useTransform, useMotionValue, type MotionValue } fro
 import { ArrowRight, Lock, ShieldCheck, KeyRound, EyeOff, Play, Pause, Rewind, FastForward, Volume2, VolumeX } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 import { FAQS } from "./faqs"
+import { SITE_DEFINICION } from "@/lib/seo"
 
 // ── Easing ────────────────────────────────────────────────
 type CubicBezier = [number, number, number, number]
@@ -536,6 +537,10 @@ export default function LandingV2() {
                   <Heavy range={[0.4, 0.8]}>Sesión de Consejo.</Heavy>
                 </h2>
               </ScrollReveal>
+              {/* Definición citable: la frase con la que Google y las IAs describen a Gobernia. */}
+              <p className="mt-6 text-[16px] sm:text-[17px] leading-relaxed" style={{ color: INK2, maxWidth: "42em" }}>
+                {SITE_DEFINICION}
+              </p>
             </FadeUp>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">

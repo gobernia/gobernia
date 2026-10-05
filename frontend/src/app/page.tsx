@@ -51,7 +51,6 @@ const jsonLd = {
       operatingSystem: "Web",
       inLanguage: "es-MX",
       publisher: { "@id": `${SITE_URL}/#org` },
-      audience: { "@type": "BusinessAudience", audienceType: "Empresas familiares y PyMEs" },
       featureList: [
         "Cinco consejeros con IA: Finanzas, Estrategia, Riesgos, Auditoría e Independiente",
         "Secretario del Consejo con IA (Todd)",

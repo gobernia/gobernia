@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og"
 
 // Imagen al compartir el enlace (WhatsApp, LinkedIn, X, Slack…). 1200×630.
-export const alt = "Gobernia — Consejo de Administración con IA para empresas familiares y PyMEs"
+export const alt = "Gobernia — Consejo de Administración con Inteligencia Artificial"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
@@ -27,7 +27,7 @@ export default function Image() {
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 26, color: "rgba(255,255,255,0.6)" }}>
-          <span>Para empresas familiares y PyMEs</span>
+          <span>Gobierno corporativo con inteligencia artificial</span>
           <span>gobernia.ai</span>
         </div>
       </div>

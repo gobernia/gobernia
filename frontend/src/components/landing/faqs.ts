@@ -1,6 +1,9 @@
 // Preguntas frecuentes de la landing. Se usan en la página y en su FAQPage (JSON-LD):
 // un solo texto para lo que ve el visitante y lo que leen Google y las IAs.
 export const FAQS = [
+  { q: "¿Qué es un consejo de administración con IA?",          a: "Es un órgano de gobierno en el que consejeros de inteligencia artificial, especializados en finanzas, estrategia, riesgos y auditoría, analizan la empresa, deliberan y proponen acuerdos para el dueño. Gobernia lo pone al alcance de cualquier empresa que quiera decidir con el rigor de un consejo, tenga o no consejeros externos." },
+  { q: "¿En qué se diferencia de Diligent o BoardPro?",         a: "Esos son portales para administrar un consejo que ya existe: documentos, votaciones y actas. Gobernia es el consejo en sí: analiza tu empresa, delibera y da seguimiento a los acuerdos, en español, y funciona tanto si ya tienes consejo como si aún no." },
+  { q: "¿Qué hace Todd, el Secretario del Consejo?",            a: "Te acompaña desde el primer día: conduce el onboarding, conoce tu empresa, prepara el orden del día, custodia los documentos y responde tus dudas entre sesiones." },
   { q: "¿Gobernia reemplaza a mi Consejo de Administración?",  a: "No. Es un copiloto que complementa o prepara el camino hacia un Consejo humano. Te da el rigor analítico que normalmente solo tienen las grandes corporaciones, mientras decides cuándo incorporar consejeros externos." },
   { q: "¿Qué tan segura está mi información?",                 a: "Toda la información está cifrada en tránsito y en reposo. Infraestructura en AWS vía Supabase. Tus datos nunca se usan para entrenar modelos ni se comparten con terceros." },
   { q: "¿Necesito experiencia en Consejos de Administración?",       a: "Para nada. Gobernia está diseñado para directivos y dueños que quieren profesionalizar su toma de decisiones sin ser expertos. El onboarding es conversacional y guiado." },
