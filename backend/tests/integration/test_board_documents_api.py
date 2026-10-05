@@ -700,3 +700,21 @@ async def test_sesion_por_area_solo_analiza_ese_consejero():
     assert r.status_code == 200, r.text
     assert llamados == ["CFO"]
     assert set(r.json()["analyses"]) == {"CFO"}
+
+
+@pytest.mark.asyncio
+async def test_los_consejeros_analizan_en_paralelo():
+    """Cuatro consejeros que tardan 1 s cada uno deben terminar juntos (~1 s), no en fila (~4 s)."""
+    import time
+
+    def lento(**kw):
+        time.sleep(1)
+        return _ok(kw["agent"])
+
+    inicio = time.monotonic()
+    with patch("app.api.v1.board_sessions.router.run_deliberacion", return_value=None):
+        r = await _analyse([], lento, agents=("CFO", "CSO", "CRO", "Auditor"))
+    duracion = time.monotonic() - inicio
+    assert r.status_code == 200, r.text
+    assert set(r.json()["analyses"]) == {"CFO", "CSO", "CRO", "Auditor"}
+    assert duracion < 3, f"tardó {duracion:.1f}s: los consejeros no corrieron en paralelo"

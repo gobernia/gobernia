@@ -9,6 +9,7 @@ POST   /board-sessions/{id}/analyse          → trigger análisis de los 4 agen
 POST   /board-sessions/{id}/chat             → enviar mensaje a un agente
 GET    /board-sessions/{id}/chat             → historial del chat
 """
+import asyncio
 import base64
 import logging
 import secrets
@@ -834,13 +835,13 @@ async def run_analyses(
         )
         return revised, critique
 
-    # Ejecutar el pipeline por agente. Sin conexión a DB activa; las llamadas son sync pero
-    # el event loop sigue libre para otras requests.
+    # Los consejeros trabajan EN PARALELO (antes uno tras otro: la sesión tardaba ~4×).
+    # Sin conexión a DB activa; las llamadas son sync en hilos y el event loop sigue libre.
     # Un agente que revienta (PDF corrupto, cifrado, >100 páginas → BadRequestError de
     # Anthropic) NO puede tumbar la sesión entera ni tirar a la basura lo que los demás
     # consejeros ya produjeron: se aísla, se reintenta sin documentos y, si aún así falla,
     # cae a un placeholder que le dice al dueño qué revisar.
-    for agent in body.agents:
+    async def _agente(agent: str) -> tuple[str, dict, dict]:
         agent_types = AGENT_DOC_TYPES.get(agent, set())
         agent_docs, agent_note = select_for_agent(
             [d for d in ready_docs if d["document_type"] in agent_types],
@@ -848,9 +849,7 @@ async def run_analyses(
         )
         try:
             revised, critique = await _pipeline(agent, agent_docs, agent_note)
-            analyses[agent] = {**revised, "_challenger_applied": True}
-            critiques[agent] = critique
-            continue
+            return agent, {**revised, "_challenger_applied": True}, critique
         except Exception:
             _log.exception("pipeline del agente %s falló (con %d documentos)", agent, len(agent_docs))
 
@@ -859,18 +858,28 @@ async def run_analyses(
             # el consejero no haya podido leer los papeles.
             try:
                 revised, critique = await _pipeline(agent, [], _NOTA_SIN_DOCUMENTOS)
-                analyses[agent] = {
-                    **revised,
-                    "_challenger_applied": True,
-                    "_documentos_omitidos": True,
-                }
-                critiques[agent] = critique
-                continue
+                return agent, {**revised, "_challenger_applied": True, "_documentos_omitidos": True}, critique
             except Exception:
                 _log.exception("reintento sin documentos del agente %s también falló", agent)
 
-        analyses[agent] = failed_agent_analysis(agent, period_year, period_month)
-        critiques[agent] = {}
+        return agent, failed_agent_analysis(agent, period_year, period_month), {}
+
+    # Validación de la evidencia del periodo (el Auditor): no depende de los análisis, así que
+    # corre a la par. Si falla, la deliberación y los acuerdos se guardan IGUAL.
+    async def _validar() -> dict:
+        try:
+            return await _validar_evidencias_del_periodo(validacion_candidates, memory_buffer)
+        except Exception:
+            _log.exception("la validación de evidencias del periodo falló; la sesión continúa sin ella")
+            return {}
+
+    resultados_agentes, validaciones = await asyncio.gather(
+        asyncio.gather(*(_agente(a) for a in body.agents)),
+        _validar(),
+    )
+    for agent, analisis, critica in resultados_agentes:
+        analyses[agent] = analisis
+        critiques[agent] = critica
 
     # ── La deliberación: cuatro opiniones → UNA conclusión del Consejo ────────────
     # No es un resumen de resúmenes: es la postura del órgano, con sus acuerdos. Si la
@@ -893,14 +902,6 @@ async def run_analyses(
         )
     except Exception:
         _log.exception("la deliberación del Consejo falló; se conservan los análisis individuales")
-
-    # ── Validación de la evidencia del periodo (el Auditor del Consejo) ───────────
-    # Envuelta en try/except: si falla, la deliberación y los acuerdos se guardan IGUAL.
-    validaciones: dict = {}
-    try:
-        validaciones = await _validar_evidencias_del_periodo(validacion_candidates, memory_buffer)
-    except Exception:
-        _log.exception("la validación de evidencias del periodo falló; la sesión continúa sin ella")
 
     # Abrir una nueva sesión de DB para persistir los resultados
     from app.db.session import AsyncSessionLocal
