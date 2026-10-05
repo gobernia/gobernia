@@ -17,7 +17,7 @@ from typing import Callable
 import anthropic
 
 from app.core.config import settings
-from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.agents.base import _create_with_retry, sistema_con_cache
 from app.services.ai.prompt_loader import load_prompt
 
 # ── Herramienta: proponer adaptar una tarea que el dueño no puede cumplir ──────
@@ -327,7 +327,7 @@ def run_todd_secretario_turn(
     tools = [PROPONER_CAMBIO_TOOL] + ([LEER_DOCUMENTO_TOOL] if leer_documento else [])
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
-        system = build_system_prompt(contexto)
+        system = sistema_con_cache(build_system_prompt(contexto))
         conversacion = _to_anthropic_messages(mensajes)
         for ronda in range(_MAX_LECTURAS + 1):
             ultima = ronda == _MAX_LECTURAS
@@ -379,7 +379,7 @@ def stream_todd_secretario_turn(
 
     tools = [PROPONER_CAMBIO_TOOL] + ([LEER_DOCUMENTO_TOOL] if leer_documento else [])
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
-    system = build_system_prompt(contexto)
+    system = sistema_con_cache(build_system_prompt(contexto))
     conversacion = _to_anthropic_messages(mensajes)
     partes: list[str] = []
     accion = None

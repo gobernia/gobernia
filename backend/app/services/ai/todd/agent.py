@@ -9,7 +9,7 @@ import unicodedata
 import anthropic
 
 from app.core.config import settings
-from app.services.ai.agents.base import _create_with_retry, _extract_json_object
+from app.services.ai.agents.base import _create_with_retry, _extract_json_object, sistema_con_cache
 from app.services.ai.todd import areas
 
 # El modelo a veces marca las áreas con etiquetas libres ("Recursos Humanos", "Financiera",
@@ -90,16 +90,25 @@ RESPONSE_TOOL = {
 }
 
 
+def _estado_txt(state: dict | None) -> str:
+    if not state:
+        return ""
+    return (
+        "\n\nESTADO ACUMULADO ACTUAL (constrúyelo encima, NO lo pierdas; úsalo para saber qué ya "
+        "preguntaste y qué áreas faltan por cubrir):\n" + json.dumps(state, ensure_ascii=False)
+    )
+
+
 def build_system_prompt(state: dict | None = None) -> str:
     # El prompt fijo (identidad, datos esenciales, banco de referencia y reglas)
     # es editable en backend/prompts/todd_onboarding.md — revisión del cliente.
-    estado_txt = ""
-    if state:
-        estado_txt = (
-            "\n\nESTADO ACUMULADO ACTUAL (constrúyelo encima, NO lo pierdas; úsalo para saber qué ya "
-            "preguntaste y qué áreas faltan por cubrir):\n" + json.dumps(state, ensure_ascii=False)
-        )
-    return load_prompt("todd_onboarding") + estado_txt
+    return load_prompt("todd_onboarding") + _estado_txt(state)
+
+
+def build_system_blocks(state: dict | None = None, extra: str = "") -> list[dict]:
+    """Igual que build_system_prompt, pero con la parte fija en caché: el onboarding son decenas
+    de turnos seguidos y solo el estado cambia de uno a otro."""
+    return sistema_con_cache(load_prompt("todd_onboarding"), _estado_txt(state) + extra)
 
 
 def build_anthropic_messages(messages: list[dict]) -> list[dict]:
@@ -185,7 +194,7 @@ def run_todd_turn(messages: list[dict], state: dict | None = None) -> dict:
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = _create_with_retry(
         client, model=settings.AI_MODEL, max_tokens=4096,
-        system=build_system_prompt(state),
+        system=build_system_blocks(state),
         messages=build_anthropic_messages(messages),
         tools=[RESPONSE_TOOL],
         tool_choice={"type": "tool", "name": "responder_turno"},
@@ -217,7 +226,7 @@ def run_todd_edit(messages: list[dict], edited_question: str, new_answer: str,
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = _create_with_retry(
         client, model=settings.AI_MODEL, max_tokens=4096,
-        system=build_system_prompt(state) + _edit_note(edited_question, new_answer),
+        system=build_system_blocks(state, _edit_note(edited_question, new_answer)),
         messages=build_anthropic_messages(messages),
         tools=[RESPONSE_TOOL],
         tool_choice={"type": "tool", "name": "responder_turno"},

@@ -9,7 +9,7 @@ Lógica pura salvo `run_todd_responsable` (la llamada a la IA).
 import anthropic
 
 from app.core.config import settings
-from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.agents.base import _create_with_retry, sistema_con_cache
 
 _ESTADO_LABEL = {
     "pendiente": "pendiente",
@@ -112,7 +112,7 @@ def run_todd_responsable(
             client,
             model=settings.AI_MODEL,
             max_tokens=800,
-            system=build_system_prompt(nombre, empresa, tareas),
+            system=sistema_con_cache(build_system_prompt(nombre, empresa, tareas)),
             messages=_to_anthropic_messages(mensajes),
         )
         reply = _parse_reply(response)

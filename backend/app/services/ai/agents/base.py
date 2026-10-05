@@ -74,6 +74,17 @@ def _stream_with_retry(client: anthropic.Anthropic, **kwargs):
     assert last_exc is not None
     raise last_exc
 
+def sistema_con_cache(fijo: str, variable: str = "") -> list[dict]:
+    """Instrucciones de sistema con caché de Anthropic: la parte FIJA (que se repite mensaje a
+    mensaje en una conversación) se marca para reutilizarse y se cobra ~10% al releerla.
+    La parte variable (p. ej. el estado del onboarding) va después, fuera del caché.
+    Por debajo de ~1,024 tokens Anthropic simplemente no la guarda (sin costo extra)."""
+    bloques = [{"type": "text", "text": fijo, "cache_control": {"type": "ephemeral"}}]
+    if variable:
+        bloques.append({"type": "text", "text": variable})
+    return bloques
+
+
 VALID_AGENTS = {"CFO", "CSO", "CRO", "Auditor"}
 
 _MONTH_NAMES = [
@@ -757,7 +768,7 @@ def run_agent_chat(
     response = _create_with_retry(client,
         model=settings.AI_MODEL,
         max_tokens=800,
-        system=system_prompt,
+        system=sistema_con_cache(system_prompt),
         messages=messages,
     )
     return response.content[0].text
@@ -809,7 +820,7 @@ async def run_agent_chat_stream(
     async with client.messages.stream(
         model=settings.AI_MODEL,
         max_tokens=800,
-        system=system_prompt,
+        system=sistema_con_cache(system_prompt),
         messages=messages,
     ) as stream:
         async for text in stream.text_stream:
