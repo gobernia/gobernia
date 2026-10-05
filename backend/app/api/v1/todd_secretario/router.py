@@ -7,6 +7,7 @@ Reusa ChatMessage con el discriminador agent="todd_secretario" (sin columnas nue
 La accion "proponer_cambio" se resuelve aquí llamando a `adapt_task`; el "Reemplazar" lo
 hace el frontend con el PATCH /tasks/{id} que ya existe (por eso devolvemos title/description).
 """
+import logging
 import uuid
 
 import anyio
@@ -34,6 +35,7 @@ from app.api.v1.action_plans.router import (
 )
 
 router = APIRouter()
+_log = logging.getLogger(__name__)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -140,6 +142,92 @@ async def enviar_mensaje(
         await db.commit()
 
     return ToddSecretarioOut(reply=reply, accion=accion_out)
+
+
+# ── POST /todd-secretario/mensajes/stream ─────────────────────────────────────
+# Igual que POST /mensajes, pero la respuesta de Todd va apareciendo mientras se escribe.
+# Respuesta NDJSON (una línea JSON por evento):
+#   {"t":"texto","d":"…"}  ·  {"t":"leyendo","doc":"acta.pdf"}  ·  {"t":"fin","accion":{…}|null}
+#   {"t":"error"} si la IA falla a mitad del turno.
+
+@router.post("/todd-secretario/mensajes/stream")
+async def enviar_mensaje_stream(
+    body: ToddSecretarioIn,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    import asyncio
+    import json as _json
+
+    from fastapi.responses import StreamingResponse
+
+    from app.db.session import AsyncSessionLocal
+    from app.services.ai.todd_secretario import stream_todd_secretario_turn
+
+    anchor_id = await get_anchor_board_session_id(user_id, db)
+    contexto = await build_contexto(user_id, db)
+    history_rows = (await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.user_id == user_id, ChatMessage.agent == TODD_SECRETARIO_AGENT)
+        .order_by(ChatMessage.created_at)
+    )).scalars().all()
+    mensajes = [{"role": m.role, "content": m.content} for m in history_rows]
+    mensajes.append({"role": "user", "content": body.content})
+
+    abrir = contexto.pop("_documentos_abrir", {})
+
+    def leer_documento(ref: str) -> list[dict]:
+        doc = abrir.get(ref)
+        if doc is None:
+            return [{"type": "text", "text": f"No existe un documento con la referencia «{ref}»."}]
+        return bloques_de_documento(doc["filename"], download_from_storage(doc["s3_key"]))
+
+    def nombre_documento(ref: str) -> str:
+        return (abrir.get(ref) or {}).get("filename") or "un documento"
+
+    async def eventos():
+        loop = asyncio.get_running_loop()
+        cola: asyncio.Queue = asyncio.Queue()
+
+        def emit(ev: dict) -> None:  # se llama desde el hilo del turno
+            loop.call_soon_threadsafe(cola.put_nowait, ev)
+
+        tarea = asyncio.ensure_future(asyncio.to_thread(
+            stream_todd_secretario_turn, mensajes, contexto, emit, leer_documento, nombre_documento))
+        tarea.add_done_callback(lambda _: cola.put_nowait(None))
+
+        while (ev := await cola.get()) is not None:
+            yield _json.dumps(ev, ensure_ascii=False) + "\n"
+
+        try:
+            turn = tarea.result()
+        except Exception:
+            _log.exception("el turno de Todd (streaming) falló")
+            yield _json.dumps({"t": "error"}) + "\n"
+            return
+
+        reply = turn.get("reply") or ""
+        accion = turn.get("accion")
+        async with AsyncSessionLocal() as sdb:
+            accion_out: dict | None = None
+            if accion and accion.get("tipo") == "proponer_cambio":
+                try:
+                    accion_out = await _resolver_propuesta(accion, user_id, sdb)
+                except Exception:
+                    _log.exception("no se pudo preparar la propuesta de cambio de Todd")
+            if anchor_id is not None:
+                sdb.add(ChatMessage(board_session_id=anchor_id, user_id=user_id, role="user",
+                                    agent=TODD_SECRETARIO_AGENT, content=body.content))
+                sdb.add(ChatMessage(board_session_id=anchor_id, user_id=user_id, role="assistant",
+                                    agent=TODD_SECRETARIO_AGENT, content=reply,
+                                    message_metadata={"accion": accion_out} if accion_out else None))
+                await sdb.commit()
+        yield _json.dumps({"t": "fin", "accion": accion_out}, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(
+        eventos(), media_type="application/x-ndjson",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 async def _resolver_propuesta(accion: dict, user_id: str, db: AsyncSession) -> dict | None:

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, FormEvent } from "react"
 import { Loader2, Send, Check, X, RefreshCw } from "lucide-react"
 import {
   ToddMensaje, ToddAccionCambio,
-  getMensajesTodd, enviarMensajeTodd,
+  getMensajesTodd, streamMensajeTodd,
 } from "@/lib/toddSecretario"
 import { updateTask } from "@/lib/annualPlan"
 
@@ -30,6 +30,31 @@ function ToddAvatar() {
 }
 
 // ── Una burbuja de mensaje ──
+/** Formato mínimo del chat: **negritas**, viñetas con guion y títulos # como texto en negrita.
+ *  Construye nodos de React (nunca HTML crudo), así que es seguro con cualquier texto. */
+function TextoTodd({ texto }: { texto: string }) {
+  const enLinea = (t: string) =>
+    t.split(/(\*\*[^*]+\*\*)/g).map((parte, i) =>
+      parte.startsWith("**") && parte.endsWith("**") && parte.length > 4
+        ? <strong key={i} className="font-semibold">{parte.slice(2, -2)}</strong>
+        : parte)
+  return (
+    <>
+      {texto.split("\n").map((linea, i) => {
+        const l = linea.trimEnd()
+        const vineta = /^\s*[-•*]\s+/.exec(l)
+        if (vineta) return (
+          <span key={i} className="flex gap-1.5 pl-1"><span aria-hidden>•</span><span>{enLinea(l.slice(vineta[0].length))}</span></span>
+        )
+        const titulo = /^\s*#{1,6}\s+/.exec(l)
+        if (titulo) return <strong key={i} className="block font-semibold">{enLinea(l.slice(titulo[0].length))}</strong>
+        if (/^\s*-{3,}\s*$/.test(l)) return null
+        return <span key={i} className="block min-h-[0.6em]">{enLinea(l)}</span>
+      })}
+    </>
+  )
+}
+
 function Burbuja({ mensaje }: { mensaje: ToddMensaje }) {
   const esUsuario = mensaje.role === "user"
   if (esUsuario) {
@@ -44,8 +69,8 @@ function Burbuja({ mensaje }: { mensaje: ToddMensaje }) {
   return (
     <div className="flex items-start gap-2">
       <ToddAvatar />
-      <div className="max-w-[85%] rounded-2xl rounded-tl-md bg-[var(--gob-paper)] border border-[var(--gob-rule)] text-[var(--gob-ink)] px-3.5 py-2.5 text-sm leading-snug whitespace-pre-wrap">
-        {mensaje.content}
+      <div className="max-w-[85%] rounded-2xl rounded-tl-md bg-[var(--gob-paper)] border border-[var(--gob-rule)] text-[var(--gob-ink)] px-3.5 py-2.5 text-sm leading-snug">
+        <TextoTodd texto={mensaje.content} />
       </div>
     </div>
   )
@@ -116,6 +141,8 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
   const [texto, setTexto] = useState("")
   const [escribiendo, setEscribiendo] = useState(false)
   const [propuesta, setPropuesta] = useState<ToddAccionCambio | null>(null)
+  // Documento que Todd está leyendo en este momento (para el aviso "leyendo…").
+  const [leyendo, setLeyendo] = useState<string | null>(null)
 
   const aliveRef = useRef(true)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -154,20 +181,40 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
     setEscribiendo(true)
     setPropuesta(null)
 
+    // La respuesta de Todd aparece mientras la escribe: se agrega una burbuja vacía y se
+    // le va sumando texto. El aviso "escribiendo…" desaparece con el primer fragmento.
+    let burbuja = false
+    const sumar = (d: string) => {
+      if (!burbuja) {
+        burbuja = true
+        const creada = new Date().toISOString()
+        setMensajes(prev => [...prev, { role: "assistant", content: d, created_at: creada }])
+        return
+      }
+      setMensajes(prev => {
+        const copia = [...prev]
+        const ult = copia[copia.length - 1]
+        copia[copia.length - 1] = { ...ult, content: ult.content + d }
+        return copia
+      })
+    }
+
     try {
-      const r = await enviarMensajeTodd(content)
-      if (!aliveRef.current) return
-      setMensajes(prev => [...prev, { role: "assistant", content: r.reply, created_at: new Date().toISOString() }])
-      if (r.accion && r.accion.tipo === "proponer_cambio") setPropuesta(r.accion)
+      let fallo = false
+      await streamMensajeTodd(content, ev => {
+        if (!aliveRef.current) return
+        if (ev.t === "texto") { setLeyendo(null); setEscribiendo(false); sumar(ev.d) }
+        else if (ev.t === "leyendo") setLeyendo(ev.doc)
+        else if (ev.t === "fin") {
+          if (ev.accion && ev.accion.tipo === "proponer_cambio") setPropuesta(ev.accion)
+        } else if (ev.t === "error") fallo = true
+      })
+      if (fallo) throw new Error("turno")
     } catch {
       if (!aliveRef.current) return
-      setMensajes(prev => [...prev, {
-        role: "assistant",
-        content: "No pude responder en este momento. Intenta de nuevo en un momento.",
-        created_at: new Date().toISOString(),
-      }])
+      sumar((burbuja ? "\n\n" : "") + "No pude terminar de responder. Intenta de nuevo en un momento.")
     } finally {
-      if (aliveRef.current) setEscribiendo(false)
+      if (aliveRef.current) { setEscribiendo(false); setLeyendo(null) }
     }
   }
 
@@ -216,10 +263,10 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
                 }}
               />
             )}
-            {escribiendo && (
+            {(escribiendo || leyendo) && (
               <div className="flex items-center gap-2 pl-9 text-xs text-[var(--gob-muted)]">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Todd está escribiendo…
+                {leyendo ? `Todd está leyendo «${leyendo}»…` : "Todd está escribiendo…"}
               </div>
             )}
           </>

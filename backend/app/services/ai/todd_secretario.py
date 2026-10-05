@@ -229,7 +229,10 @@ def build_system_prompt(contexto: dict) -> str:
         "4. Como Secretario custodias los DOCUMENTOS de la empresa (lista abajo). Si te preguntan "
         "qué se ha subido, de quién o si algo tiene sustento, responde con la lista. Si te preguntan "
         "por lo que DICE un documento, ábrelo con `leer_documento` antes de responder; nunca "
-        "supongas su contenido. Cita el nombre del documento en tu respuesta.\n\n"
+        "supongas su contenido. Cita el nombre del documento en tu respuesta.\n"
+        "5. FORMATO DE CHAT: escribe como en una conversación, en párrafos cortos. Puedes usar "
+        "**negritas** y listas con guion (-). NO uses tablas, títulos con #, separadores (---) "
+        "ni emojis decorativos: la ventana de Todd es angosta y los muestra como texto.\n\n"
         "───────────────────────── CONTEXTO ACTUAL ─────────────────────────\n"
         + _render_tablero(contexto.get("tablero"))
         + "\n\n"
@@ -351,3 +354,95 @@ def run_todd_secretario_turn(
         return _parse_response(response)
     except Exception:
         return {"reply": _fallback_reply(contexto), "accion": None}
+
+
+def stream_todd_secretario_turn(
+    mensajes: list[dict],
+    contexto: dict,
+    emit: Callable[[dict], None],
+    leer_documento: Callable[[str], list[dict]] | None = None,
+    nombre_documento: Callable[[str], str] | None = None,
+) -> dict:
+    """Igual que run_todd_secretario_turn, pero va emitiendo eventos mientras Todd escribe:
+      {"t": "texto", "d": "<fragmento>"}   texto de Todd según se genera
+      {"t": "leyendo", "doc": "<nombre>"}  Todd abrió un documento para leerlo
+    Devuelve {"reply", "accion"} igual que la versión sin streaming (para persistir).
+    Corre en un hilo: `emit` debe ser thread-safe.
+    """
+    if not settings.ANTHROPIC_API_KEY:
+        reply = _fallback_reply(contexto)
+        emit({"t": "texto", "d": reply})
+        return {"reply": reply, "accion": None}
+
+    from app.services.ai.agents.base import _RETRY_DELAYS, _RETRYABLE
+    import time
+
+    tools = [PROPONER_CAMBIO_TOOL] + ([LEER_DOCUMENTO_TOOL] if leer_documento else [])
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
+    system = build_system_prompt(contexto)
+    conversacion = _to_anthropic_messages(mensajes)
+    partes: list[str] = []
+    accion = None
+
+    def _ronda(herramientas: list[dict]):
+        """Una llamada en streaming. Reintenta solo si falla antes de emitir texto."""
+        last_exc: Exception | None = None
+        for intento, delay in enumerate(_RETRY_DELAYS):
+            if delay > 0:
+                time.sleep(delay)
+            emitido = False
+            try:
+                with client.messages.stream(
+                    model=settings.AI_MODEL, max_tokens=1500, system=system,
+                    messages=conversacion, tools=herramientas,
+                ) as st:
+                    texto = ""
+                    for fragmento in st.text_stream:
+                        emitido = True
+                        texto += fragmento
+                        emit({"t": "texto", "d": fragmento})
+                    return st.get_final_message(), texto
+            except _RETRYABLE as e:
+                if emitido:
+                    raise
+                last_exc = e
+        assert last_exc is not None
+        raise last_exc
+
+    for ronda in range(_MAX_LECTURAS + 1):
+        ultima = ronda == _MAX_LECTURAS
+        respuesta, texto = _ronda([PROPONER_CAMBIO_TOOL] if ultima else tools)
+        if texto.strip():
+            partes.append(texto.strip())
+        lecturas = []
+        for b in respuesta.content:
+            if getattr(b, "type", None) != "tool_use":
+                continue
+            if b.name == LEER_DOCUMENTO_TOOL["name"] and not ultima:
+                lecturas.append(b)
+            elif b.name == PROPONER_CAMBIO_TOOL["name"]:
+                data = dict(b.input) if isinstance(b.input, dict) else {}
+                task_id = str(data.get("task_id") or "").strip()
+                if task_id:
+                    accion = {"tipo": "proponer_cambio", "task_id": task_id,
+                              "motivo": str(data.get("motivo") or "").strip()}
+                    tool_reply = str(data.get("reply") or "").strip()
+                    if tool_reply:
+                        emit({"t": "texto", "d": ("\n\n" if partes else "") + tool_reply})
+                        partes.append(tool_reply)
+        if not lecturas or not leer_documento:
+            break
+        conversacion.append({"role": "assistant", "content": [b.model_dump() for b in respuesta.content]})
+        resultados = []
+        for b in lecturas:
+            ref = str((b.input or {}).get("ref") or "").strip()
+            emit({"t": "leyendo", "doc": nombre_documento(ref) if nombre_documento else ref})
+            resultados.append({"type": "tool_result", "tool_use_id": b.id, "content": leer_documento(ref)})
+        conversacion.append({"role": "user", "content": resultados})
+        if partes:
+            emit({"t": "texto", "d": "\n\n"})
+
+    reply = "\n\n".join(partes).strip() or (
+        "Déjame proponerte una alternativa para esa tarea." if accion
+        else "Estoy aquí para ayudarte con el tablero. ¿Qué necesitas?")
+    return {"reply": reply, "accion": accion}
