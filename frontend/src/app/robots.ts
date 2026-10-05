@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/seo"
 
 // Las áreas privadas (dashboard, onboarding y enlaces por token) no se rastrean. Los
 // buscadores y las IAs (GPTBot, ClaudeBot, PerplexityBot…) sí pueden leer lo público.
-const PRIVADO = ["/dashboard", "/onboarding", "/auth", "/c/", "/t/", "/p/", "/v2", "/landing-2"]
+const PRIVADO = ["/dashboard", "/onboarding", "/auth", "/c/", "/t/", "/p/"]
 
 export default function robots(): MetadataRoute.Robots {
   return {
