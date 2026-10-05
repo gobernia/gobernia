@@ -7,6 +7,7 @@ igual que document_tasks. Crea su propia sesión de DB.
 import asyncio
 import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 from celery.exceptions import SoftTimeLimitExceeded
 
@@ -44,9 +45,8 @@ def run_diagnostico(memory_buffer: dict) -> tuple[dict, dict]:
 
     today = date.today()
     kpi_snapshot = memory_buffer.get("kpis")
-    analyses: dict[str, dict] = {}
-    critiques: dict[str, dict] = {}
-    for agent in ("CFO", "CSO", "CRO", "Auditor"):
+
+    def _consejero(agent: str) -> tuple[dict, dict]:
         initial = run_agent_analysis(
             agent, memory_buffer, kpi_snapshot=kpi_snapshot,
             period_year=today.year, period_month=today.month,
@@ -58,6 +58,16 @@ def run_diagnostico(memory_buffer: dict) -> tuple[dict, dict]:
             agent, initial, critique, memory_buffer, kpi_snapshot,
             today.year, today.month,
         )
+        return revised, critique
+
+    # Los 4 consejeros trabajan EN PARALELO (antes en fila: 12 llamadas seguidas). Mismas
+    # instrucciones y modelos; solo cambia que no se esperan entre sí.
+    agentes = ("CFO", "CSO", "CRO", "Auditor")
+    with ThreadPoolExecutor(max_workers=len(agentes)) as ex:
+        resultados = list(ex.map(_consejero, agentes))
+    analyses: dict[str, dict] = {}
+    critiques: dict[str, dict] = {}
+    for agent, (revised, critique) in zip(agentes, resultados):
         analyses[agent] = revised
         critiques[agent] = critique
     return analyses, critiques
@@ -130,6 +140,7 @@ async def _run_generation(annual_plan_id: str, db) -> None:
     if plan is None:
         return
 
+    roadmap_task: asyncio.Task | None = None
     try:
         # Cargar el onboarding más reciente del usuario (memory_buffer).
         onb_res = await db.execute(
@@ -195,6 +206,12 @@ async def _run_generation(annual_plan_id: str, db) -> None:
             await db.flush()
             plan.genesis_session_id = genesis.id
 
+        # El Roadmap solo depende del diagnóstico y de la postura del Consejo: se genera A LA PAR
+        # de los hitos y la agenda (antes esperaba a que terminaran). No bloquea si falla.
+        from app.services.ai.roadmap import generate_roadmap
+        roadmap_task = asyncio.create_task(
+            asyncio.to_thread(generate_roadmap, memory_buffer, dcont, postura_consejo))
+
         # Paso 2: hitos del horizonte
         horizon = plan.horizon_years or 3
         total_months = horizon * 12
@@ -256,11 +273,9 @@ async def _run_generation(annual_plan_id: str, db) -> None:
                             decision_expected=tspec.get("decision_expected"),
                             order_index=ti, status="pendiente"))
 
-        # Paso 5: el Roadmap NACE de la postura del Consejo (no bloquea el plan si falla).
-        from app.services.ai.roadmap import generate_roadmap
+        # Paso 5: el Roadmap NACE de la postura del Consejo (arrancó en paralelo; aquí se recoge).
         try:
-            plan.roadmap = await asyncio.to_thread(
-                generate_roadmap, memory_buffer, dcont, postura_consejo)
+            plan.roadmap = await roadmap_task
         except Exception:
             plan.roadmap = None
 
@@ -279,6 +294,9 @@ async def _run_generation(annual_plan_id: str, db) -> None:
         plan.status = "active"
         await db.commit()
     except Exception:
+        # Si la estrategia seguía generándose en paralelo, ya no se espera (el plan falló).
+        if roadmap_task is not None:
+            roadmap_task.cancel()
         await db.rollback()
         plan = await db.get(AnnualPlan, uuid.UUID(annual_plan_id))
         if plan is not None:
