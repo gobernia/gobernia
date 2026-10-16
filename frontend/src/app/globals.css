@@ -267,3 +267,33 @@
 .animate-fade-up {
   animation: fade-up 0.45s cubic-bezier(0.22,1,0.36,1) both;
 }
+/* ── Texto de los artículos del blog ─────────────────────────
+   El cuerpo viene de Markdown (lib/blog.ts). Misma tipografía sans del resto del sitio
+   bento; medida de lectura ~70 caracteres. */
+.articulo { color: #39435A; font-size: 17.5px; line-height: 1.75; }
+.articulo > * + * { margin-top: 1.15em; }
+.articulo h2, .articulo h3, .articulo h4 {
+  font-family: var(--font-sans); color: #152742; font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.25; scroll-margin-top: 96px;
+}
+.articulo h2 { font-size: 27px; margin-top: 2.1em; }
+.articulo h3 { font-size: 21px; margin-top: 1.8em; }
+.articulo h4 { font-size: 18px; margin-top: 1.5em; }
+.articulo h2 + *, .articulo h3 + *, .articulo h4 + * { margin-top: 0.6em; }
+.articulo strong { color: #0E1626; font-weight: 650; }
+.articulo a { color: #C2410C; text-decoration: underline; text-underline-offset: 3px; }
+.articulo ul, .articulo ol { padding-left: 1.4em; }
+.articulo ul { list-style: disc; }
+.articulo ol { list-style: decimal; }
+.articulo li + li { margin-top: 0.4em; }
+.articulo li::marker { color: #C2410C; }
+.articulo blockquote {
+  border-left: 3px solid #C2410C; padding: 0.2em 0 0.2em 1.2em;
+  color: #152742; font-size: 20px; line-height: 1.5; font-weight: 500;
+}
+.articulo hr { border: 0; border-top: 1px solid #E2E2DC; margin: 2.4em 0; }
+.articulo .tabla { overflow-x: auto; border: 1px solid #E2E2DC; border-radius: 16px; background: #FFFFFF; }
+.articulo table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.5; }
+.articulo th, .articulo td { padding: 10px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid #E2E2DC; }
+.articulo th { background: #E8E3D8; color: #0E1626; font-weight: 650; }
+.articulo tr:last-child td { border-bottom: 0; }

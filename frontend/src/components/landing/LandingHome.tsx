@@ -398,6 +398,7 @@ export default function LandingV2() {
               <a href="#producto"      className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">Producto</a>
               <a href="#como-funciona" className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">Cómo funciona</a>
               <a href="#faq"           className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">FAQ</a>
+              <Link href="/blog"       className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">Blog</Link>
               <Link href="/sign-in"    className="px-3.5 py-1.5 rounded-full transition-colors hover:text-[#152742]">Iniciar sesión</Link>
             </nav>
 
@@ -925,6 +926,7 @@ export default function LandingV2() {
                   <li><a href="#producto"      className="transition-colors hover:text-[#152742]">Consejeros</a></li>
                   <li><a href="#como-funciona" className="transition-colors hover:text-[#152742]">Cómo funciona</a></li>
                   <li><a href="#faq"           className="transition-colors hover:text-[#152742]">FAQ</a></li>
+                  <li><Link href="/blog"       className="transition-colors hover:text-[#152742]">Blog</Link></li>
                 </ul>
               </div>
 

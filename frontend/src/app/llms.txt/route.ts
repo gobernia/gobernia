@@ -1,4 +1,11 @@
-# Gobernia — Consejo de Administración con IA
+import { categoriasConArticulos, getArticulos } from "@/lib/blog"
+import { SITE_URL } from "@/lib/seo"
+
+// llms.txt (https://llmstxt.org): resumen del sitio para las IAs. Se genera al compilar para
+// que cada artículo nuevo del blog aparezca solo, agrupado por categoría.
+export const dynamic = "force-static"
+
+const CABEZA = `# Gobernia — Consejo de Administración con IA
 
 > Gobernia es un Consejo de Administración con inteligencia artificial para empresas en México y Latinoamérica. Cinco consejeros con IA (Finanzas, Estrategia, Riesgos, Auditoría e Independiente) y un Secretario del Consejo, Todd, analizan la empresa, preparan el orden del día de cada sesión y convierten las conclusiones en acuerdos con responsable y fecha. No está relacionada con plataformas de gestión gubernamental de nombre similar.
 
@@ -16,9 +23,25 @@
 
 ## Para quién
 - Dueños y directivos que quieren decidir con el rigor de un consejo de administración.
-- Empresas que ya tienen consejo y quieren prepararlo y darle seguimiento, o que aún no lo tienen y quieren empezar.
+- Empresas que ya tienen consejo y quieren prepararlo y darle seguimiento, o que aún no lo tienen y quieren empezar.`
 
-## Legal
+const LEGAL = `## Legal
 - [Aviso de privacidad](https://www.gobernia.ai/legal/privacidad)
 - [Términos y condiciones](https://www.gobernia.ai/legal/terminos)
-- [Política de cookies](https://www.gobernia.ai/legal/cookies)
+- [Política de cookies](https://www.gobernia.ai/legal/cookies)`
+
+export function GET() {
+  const articulos = getArticulos()
+  const blog = categoriasConArticulos().map(c => [
+    `### ${c.nombre}`,
+    ...articulos.filter(a => a.categoria === c.nombre)
+      .map(a => `- [${a.titulo}](${SITE_URL}/blog/${a.slug}): ${a.respuestaCorta || a.descripcion}`),
+  ].join("\n"))
+  const texto = [
+    CABEZA,
+    `## Blog\nArtículos de Fernando Todd (TODD Empresas de Familia) sobre gobierno corporativo, Consejo de Administración, sucesión y familia empresaria.\n- [Todos los artículos](${SITE_URL}/blog)`,
+    ...blog,
+    LEGAL,
+  ].join("\n\n") + "\n"
+  return new Response(texto, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
+}
