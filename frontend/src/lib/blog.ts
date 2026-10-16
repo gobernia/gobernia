@@ -180,6 +180,19 @@ export function categoriasConArticulos(): { nombre: Categoria; slug: string; tot
 export const categoriaPorSlug = (slug: string) =>
   categoriasConArticulos().find(c => c.slug === slug)
 
+/** Selección para el carrusel de la home: se alterna entre categorías para mostrar variedad. */
+export function destacadosHome(n = 10): ArticuloResumen[] {
+  const porCategoria = categoriasConArticulos()
+    .map(c => getArticulos().filter(a => a.categoria === c.nombre))
+  const elegidos: Articulo[] = []
+  for (let ronda = 0; elegidos.length < n && porCategoria.some(l => l[ronda]); ronda++) {
+    for (const lista of porCategoria) {
+      if (lista[ronda] && elegidos.length < n) elegidos.push(lista[ronda])
+    }
+  }
+  return elegidos.map(resumen)
+}
+
 /** Hasta 3 artículos relacionados: misma categoría y luego etiquetas en común. */
 export function relacionados(a: Articulo, n = 3): ArticuloResumen[] {
   const puntaje = (b: Articulo) =>

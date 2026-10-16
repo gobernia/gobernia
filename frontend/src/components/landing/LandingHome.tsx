@@ -16,6 +16,7 @@ import Image from "next/image"
 import { motion, useScroll, useTransform, useMotionValue, type MotionValue } from "framer-motion"
 import { ArrowRight, Lock, ShieldCheck, KeyRound, EyeOff, Play, Pause, Rewind, FastForward, Volume2, VolumeX } from "lucide-react"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
+import CarruselBlog, { type ArticuloCarrusel } from "./CarruselBlog"
 import { FAQS } from "./faqs"
 import { SITE_DEFINICION } from "@/lib/seo"
 
@@ -371,7 +372,7 @@ function useAutoHideHeader(threshold = 80) {
 }
 
 // ── Page ──────────────────────────────────────────────────
-export default function LandingV2() {
+export default function LandingV2({ articulos = [] }: { articulos?: ArticuloCarrusel[] }) {
   const hora = useHora()
   const headerHidden = useAutoHideHeader()
 
@@ -827,8 +828,32 @@ export default function LandingV2() {
           </div>
         </section>
 
-        {/* ── Divider ──────────────────────────────────────── */}
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)]"><div className="h-px" style={{ background: LINE }} /></div>
+        {/* ── Blog: carrusel de artículos ──────────────────── */}
+        {articulos.length > 0 && (
+          <section id="blog" className="py-16 sm:py-24 3xl:py-32 px-[var(--px-fluid)] overflow-x-clip" style={{ background: SAND }}>
+            <FadeUp className="w-full max-w-[var(--container-fluid)] mx-auto">
+              <CarruselBlog
+                articulos={articulos}
+                encabezado={
+                  <>
+                    <Eyebrow className="mb-4">Blog</Eyebrow>
+                    <ScrollReveal>
+                      <h2
+                        style={{ ...SANS, color: BNAVY, fontWeight: 300, fontSize: "clamp(27px, 3.8vw, 92px)", lineHeight: 1.02, letterSpacing: "-0.03em", maxWidth: "13em" }}
+                      >
+                        <span style={{ opacity: 0.4 }}>Ideas para </span>
+                        <Heavy range={[0.15, 0.55]}>gobernar mejor.</Heavy>
+                      </h2>
+                    </ScrollReveal>
+                    <p className="mt-5 text-[16px] leading-relaxed max-w-xl" style={{ color: INK2 }}>
+                      Artículos de Fernando Todd sobre gobierno corporativo, Consejo de Administración, sucesión y familia empresaria.
+                    </p>
+                  </>
+                }
+              />
+            </FadeUp>
+          </section>
+        )}
 
         {/* ── CTA ──────────────────────────────────────────── */}
         <section className="py-20 sm:py-28 3xl:py-36 px-[var(--px-fluid)]">

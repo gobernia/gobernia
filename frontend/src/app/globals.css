@@ -297,3 +297,16 @@
 .articulo th, .articulo td { padding: 10px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid #E2E2DC; }
 .articulo th { background: #E8E3D8; color: #0E1626; font-weight: 650; }
 .articulo tr:last-child td { border-bottom: 0; }
+
+/* Carruseles: se desliza con el dedo o el trackpad, sin barra de desplazamiento visible. */
+.sin-barra { scrollbar-width: none; }
+.sin-barra::-webkit-scrollbar { display: none; }
+/* Pista que llega al borde de la pantalla: --g es el margen lateral de la página
+   (el mayor entre --px-fluid y lo que deja libre --container-fluid), así la primera
+   tarjeta queda alineada con el texto y las demás se asoman hasta el borde. */
+.carrusel-sangre {
+  --g: max(var(--px-fluid), 3vw, calc((100vw - 2600px) / 2));
+  margin-inline: calc(-1 * var(--g));
+  padding-inline: var(--g);
+  scroll-padding-inline: var(--g);
+}

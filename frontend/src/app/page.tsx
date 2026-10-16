@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import LandingHome from "@/components/landing/LandingHome"
 import { FAQS } from "@/components/landing/faqs"
+import { destacadosHome } from "@/lib/blog"
 import { SAME_AS, SITE_DEFINICION, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/seo"
 
 export const metadata: Metadata = {
@@ -79,7 +80,10 @@ export default function Home() {
         // JSON de contenido propio (sin datos del usuario): seguro de incrustar.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
-      <LandingHome />
+      <LandingHome articulos={destacadosHome().map(a => ({
+        slug: a.slug, titulo: a.titulo, descripcion: a.descripcion,
+        categoria: a.categoria, autor: a.autor.nombre, minutos: a.minutos,
+      }))} />
     </>
   )
 }
