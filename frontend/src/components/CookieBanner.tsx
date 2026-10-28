@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { CLAVE_CONSENTIMIENTO as STORAGE_KEY } from "@/components/GoogleAnalytics"
 
-const STORAGE_KEY = "gobernia-cookie-consent"
+declare global {
+  interface Window { gtag?: (...args: unknown[]) => void }
+}
 
 /**
  * Banner discreto de aceptación de cookies — slide up desde abajo en el primer load.
@@ -26,6 +29,8 @@ export default function CookieBanner() {
     try {
       localStorage.setItem(STORAGE_KEY, value)
     } catch {}
+    // Google Analytics solo guarda cookies de analítica si el visitante acepta.
+    window.gtag?.("consent", "update", { analytics_storage: value === "accepted" ? "granted" : "denied" })
     setShow(false)
   }
 

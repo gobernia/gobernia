@@ -11,11 +11,12 @@ export default function CookiesPage() {
   return (
     <>
       <h1>Política de cookies</h1>
-      <p><strong>Última actualización:</strong> 6 de agosto de 2026</p>
+      <p><strong>Última actualización:</strong> 27 de octubre de 2026</p>
 
       <p>
         Una cookie es un pequeño archivo que se guarda en tu navegador cuando visitas un sitio.
-        Gobernia utiliza únicamente las cookies necesarias para que la plataforma funcione.
+        Gobernia utiliza las cookies necesarias para que la plataforma funcione y, solo si lo
+        aceptas, cookies de analítica para entender cómo se usa el sitio.
       </p>
 
       <h2>1. Cookies que usamos</h2>
@@ -26,15 +27,23 @@ export default function CookiesPage() {
           usas. Sin ellas el servicio no puede funcionar, por lo que no requieren consentimiento y
           no pueden desactivarse desde la plataforma.
         </li>
+        <li>
+          <strong>Cookies de analítica (Google Analytics):</strong> nos ayudan a saber cuántas
+          personas visitan el sitio, qué páginas leen y desde dónde llegan, para mejorarlo. Solo se
+          guardan si eliges <strong>Aceptar</strong> en el aviso de cookies; si eliges{" "}
+          <strong>Rechazar</strong>, Google Analytics solo registra visitas sin cookies y sin
+          identificarte.
+        </li>
       </ul>
       <p>
-        Actualmente <strong>no utilizamos cookies de publicidad ni de rastreo de terceros</strong>.
-        Si esto cambia, actualizaremos esta política y te lo informaremos antes de activarlas.
+        <strong>No utilizamos cookies de publicidad.</strong> Si esto cambia, actualizaremos esta
+        política y te lo informaremos antes de activarlas.
       </p>
 
       <h2>2. Cómo gestionarlas</h2>
       <p>
-        Puedes borrar o bloquear cookies desde la configuración de tu navegador. Ten en cuenta que,
+        Puedes borrar o bloquear cookies desde la configuración de tu navegador; al borrarlas, el
+        aviso de cookies vuelve a aparecer para que elijas de nuevo. Ten en cuenta que,
         si bloqueas las cookies esenciales, no podrás iniciar sesión ni usar la plataforma.
       </p>
 

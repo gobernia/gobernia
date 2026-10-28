@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter, Newsreader } from "next/font/google"
 import AuthSync from "@/components/AuthSync"
 import CookieBanner from "@/components/CookieBanner"
+import GoogleAnalytics from "@/components/GoogleAnalytics"
 import "./globals.css"
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/seo"
 
@@ -41,6 +42,7 @@ export default function RootLayout({
         <AuthSync />
         {children}
         <CookieBanner />
+        <GoogleAnalytics />
       </body>
     </html>
   )

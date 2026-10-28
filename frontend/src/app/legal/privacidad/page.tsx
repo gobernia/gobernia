@@ -12,7 +12,7 @@ export default function AvisoPrivacidadPage() {
   return (
     <>
       <h1>Aviso de privacidad</h1>
-      <p><strong>Última actualización:</strong> 6 de agosto de 2026</p>
+      <p><strong>Última actualización:</strong> 27 de octubre de 2026</p>
 
       <h2>1. Responsable del tratamiento</h2>
       <p>
@@ -58,7 +58,8 @@ export default function AvisoPrivacidadPage() {
       <p>
         Gobernia no vende ni renta tus datos personales. Compartimos información únicamente con
         proveedores que nos permiten operar el servicio (alojamiento e infraestructura en la nube,
-        autenticación y base de datos, procesamiento de IA), quienes la tratan por cuenta de
+        autenticación y base de datos, procesamiento de IA y, si lo aceptas, analítica web con
+        Google Analytics), quienes la tratan por cuenta de
         Gobernia y bajo obligaciones de confidencialidad. Fuera de estos casos, solo comunicaremos
         datos cuando lo exija una autoridad competente conforme a la ley.
       </p>
@@ -90,7 +91,8 @@ export default function AvisoPrivacidadPage() {
       <h2>9. Cookies</h2>
       <p>
         Usamos cookies esenciales para el funcionamiento de la plataforma (por ejemplo, mantener tu
-        sesión iniciada). Consulta la <a href="/legal/cookies">Política de cookies</a> para más
+        sesión iniciada) y, solo si las aceptas en el aviso de cookies, cookies de analítica de
+        Google Analytics para entender cómo se usa el sitio. Consulta la <a href="/legal/cookies">Política de cookies</a> para más
         detalle.
       </p>
 
