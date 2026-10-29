@@ -1,7 +1,7 @@
-"""Panel de super admin (solo lectura): usuarios registrados, en qué etapa va cada uno y
-actividad de la plataforma. Acceso restringido a settings.SUPERADMIN_EMAILS.
+"""Panel de super admin: usuarios registrados, en qué etapa va cada uno y actividad de
+la plataforma. Acceso restringido a settings.SUPERADMIN_EMAILS.
 
-Aún no hay cobros: cuando exista la pasarela de pago, aquí se agregan suscripciones y ventas.
+Cobros, planes y cupones viven en admin/cobros.py.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db
+from app.services.pagos import mercadopago as mp
 
 router = APIRouter()
 
@@ -82,6 +83,12 @@ async def _usuarios(db: AsyncSession) -> list[dict]:
         group by p.user_id""")}
     docs = {r["user_id"]: r["n"] for r in await _filas(db, """
         select user_id, count(*) as n from documents group by user_id""")}
+    # Misma prioridad que cobros.suscripcion_actual; sin fila vigente = usa gratis.
+    pago = {r["user_id"]: r["estado"] for r in await _filas(db, """
+        select distinct on (user_id) user_id, estado from suscripciones
+        where estado in ('activa', 'pausada') or (estado = 'cortesia' and vence > now())
+        order by user_id, case estado when 'activa' then 0 when 'pausada' then 1 else 2 end,
+                 created_at desc""")}
 
     out = []
     for u in users:
@@ -118,6 +125,7 @@ async def _usuarios(db: AsyncSession) -> list[dict]:
             "tareas_total": int(t.get("total") or 0),
             "tareas_completadas": int(t.get("completadas") or 0),
             "documentos": int(docs.get(uid) or 0),
+            "pago": pago.get(uid, "gratis"),
         })
     return out
 
@@ -150,6 +158,5 @@ async def admin_resumen(_: dict = Depends(require_superadmin), db: AsyncSession 
         "embudo": embudo,
         "etapas": [{"etapa": k, "label": label} for k, label in ETAPAS],
         "usuarios": usuarios,
-        # Sin pasarela de pago todavía: el frontend lo muestra como "próximamente".
-        "cobros_activos": False,
+        "cobros_activos": mp.configurado(),
     }

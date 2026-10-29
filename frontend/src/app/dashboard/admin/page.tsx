@@ -1,22 +1,19 @@
 "use client"
 
-// SUPER ADMIN — quién se registró, en qué etapa va cada cliente y cuánta actividad hay.
-// Solo lectura. El servidor rechaza a cualquiera que no esté en SUPERADMIN_EMAILS.
+// SUPER ADMIN — quién se registró, en qué etapa va cada cliente, cuánta actividad hay,
+// y los cobros: planes con precio, cupones, suscripciones y pagos de Mercado Pago.
+// El servidor rechaza a cualquiera que no esté en SUPERADMIN_EMAILS.
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Loader2, Search, ShieldAlert, CreditCard, Download, ChevronLeft, ChevronRight } from "lucide-react"
 import { PageShell, PageHeader } from "@/components/ui/PageShell"
-import { getAdminResumen, type AdminResumen, type AdminUsuario } from "@/lib/admin"
+import { getAdminCobros, getAdminResumen, type AdminCobros, type AdminResumen, type AdminUsuario } from "@/lib/admin"
+import { pesos } from "@/lib/pagos"
+import { B, Etiqueta, fecha, Metrica, SANS } from "@/components/admin/ui"
+import CobrosAdmin from "@/components/admin/CobrosAdmin"
+import CuponesAdmin from "@/components/admin/CuponesAdmin"
 
-const INK   = "#0E1626"
-const INK2  = "#39435A"
-const MUTED = "#6E7686"
-const CARD  = "#FFFFFF"
-const SAND  = "#E8E3D8"
-const BNAVY = "#152742"
-const ACCENT = "#C2410C"
-const LINE  = "#E2E2DC"
-const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
+const { INK, INK2, MUTED, CARD, SAND, BNAVY, ACCENT, LINE } = B
 
 const PERIODICIDAD: Record<string, string> = { mensual: "Mensual", trimestral: "Trimestral", semestral: "Semestral" }
 
@@ -29,10 +26,15 @@ function paginasVisibles(actual: number, total: number): (number | null)[] {
   return orden.flatMap((p, i) => (i > 0 && p - orden[i - 1] > 1 ? [null, p] : [p]))
 }
 
-function fecha(iso: string | null): string {
-  if (!iso) return "—"
-  return new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })
+const PAGO: Record<AdminUsuario["pago"], [string, "verde" | "ambar" | "navy" | "gris"]> = {
+  activa: ["Suscrito", "verde"],
+  pausada: ["Pausada", "ambar"],
+  cortesia: ["Cortesía", "navy"],
+  gratis: ["Gratis", "gris"],
 }
+
+type Pestana = "usuarios" | "cobros" | "cupones"
+const PESTANAS: [Pestana, string][] = [["usuarios", "Usuarios"], ["cobros", "Cobros y planes"], ["cupones", "Cupones"]]
 
 function hace(iso: string | null): string {
   if (!iso) return "Nunca"
@@ -50,6 +52,7 @@ function descargarCsv(usuarios: AdminUsuario[], etiquetaEtapa: Record<string, st
     ["Empresa", u => u.empresa ?? ""],
     ["Industria", u => u.industria ?? ""],
     ["Etapa", u => etiquetaEtapa[u.etapa] ?? u.etapa],
+    ["Pago", u => PAGO[u.pago]?.[0] ?? u.pago],
     ["Fecha de registro", u => u.registrado?.slice(0, 10) ?? ""],
     ["Último acceso", u => u.ultimo_acceso?.slice(0, 10) ?? ""],
     ["Periodicidad", u => (u.periodicidad && PERIODICIDAD[u.periodicidad]) ?? ""],
@@ -74,35 +77,38 @@ function descargarCsv(usuarios: AdminUsuario[], etiquetaEtapa: Record<string, st
   URL.revokeObjectURL(url)
 }
 
-function Metrica({ label, valor, sub }: { label: string; valor: number | string; sub?: string }) {
-  return (
-    <div className="rounded-[26px] p-5" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ ...SANS, color: MUTED }}>{label}</p>
-      <p className="mt-2 text-3xl font-bold tabular-nums" style={{ ...SANS, color: INK }}>{valor}</p>
-      {sub && <p className="mt-1 text-xs" style={{ color: MUTED }}>{sub}</p>}
-    </div>
-  )
-}
-
 export default function AdminPage() {
   const [data, setData] = useState<AdminResumen | null>(null)
   const [estado, setEstado] = useState<"cargando" | "listo" | "prohibido" | "error">("cargando")
   const [q, setQ] = useState("")
   const [etapa, setEtapa] = useState("")
   const [pagina, setPagina] = useState(1)
+  const [pestana, setPestana] = useState<Pestana>("usuarios")
 
   // Cambiar la búsqueda o el filtro regresa a la primera página.
   const buscar = (v: string) => { setQ(v); setPagina(1) }
   const filtrarEtapa = (v: string) => { setEtapa(v); setPagina(1) }
+  // Cobros se carga aparte: si falla, la pestaña de usuarios sigue funcionando.
+  const [cobros, setCobros] = useState<AdminCobros | null>(null)
+  const [errorCobros, setErrorCobros] = useState(false)
+
+  const recargarCobros = useCallback(async () => {
+    try {
+      setCobros(await getAdminCobros())
+      setErrorCobros(false)
+    } catch {
+      setErrorCobros(true)
+    }
+  }, [])
 
   useEffect(() => {
     getAdminResumen()
-      .then(d => { setData(d); setEstado("listo") })
+      .then(d => { setData(d); setEstado("listo"); recargarCobros() })
       .catch((e: unknown) => {
         const st = (e as { response?: { status?: number } })?.response?.status
         setEstado(st === 403 ? "prohibido" : "error")
       })
-  }, [])
+  }, [recargarCobros])
 
   const etiquetaEtapa = useMemo(
     () => Object.fromEntries((data?.etapas ?? []).map(e => [e.etapa, e.label])) as Record<string, string>,
@@ -143,6 +149,27 @@ export default function AdminPage() {
           )}
 
           {data && (
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Secciones del panel">
+              {PESTANAS.map(([k, label]) => (
+                <button key={k} type="button" role="tab" aria-selected={pestana === k} onClick={() => setPestana(k)}
+                  className="rounded-full px-4 py-2 text-sm font-bold transition"
+                  style={{ ...SANS, background: pestana === k ? BNAVY : CARD, color: pestana === k ? CARD : INK2,
+                    border: `1px solid ${pestana === k ? BNAVY : LINE}` }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {data && pestana !== "usuarios" && !cobros && (
+            errorCobros
+              ? <p className="text-sm" style={{ color: MUTED }}>No se pudieron cargar los cobros. Intenta de nuevo.</p>
+              : <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" style={{ color: MUTED }} /></div>
+          )}
+          {data && pestana === "cobros" && cobros && <CobrosAdmin data={cobros} recargar={recargarCobros} />}
+          {data && pestana === "cupones" && cobros && <CuponesAdmin cupones={cobros.cupones} recargar={recargarCobros} />}
+
+          {data && pestana === "usuarios" && (
             <>
               {/* Métricas */}
               <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -183,10 +210,21 @@ export default function AdminPage() {
                 <div className="rounded-[26px] p-6 flex flex-col gap-3" style={{ background: BNAVY, color: CARD }}>
                   <CreditCard className="h-5 w-5" style={{ color: "rgba(255,255,255,.7)" }} />
                   <h2 className="text-lg font-bold" style={SANS}>Suscripciones y pagos</h2>
-                  <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,.72)" }}>
-                    Todavía no hay cobros: todos los usuarios usan la plataforma sin pago. Cuando se
-                    conecte la pasarela (Stripe, Mercado Pago…) aquí verás suscritos, ventas y pagos.
-                  </p>
+                  {cobros?.configurado ? (
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,.72)" }}>
+                      <strong className="text-white">{cobros.metricas.suscriptores_activos}</strong> suscritos ·{" "}
+                      <strong className="text-white">{pesos(cobros.metricas.ingreso_mensual)}</strong> al mes ·{" "}
+                      {pesos(cobros.metricas.cobrado_30d)} cobrados en 30 días
+                      {cobros.modo === "prueba" && " (modo de prueba)"}.
+                    </p>
+                  ) : (
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,.72)" }}>
+                      Todos usan la plataforma sin pago por ahora. Los planes y cupones ya se pueden
+                      crear; falta conectar Mercado Pago para cobrar.
+                    </p>
+                  )}
+                  <button type="button" onClick={() => setPestana("cobros")}
+                    className="mt-auto self-start text-xs font-bold underline">Ver cobros, planes y cupones</button>
                 </div>
               </section>
 
@@ -218,10 +256,10 @@ export default function AdminPage() {
                 </div>
 
                 <div className="overflow-x-auto rounded-[26px]" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-                  <table className="w-full min-w-[980px] text-sm">
+                  <table className="w-full min-w-[1060px] text-sm">
                     <thead>
                       <tr style={{ background: SAND }}>
-                        {["Usuario", "Etapa", "Registro", "Último acceso", "Tareas", "Sesiones", "Documentos", "Periodicidad"].map(h => (
+                        {["Usuario", "Etapa", "Pago", "Registro", "Último acceso", "Tareas", "Sesiones", "Documentos", "Periodicidad"].map(h => (
                           <th key={h} className="px-4 py-2.5 text-left text-[10px] font-extrabold uppercase tracking-[0.12em]"
                             style={{ ...SANS, color: MUTED }}>{h}</th>
                         ))}
@@ -238,6 +276,9 @@ export default function AdminPage() {
                             <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap"
                               style={{ background: `${BNAVY}10`, color: BNAVY }}>{etiquetaEtapa[u.etapa] ?? u.etapa}</span>
                           </td>
+                          <td className="px-4 py-3">
+                            <Etiqueta tono={PAGO[u.pago]?.[1] ?? "gris"}>{PAGO[u.pago]?.[0] ?? u.pago}</Etiqueta>
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap" style={{ color: INK2 }}>{fecha(u.registrado)}</td>
                           <td className="px-4 py-3 whitespace-nowrap" style={{ color: INK2 }}>{hace(u.ultimo_acceso)}</td>
                           <td className="px-4 py-3 tabular-nums whitespace-nowrap" style={{ color: INK2 }}>
@@ -252,7 +293,7 @@ export default function AdminPage() {
                         </tr>
                       ))}
                       {usuarios.length === 0 && (
-                        <tr><td colSpan={8} className="px-4 py-10 text-center text-sm" style={{ color: MUTED }}>Sin resultados.</td></tr>
+                        <tr><td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: MUTED }}>Sin resultados.</td></tr>
                       )}
                     </tbody>
                   </table>

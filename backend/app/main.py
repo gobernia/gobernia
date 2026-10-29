@@ -21,6 +21,8 @@ from app.api.v1.todd_secretario.router import router as todd_secretario_router
 from app.api.v1.perspectivas.public import router as perspectivas_public_router
 from app.api.v1.colaboradores.router import router as colaboradores_router
 from app.api.v1.admin.router import router as admin_router
+from app.api.v1.admin.cobros import router as admin_cobros_router
+from app.api.v1.pagos.router import router as pagos_router
 
 
 @asynccontextmanager
@@ -78,6 +80,8 @@ app.include_router(todd_secretario_router, prefix="/api/v1", tags=["todd-secreta
 app.include_router(perspectivas_public_router, prefix="/api/v1", tags=["perspectivas-public"])
 app.include_router(colaboradores_router, prefix="/api/v1", tags=["colaboradores"])
 app.include_router(admin_router, prefix="/api/v1", tags=["admin"])
+app.include_router(admin_cobros_router, prefix="/api/v1", tags=["admin"])
+app.include_router(pagos_router, prefix="/api/v1", tags=["pagos"])
 
 
 @app.get("/health", tags=["system"])
