@@ -164,6 +164,8 @@ export default async function ArticuloPage({ params }: Props) {
               {/* Texto del autor */}
               <div className="articulo mt-10" dangerouslySetInnerHTML={{ __html: a.html }} />
 
+              <BannerLanzamiento />
+
               {/* Preguntas frecuentes */}
               {a.faq.length > 0 && (
                 <section aria-labelledby="preguntas" className="mt-14">
@@ -218,8 +220,6 @@ export default async function ArticuloPage({ params }: Props) {
             </aside>
           </div>
 
-          <div className="lg:hidden mt-12"><CtaGobernia /></div>
-
           {rel.length > 0 && (
             <section aria-labelledby="relacionados" className="mt-16">
               <h2 id="relacionados" style={{ ...SANS, color: B.BNAVY, fontWeight: 700, fontSize: 26, letterSpacing: "-0.02em" }}>
@@ -236,19 +236,57 @@ export default async function ArticuloPage({ params }: Props) {
   )
 }
 
+// Oferta de lanzamiento: cuando empiece el cobro, cambiar aquí el texto de las dos invitaciones.
+const OFERTA = "Gratis durante el lanzamiento"
+// ?origen=blog: en Google Analytics se distinguen los registros que llegan desde un artículo.
+const REGISTRO = "/sign-up?origen=blog"
+
+/** Invitación al terminar el texto del artículo (escritorio y celular). */
+function BannerLanzamiento() {
+  return (
+    <section aria-label="Prueba Gobernia" className="mt-12 rounded-[26px] p-7 sm:p-9" style={{ background: B.BNAVY }}>
+      <p className="inline-flex rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em]"
+        style={{ ...SANS, background: B.ACCENT, color: "#FFFFFF" }}>
+        Lanzamiento
+      </p>
+      <p className="mt-4 text-white" style={{ ...SANS, fontWeight: 700, fontSize: "clamp(22px, 2.6vw, 30px)", lineHeight: 1.15, letterSpacing: "-0.02em" }}>
+        Lleva lo que acabas de leer a tu propio Consejo
+      </p>
+      <p className="mt-3 max-w-[36rem] text-[15.5px] leading-relaxed" style={{ color: "rgba(255,255,255,.78)" }}>
+        Gobernia es tu Consejo de Administración con IA: cinco consejeros analizan tu empresa, preparan
+        cada sesión y dan seguimiento a cada acuerdo. <strong className="text-white">{OFERTA}.</strong>
+      </p>
+      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <Link href={REGISTRO}
+          className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold transition hover:brightness-95"
+          style={{ ...SANS, background: "#FFFFFF", color: B.BNAVY }}>
+          Pruébalo gratis <ArrowRight className="h-4 w-4" />
+        </Link>
+        <Link href="/" className="text-[14px] font-semibold underline underline-offset-4" style={{ ...SANS, color: "rgba(255,255,255,.85)" }}>
+          Conoce cómo funciona
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+/** Tarjeta fija en la columna lateral (solo escritorio). */
 function CtaGobernia() {
   return (
     <div className="rounded-[26px] p-6" style={{ background: B.BNAVY }}>
-      <p className="text-[18px] font-bold leading-snug text-white" style={SANS}>
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.14em]" style={{ ...SANS, color: "#FDBA8C" }}>
+        {OFERTA}
+      </p>
+      <p className="mt-2 text-[18px] font-bold leading-snug text-white" style={SANS}>
         Lleva estas prácticas a tu propio Consejo
       </p>
       <p className="mt-2 text-[14px] leading-relaxed" style={{ color: "rgba(255,255,255,.75)" }}>
         Gobernia es tu Consejo de Administración con IA: cinco consejeros analizan tu empresa y dan seguimiento a cada acuerdo.
       </p>
-      <Link href="/sign-up"
+      <Link href={REGISTRO}
         className="mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] font-bold"
         style={{ ...SANS, background: "#FFFFFF", color: B.BNAVY }}>
-        Comenzar gratis <ArrowRight className="h-3.5 w-3.5" />
+        Pruébalo gratis <ArrowRight className="h-3.5 w-3.5" />
       </Link>
     </div>
   )
