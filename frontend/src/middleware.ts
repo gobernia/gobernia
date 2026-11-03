@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 // /t = escritorio público del responsable (enlace mágico, sin login).
-const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/auth/callback", "/legal", "/c", "/t", "/blog"]
+// /recuperar es pública; /nueva-contrasena no: se llega con la sesión del enlace de recuperación.
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/recuperar", "/auth/callback", "/auth/confirm", "/legal", "/c", "/t", "/blog"]
 
 // Archivos para buscadores e IAs: deben responder siempre, sin pasar por el login.
 const SEO_FILES = ["/robots.txt", "/sitemap.xml", "/llms.txt", "/opengraph-image", "/twitter-image"]

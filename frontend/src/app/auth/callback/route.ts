@@ -23,9 +23,13 @@ export async function GET(request: Request) {
         },
       }
     )
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      // Enlace de "¿Olvidaste tu contraseña?": antes de entrar, elegir la nueva.
+      // Supabase devuelve redirectType ("recovery") aunque su tipo no lo declara.
+      const { redirectType } = data as typeof data & { redirectType?: string | null }
+      const destino = redirectType === "recovery" ? "/nueva-contrasena" : next
+      return NextResponse.redirect(`${origin}${destino}`)
     }
   }
 

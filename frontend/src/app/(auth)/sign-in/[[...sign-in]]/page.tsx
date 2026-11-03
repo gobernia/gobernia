@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight } from "lucide-react"
@@ -10,6 +10,20 @@ import GoogleSignInButton from "@/components/ui/GoogleSignInButton"
 
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
+
+// /auth/callback manda aquí con ?error=link_invalido si el enlace del correo no sirvió
+// (vencido, ya usado o abierto en otro navegador).
+function AvisoEnlaceInvalido() {
+  const params = useSearchParams()
+  if (params.get("error") !== "link_invalido") return null
+  return (
+    <p className="mb-6 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-500 leading-relaxed text-center">
+      El enlace ya no es válido. Si estabas recuperando tu contraseña,{" "}
+      <Link href="/recuperar" className="text-black font-medium hover:underline">pide uno nuevo</Link>{" "}
+      y ábrelo en el mismo navegador.
+    </p>
+  )
+}
 
 export default function SignInPage() {
   const router = useRouter()
@@ -46,6 +60,10 @@ export default function SignInPage() {
         <p className="text-sm text-gray-400 italic font-light">Ingresa a tu espacio de gobierno corporativo</p>
       </div>
 
+      <Suspense fallback={null}>
+        <AvisoEnlaceInvalido />
+      </Suspense>
+
       <GoogleSignInButton />
 
       <div className="flex items-center gap-3 my-6">
@@ -71,9 +89,14 @@ export default function SignInPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Contraseña
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Contraseña
+            </label>
+            <Link href="/recuperar" className="text-xs text-gray-400 hover:text-black hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
           <input
             type="password"
             autoComplete="current-password"
