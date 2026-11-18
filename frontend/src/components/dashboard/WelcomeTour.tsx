@@ -44,11 +44,11 @@ export default function WelcomeTour() {
 
   return (
     <>
-      {/* Botón de ayuda flotante */}
+      {/* Botón de ayuda flotante: encima del botón de Todd (ToddFlotante, bottom-6 right-6, 56px), centrado con él */}
       <button
         onClick={() => setOpen(true)}
         aria-label="¿Cómo funciona Gobernia?"
-        className="fixed bottom-5 right-5 z-40 w-11 h-11 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] shadow-lg flex items-center justify-center hover:bg-[var(--gob-ink)] transition-colors"
+        className="fixed bottom-[92px] right-[30px] z-40 w-11 h-11 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] shadow-lg flex items-center justify-center hover:bg-[var(--gob-ink)] transition-colors"
       >
         <HelpCircle className="h-5 w-5" />
       </button>
