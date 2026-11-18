@@ -42,9 +42,31 @@ export async function revisarCupon(codigo: string, planId?: string): Promise<Cup
   return (await api.post<CuponRevisado>("/pagos/cupon", { codigo, plan_id: planId ?? null })).data
 }
 
-/** Devuelve la liga de la página de pago de Stripe donde el cliente captura su tarjeta. */
-export async function suscribirme(planId: string, codigo?: string): Promise<string> {
-  return (await api.post<{ liga_pago: string }>("/pagos/suscribirme", { plan_id: planId, codigo: codigo || null })).data.liga_pago
+/** Cómo se paga: dentro de gobernia.ai (Checkout incrustado de Stripe) o en la página de Stripe. */
+export type InicioPago =
+  | { modo: "incrustado"; client_secret: string; clave_publica: string }
+  | { modo: "liga"; liga_pago: string }
+
+/** Abre el pago. Pide el incrustado; el servidor regresa a la liga si no hay clave publicable. */
+export async function suscribirme(planId: string, codigo?: string): Promise<InicioPago> {
+  return (await api.post<InicioPago>("/pagos/suscribirme", { plan_id: planId, codigo: codigo || null, incrustado: true })).data
+}
+
+/** Lo que la página de agradecimiento sabe de la compra (confirmada con Stripe). */
+export interface ConfirmacionPago {
+  pagado: boolean
+  estado: EstadoSuscripcion
+  plan: string | null
+  /** Lo cobrado en este pago (con descuento si hubo cupón). */
+  monto: number
+  moneda: string
+  intervalo_meses: number
+  /** Id de la sesión de pago: identificador único de la compra para la analítica. */
+  transaccion: string
+}
+
+export async function confirmarPago(sessionId: string): Promise<ConfirmacionPago> {
+  return (await api.get<ConfirmacionPago>("/pagos/confirmacion", { params: { session_id: sessionId } })).data
 }
 
 export async function canjearCupon(codigo: string): Promise<MiSuscripcion> {

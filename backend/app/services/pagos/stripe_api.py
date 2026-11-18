@@ -39,6 +39,17 @@ def modo() -> str | None:
     return "prueba" if "_test_" in settings.STRIPE_SECRET_KEY else "produccion"
 
 
+def clave_publica() -> str | None:
+    """La clave publicable para mostrar el pago dentro de gobernia.ai, solo si es del mismo
+    modo (prueba/real) que la secreta: mezclarlas haría fallar el pago."""
+    pk = settings.STRIPE_PUBLISHABLE_KEY.strip()
+    if not configurado() or not pk.startswith("pk_"):
+        return None
+    if ("_test_" in pk) != (modo() == "prueba"):
+        return None
+    return pk
+
+
 def centavos(monto) -> int:
     return int((Decimal(str(monto)) * 100).to_integral_value())
 
@@ -115,10 +126,30 @@ async def crear_cupon(*, referencia: str, nombre: str, tipo: str, valor, moneda:
 
 async def crear_checkout(
     *, referencia: str, email: str, cliente_id: str | None, nombre: str, monto, moneda: str,
-    cada_meses: int, cupon_id: str | None, exito_url: str, cancelar_url: str,
+    cada_meses: int, cupon_id: str | None, exito_url: str, cancelar_url: str, incrustado: bool = False,
 ) -> dict:
-    """Página de pago de Stripe para una suscripción. Devuelve la sesión: `url` es la liga
-    donde el cliente paga. El precio es el regular; el descuento va en el cupón."""
+    """Página de pago de Stripe para una suscripción. El precio es el regular; el descuento
+    va en el cupón. Devuelve la sesión: con `incrustado` trae `client_secret` para mostrar
+    el pago dentro de gobernia.ai; si no, `url` es la liga a la página de Stripe."""
+    if incrustado:
+        destinos = [{"ui_mode": "embedded_page", "return_url": exito_url},
+                    # Cuentas con una versión de la API anterior al 2026-03-25 usan el nombre viejo.
+                    {"ui_mode": "embedded", "return_url": exito_url}]
+    else:
+        destinos = [{"success_url": exito_url, "cancel_url": cancelar_url}]
+    for i, destino in enumerate(destinos):
+        try:
+            return await _sesion_de_pago(referencia, email, cliente_id, nombre, monto, moneda, cada_meses,
+                                         cupon_id, destino)
+        except StripeError as e:
+            # Un parámetro rechazado no queda guardado con la llave de idempotencia: se puede reintentar.
+            if i == len(destinos) - 1 or "ui_mode" not in str(e):
+                raise
+    raise StripeError("Sin destino para la sesión de pago.")  # inalcanzable
+
+
+async def _sesion_de_pago(referencia, email, cliente_id, nombre, monto, moneda, cada_meses, cupon_id,
+                          destino: dict) -> dict:
     return await _pedir("POST", "/checkout/sessions", {
         "mode": "subscription",
         "client_reference_id": referencia,
@@ -137,8 +168,7 @@ async def crear_checkout(
         "metadata": {"suscripcion_id": referencia},
         "subscription_data": {"metadata": {"suscripcion_id": referencia}},
         "locale": "es-419",
-        "success_url": exito_url,
-        "cancel_url": cancelar_url,
+        **destino,
     }, idempotencia=f"checkout-{referencia}")
 
 

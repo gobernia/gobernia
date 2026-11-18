@@ -103,8 +103,8 @@ async def test_crear_suscripcion_aplica_el_descuento(monkeypatch):
     monkeypatch.setattr(st, "crear_checkout", checkout)
     db = _db_para_crear()
 
-    sus = await cobros.crear_suscripcion(db, user_id="u1", email="a@b.com", plan=_plan(),
-                                         cupon=_cupon(valor=Decimal("20"), num_cobros=3))
+    sus, sesion = await cobros.crear_suscripcion(db, user_id="u1", email="a@b.com", plan=_plan(),
+                                                 cupon=_cupon(valor=Decimal("20"), num_cobros=3))
 
     assert sus.monto == Decimal("800.00") and sus.monto_regular == Decimal("1000.00")
     assert sus.cobros_con_descuento == 3 and sus.estado == "pendiente"
@@ -115,9 +115,73 @@ async def test_crear_suscripcion_aplica_el_descuento(monkeypatch):
         "moneda": "MXN", "num_cobros": 3, "cada_meses": 1}
     k = checkout.await_args.kwargs
     assert k["monto"] == Decimal("1000.00") and k["cupon_id"] == "cpn_1" and k["cliente_id"] is None
-    assert k["exito_url"].endswith("/dashboard/datos?pago=listo")
+    # Al pagar, Stripe lleva a la página de agradecimiento con el id de la sesión.
+    assert k["exito_url"].endswith("/dashboard/gracias?session_id={CHECKOUT_SESSION_ID}")
     assert k["cancelar_url"].endswith("/dashboard/datos?pago=volver")
+    assert k["incrustado"] is False and sesion["id"] == "cs_1"
     db.add.assert_called_once_with(sus)
+
+
+@pytest.mark.asyncio
+async def test_checkout_incrustado_o_con_liga(monkeypatch):
+    enviados = []
+
+    async def pedir(metodo, ruta, datos=None, idempotencia=None):
+        enviados.append(datos)
+        return {"id": "cs_1"}
+    monkeypatch.setattr(st, "_pedir", pedir)
+    base = dict(referencia="r1", email="a@b.com", cliente_id=None, nombre="Gobernia — Mensual", monto=1000,
+                moneda="MXN", cada_meses=1, cupon_id=None, exito_url="https://g.ai/gracias", cancelar_url="https://g.ai/perfil")
+
+    await st.crear_checkout(**base, incrustado=True)
+    await st.crear_checkout(**base)
+    incrustado, liga = enviados
+    # Dentro de gobernia.ai: Stripe regresa a return_url al terminar; no hay liga de cancelar.
+    assert incrustado["ui_mode"] == "embedded_page" and incrustado["return_url"] == "https://g.ai/gracias"
+    assert "success_url" not in incrustado and "cancel_url" not in incrustado
+    assert liga["success_url"] == "https://g.ai/gracias" and liga["cancel_url"] == "https://g.ai/perfil"
+    assert "ui_mode" not in liga and liga["mode"] == "subscription"
+
+
+@pytest.mark.asyncio
+async def test_checkout_incrustado_con_api_anterior_usa_el_nombre_viejo(monkeypatch):
+    modos = []
+
+    async def pedir(metodo, ruta, datos=None, idempotencia=None):
+        modos.append(datos["ui_mode"])
+        if datos["ui_mode"] == "embedded_page":
+            raise st.StripeError("Stripe respondió 400: Invalid ui_mode: must be one of hosted, embedded or custom")
+        return {"id": "cs_1", "client_secret": "s"}
+    monkeypatch.setattr(st, "_pedir", pedir)
+    base = dict(referencia="r1", email="a@b.com", cliente_id=None, nombre="X", monto=1000, moneda="MXN",
+                cada_meses=1, cupon_id=None, exito_url="https://g.ai/gracias", cancelar_url="https://g.ai/perfil")
+    assert (await st.crear_checkout(**base, incrustado=True))["id"] == "cs_1"
+    assert modos == ["embedded_page", "embedded"]
+
+    # Otro error (p. ej. tarjeta o cliente inválido) no se reintenta.
+    async def falla(metodo, ruta, datos=None, idempotencia=None):
+        modos.append("otro")
+        raise st.StripeError("Stripe respondió 400: No such customer")
+    monkeypatch.setattr(st, "_pedir", falla)
+    modos.clear()
+    with pytest.raises(st.StripeError):
+        await st.crear_checkout(**base, incrustado=True)
+    assert modos == ["otro"]
+
+
+@pytest.mark.parametrize("secreta,publica,esperada", [
+    ("sk_test_1", "pk_test_1", "pk_test_1"),
+    ("sk_live_1", "pk_live_1", "pk_live_1"),
+    ("sk_live_1", "pk_test_1", None),   # modos mezclados: el pago fallaría
+    ("sk_test_1", "pk_live_1", None),
+    ("sk_test_1", "", None),
+    ("", "pk_test_1", None),            # sin Stripe conectado
+    ("sk_test_1", "sk_test_1", None),   # una secreta pegada por error nunca sale al navegador
+])
+def test_clave_publica(monkeypatch, secreta, publica, esperada):
+    monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", secreta)
+    monkeypatch.setattr(st.settings, "STRIPE_PUBLISHABLE_KEY", publica)
+    assert st.clave_publica() == esperada
 
 
 @pytest.mark.asyncio

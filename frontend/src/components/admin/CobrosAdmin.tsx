@@ -170,6 +170,9 @@ function Conexion({ data }: { data: AdminCobros }) {
           <strong style={{ color: B.INK }}>Stripe conectado</strong>
           {data.modo === "prueba" ? " en modo de prueba: los cobros no son reales." : " en modo real."}
           {!data.webhook_firmado && " Falta el secreto de firma del webhook (whsec_…) para validar los avisos."}
+          {data.pago_incrustado
+            ? " El pago se muestra dentro de gobernia.ai."
+            : " Para mostrar el pago dentro de gobernia.ai, agrega STRIPE_PUBLISHABLE_KEY (pk_…) en Railway; mientras, se paga en la página de Stripe."}
         </p>
         <Link href="/dashboard/datos#suscripcion" className="text-xs font-bold underline" style={{ color: B.BNAVY }}>
           Ver la suscripción en Mi perfil

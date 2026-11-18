@@ -58,3 +58,5 @@ class CodigoIn(BaseModel):
 class SuscribirmeIn(BaseModel):
     plan_id: uuid.UUID
     codigo: str | None = Field(None, max_length=40)
+    # El navegador puede mostrar el pago dentro de gobernia.ai (si hay clave publicable).
+    incrustado: bool = False

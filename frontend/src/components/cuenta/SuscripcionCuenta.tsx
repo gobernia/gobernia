@@ -9,6 +9,7 @@
 // suscripción o cortesía); el super admin, siempre, para revisarla antes de lanzar.
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { CheckCircle2, Clock, CreditCard, Eye, Gift, Lock, Ticket } from "lucide-react"
 import { esAdmin, mensajeError } from "@/lib/admin"
 import {
@@ -16,6 +17,9 @@ import {
   type CuponRevisado, type EstadoPagos, type MiSuscripcion,
 } from "@/lib/pagos"
 import { B, Boton, fecha, INPUT, INPUT_STYLE, SANS } from "@/components/admin/ui"
+
+// La ventana de pago (Stripe.js) solo se descarga cuando el cliente decide pagar.
+const PagoIncrustado = dynamic(() => import("./PagoIncrustado"), { ssr: false })
 
 function MiPlan({ s, regreso, onCancelar }: { s: MiSuscripcion; regreso: boolean; onCancelar: () => Promise<void> }) {
   const [confirmar, setConfirmar] = useState(false)
@@ -145,6 +149,7 @@ export default function SuscripcionCuenta({ className = "" }: { className?: stri
   const [cupon, setCupon] = useState<CuponRevisado | null>(null)
   const [aviso, setAviso] = useState("")
   const [trabajando, setTrabajando] = useState<"" | "cupon" | "pagar" | "canjear">("")
+  const [pago, setPago] = useState<{ clavePublica: string; clientSecret: string } | null>(null)
   const ref = useRef<HTMLElement>(null)
   const yaBajo = useRef(false)
 
@@ -200,12 +205,25 @@ export default function SuscripcionCuenta({ className = "" }: { className?: stri
     setTrabajando("pagar")
     setAviso("")
     try {
-      window.location.href = await suscribirme(planId, cupon && cupon.tipo !== "meses_gratis" ? cupon.codigo : undefined)
+      const r = await suscribirme(planId, cupon && cupon.tipo !== "meses_gratis" ? cupon.codigo : undefined)
+      if (r.modo === "incrustado") {
+        setPago({ clavePublica: r.clave_publica, clientSecret: r.client_secret })
+        setTrabajando("")
+      } else {
+        window.location.href = r.liga_pago
+      }
     } catch (e) {
       setAviso(mensajeError(e, "No se pudo abrir el pago. Intenta de nuevo."))
       setTrabajando("")
     }
   }
+
+  // Cerró la ventana sin pagar: se descarta ese intento (si sí pagó, el servidor lo detecta
+  // y no la cancela). Al pagar no se llega aquí: Stripe lleva directo a /dashboard/gracias.
+  const cerrarPago = useCallback(() => {
+    setPago(null)
+    cancelarSuscripcion().catch(() => {}).finally(() => { cargar() })
+  }, [cargar])
 
   async function canjear() {
     if (!cupon) return
@@ -318,13 +336,15 @@ export default function SuscripcionCuenta({ className = "" }: { className?: stri
               <p className="flex items-center gap-1.5 text-xs text-gray-400">
                 <Lock className="h-3.5 w-3.5 shrink-0" />
                 {data.cobros_activos
-                  ? "Pagas con tarjeta en la página segura de Stripe; Gobernia no guarda los datos de tu tarjeta. Puedes cancelar cuando quieras."
+                  ? "El pago lo procesa Stripe de forma segura; Gobernia no guarda los datos de tu tarjeta. Puedes cancelar cuando quieras."
                   : "Los pagos se activarán pronto."}
               </p>
             </div>
           )}
         </div>
       )}
+
+      {pago && <PagoIncrustado clavePublica={pago.clavePublica} clientSecret={pago.clientSecret} onCerrar={cerrarPago} />}
     </section>
   )
 }

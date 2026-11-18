@@ -110,6 +110,8 @@ export interface AdminCobros {
   configurado: boolean
   modo: "prueba" | "produccion" | null
   webhook_firmado: boolean
+  /** Hay clave publicable del mismo modo: el pago se muestra dentro de gobernia.ai. */
+  pago_incrustado: boolean
   url_webhook: string
   eventos_webhook: string[]
   metricas: {

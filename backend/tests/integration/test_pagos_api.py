@@ -123,8 +123,9 @@ async def test_sin_stripe_no_se_puede_suscribir(monkeypatch):
 async def test_suscribirme_devuelve_la_liga_de_pago(monkeypatch):
     monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", "sk_test_123")
     plan = PlanSuscripcion(nombre="Mensual", precio=Decimal("1000"), moneda="MXN", intervalo_meses=1, activo=True)
-    crear = AsyncMock(return_value=Suscripcion(user_id="u1", email="cliente@empresa.com",
-                                                liga_pago="https://checkout.stripe.test/pagar"))
+    crear = AsyncMock(return_value=(Suscripcion(user_id="u1", email="cliente@empresa.com",
+                                                 liga_pago="https://checkout.stripe.test/pagar"),
+                                     {"id": "cs_1", "url": "https://checkout.stripe.test/pagar"}))
     monkeypatch.setattr("app.api.v1.pagos.router.cobros.crear_suscripcion", crear)
     r_plan = MagicMock()
     r_plan.scalar_one_or_none.return_value = plan
@@ -132,8 +133,95 @@ async def test_suscribirme_devuelve_la_liga_de_pago(monkeypatch):
     db.execute = AsyncMock(return_value=r_plan)
     r = await _llamar("POST", "/pagos/suscribirme", db, json={"plan_id": str(plan.id)})
     assert r.status_code == 200, r.text
-    assert r.json() == {"liga_pago": "https://checkout.stripe.test/pagar"}
+    assert r.json() == {"modo": "liga", "liga_pago": "https://checkout.stripe.test/pagar"}
     assert crear.await_args.kwargs["email"] == "cliente@empresa.com" and crear.await_args.kwargs["cupon"] is None
+    assert crear.await_args.kwargs["incrustado"] is False
+
+
+def _db_con_plan(plan):
+    r_plan = MagicMock()
+    r_plan.scalar_one_or_none.return_value = plan
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=r_plan)
+    return db
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("publica,pide,modo", [
+    ("pk_test_9", True, "incrustado"),
+    ("pk_test_9", False, "liga"),   # el navegador no lo pidió
+    ("", True, "liga"),             # falta la clave publicable: sigue funcionando con la liga
+    ("pk_live_9", True, "liga"),    # modo distinto a la secreta (sk_test_)
+])
+async def test_suscribirme_dentro_de_gobernia(monkeypatch, publica, pide, modo):
+    monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", "sk_test_123")
+    monkeypatch.setattr(st.settings, "STRIPE_PUBLISHABLE_KEY", publica)
+    plan = PlanSuscripcion(nombre="Mensual", precio=Decimal("1000"), moneda="MXN", intervalo_meses=1, activo=True)
+    crear = AsyncMock(return_value=(Suscripcion(user_id="u1", email="cliente@empresa.com", liga_pago=None if pide and publica == "pk_test_9" else "https://checkout.stripe.test/p"),
+                                     {"id": "cs_1", "client_secret": "cs_1_secret_x", "url": None}))
+    monkeypatch.setattr("app.api.v1.pagos.router.cobros.crear_suscripcion", crear)
+    r = await _llamar("POST", "/pagos/suscribirme", _db_con_plan(plan), json={"plan_id": str(plan.id), "incrustado": pide})
+    assert r.status_code == 200, r.text
+    assert r.json()["modo"] == modo
+    assert crear.await_args.kwargs["incrustado"] is (modo == "incrustado")
+    if modo == "incrustado":
+        assert r.json() == {"modo": "incrustado", "client_secret": "cs_1_secret_x", "clave_publica": "pk_test_9"}
+
+
+def _db_con_suscripcion(sus, plan=None):
+    r_sus = MagicMock()
+    r_sus.scalar_one_or_none.return_value = sus
+    r_plan = MagicMock()
+    r_plan.scalar_one_or_none.return_value = plan
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=[r_sus, r_plan])
+    return db
+
+
+@pytest.mark.asyncio
+async def test_confirmacion_de_pago_activa_y_da_los_datos_de_la_compra(monkeypatch):
+    monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", "sk_test_123")
+    plan = PlanSuscripcion(nombre="Mensual", precio=Decimal("1000"), moneda="MXN", intervalo_meses=1, activo=True)
+    sus = Suscripcion(user_id="u1", email="cliente@empresa.com", estado="pendiente", plan_id=plan.id,
+                      intervalo_meses=1, moneda="MXN", stripe_checkout_id="cs_test_123")
+    monkeypatch.setattr(st, "obtener_checkout", AsyncMock(return_value={
+        "id": "cs_test_123", "status": "complete", "payment_status": "paid", "amount_total": 80000, "currency": "mxn"}))
+
+    async def activar(db, s, datos=None):
+        s.estado = "activa"
+        return s
+    sincronizar = AsyncMock(side_effect=activar)
+    monkeypatch.setattr("app.api.v1.pagos.router.cobros.sincronizar_suscripcion", sincronizar)
+
+    r = await _llamar("GET", "/pagos/confirmacion?session_id=cs_test_123", _db_con_suscripcion(sus, plan))
+    assert r.status_code == 200, r.text
+    assert r.json() == {"pagado": True, "estado": "activa", "plan": "Mensual", "monto": 800.0, "moneda": "MXN",
+                        "intervalo_meses": 1, "transaccion": "cs_test_123"}
+    sincronizar.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_confirmacion_sin_pagar_no_activa(monkeypatch):
+    monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", "sk_test_123")
+    sus = Suscripcion(user_id="u1", email="c@e.com", estado="pendiente", intervalo_meses=1, moneda="MXN",
+                      stripe_checkout_id="cs_test_123")
+    monkeypatch.setattr(st, "obtener_checkout", AsyncMock(return_value={"status": "open", "payment_status": "unpaid"}))
+    sincronizar = AsyncMock()
+    monkeypatch.setattr("app.api.v1.pagos.router.cobros.sincronizar_suscripcion", sincronizar)
+    r = await _llamar("GET", "/pagos/confirmacion?session_id=cs_test_123", _db_con_suscripcion(sus))
+    assert r.status_code == 200 and r.json()["pagado"] is False and r.json()["estado"] == "pendiente"
+    sincronizar.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_confirmacion_de_un_pago_ajeno_o_inexistente(monkeypatch):
+    # La consulta filtra por el usuario: la sesión de otro cliente no aparece.
+    monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", "sk_test_123")
+    obtener = AsyncMock()
+    monkeypatch.setattr(st, "obtener_checkout", obtener)
+    r = await _llamar("GET", "/pagos/confirmacion?session_id=cs_test_otro", _db_con_suscripcion(None))
+    assert r.status_code == 404
+    obtener.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -162,6 +250,29 @@ async def test_cancelar_no_corta_el_periodo_pagado(monkeypatch):
     cancelar.assert_awaited_once_with("sub_1")
     out = r.json()["suscripcion"]
     assert out["estado"] == "activa" and out["vence"].startswith("2026-12-02") and out["proximo_cobro"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ya_pago", [False, True])
+async def test_cerrar_el_pago_sin_pagar_lo_descarta_pero_no_si_ya_pago(monkeypatch, ya_pago):
+    # Cerrar la ventana de pago llama a /pagos/cancelar con la suscripción pendiente.
+    monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", "sk_test_123")
+    sus = Suscripcion(user_id="u1", email="a@b.com", estado="pendiente", stripe_checkout_id="cs_1",
+                      monto=Decimal("1000"), monto_regular=Decimal("1000"), moneda="MXN", intervalo_meses=1)
+    monkeypatch.setattr("app.api.v1.pagos.router.cobros.suscripcion_actual", AsyncMock(return_value=sus))
+
+    async def sincronizar(db, s, datos=None):
+        if ya_pago:
+            s.estado, s.stripe_subscription_id = "activa", "sub_1"
+        return s
+    monkeypatch.setattr("app.api.v1.pagos.router.cobros.sincronizar_suscripcion", AsyncMock(side_effect=sincronizar))
+    expirar = AsyncMock()
+    monkeypatch.setattr(st, "expirar_checkout", expirar)
+
+    r = await _llamar("POST", "/pagos/cancelar")
+    assert r.status_code == 200, r.text
+    assert r.json()["suscripcion"]["estado"] == ("activa" if ya_pago else "cancelada")
+    assert expirar.await_count == (0 if ya_pago else 1)
 
 
 @pytest.mark.asyncio

@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     # Secreto de firma del webhook (whsec_…, Stripe → Desarrolladores → Webhooks).
     STRIPE_WEBHOOK_SECRET: str = ""
+    # Clave publicable (pk_test_… / pk_live_…). Con ella el pago se muestra dentro de
+    # gobernia.ai (Checkout incrustado); sin ella, el cliente paga en la página de Stripe.
+    STRIPE_PUBLISHABLE_KEY: str = ""
     # A dónde regresa el cliente después de pagar en Stripe (debe ser https).
     FRONTEND_URL: str = "https://www.gobernia.ai"
 

@@ -6,7 +6,7 @@ import json
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -84,7 +84,8 @@ async def revisar_cupon(body: CodigoIn, user: dict = Depends(get_current_user), 
 
 @router.post("/pagos/suscribirme")
 async def suscribirme(body: SuscribirmeIn, user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Abre la página de pago de Stripe y devuelve su liga."""
+    """Abre el pago de Stripe: dentro de gobernia.ai (client_secret + clave publicable) si
+    se pide y hay clave publicable; si no, la liga a la página de Stripe."""
     if not st.configurado():
         raise HTTPException(status_code=409, detail="Los pagos todavía no están disponibles.")
     plan = await _plan(db, body.plan_id)
@@ -95,14 +96,53 @@ async def suscribirme(body: SuscribirmeIn, user: dict = Depends(get_current_user
         raise HTTPException(status_code=400, detail="Tu cuenta no tiene correo.")
     try:
         cupon = await cobros.cupon_valido(db, body.codigo, user["sub"]) if (body.codigo or "").strip() else None
-        sus = await cobros.crear_suscripcion(db, user_id=user["sub"], email=email, plan=plan, cupon=cupon)
+        clave = st.clave_publica() if body.incrustado else None
+        sus, sesion = await cobros.crear_suscripcion(db, user_id=user["sub"], email=email, plan=plan,
+                                                     cupon=cupon, incrustado=clave is not None)
     except cobros.CuponInvalido as e:
         raise HTTPException(status_code=400, detail=str(e))
     except st.StripeError as e:
         _log.error("Stripe rechazó la suscripción de %s: %s", user["sub"], e)
         raise HTTPException(status_code=502, detail=_SIN_STRIPE)
     await db.commit()
-    return {"liga_pago": sus.liga_pago}
+    if clave:
+        return {"modo": "incrustado", "client_secret": sesion["client_secret"], "clave_publica": clave}
+    return {"modo": "liga", "liga_pago": sus.liga_pago}
+
+
+@router.get("/pagos/confirmacion")
+async def confirmacion(session_id: str = Query(min_length=8, max_length=255),
+                       user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Página de agradecimiento: confirma con Stripe que la sesión de pago de ESTE cliente
+    ya se pagó (y activa la suscripción sin esperar al webhook). Lo que devuelve sirve para
+    registrar la conversión una sola vez."""
+    sus = (await db.execute(select(Suscripcion).where(
+        Suscripcion.user_id == user["sub"], Suscripcion.stripe_checkout_id == session_id,
+    ))).scalar_one_or_none()
+    if sus is None:
+        raise HTTPException(status_code=404, detail="No encontramos ese pago.")
+    if not st.configurado():
+        raise HTTPException(status_code=409, detail="Los pagos todavía no están disponibles.")
+    try:
+        sesion = await st.obtener_checkout(session_id)
+        pagado = (sesion.get("status") == "complete"
+                  and sesion.get("payment_status") in ("paid", "no_payment_required"))
+        if pagado and sus.estado == "pendiente":
+            await cobros.sincronizar_suscripcion(db, sus)
+            await db.commit()
+    except st.StripeError as e:
+        _log.error("No se pudo confirmar el pago %s: %s", session_id, e)
+        raise HTTPException(status_code=502, detail=_SIN_STRIPE)
+    plan = await _plan(db, sus.plan_id) if sus.plan_id else None
+    return {
+        "pagado": pagado,
+        "estado": sus.estado,
+        "plan": plan.nombre if plan else None,
+        "monto": (sesion.get("amount_total") or 0) / 100,
+        "moneda": str(sesion.get("currency") or sus.moneda).upper(),
+        "intervalo_meses": sus.intervalo_meses,
+        "transaccion": session_id,
+    }
 
 
 @router.post("/pagos/canjear")
@@ -130,12 +170,16 @@ async def cancelar(user: dict = Depends(get_current_user), db: AsyncSession = De
             await cobros.sincronizar_suscripcion(db, sus, await st.cancelar_al_final(sus.stripe_subscription_id))
         else:
             if sus.stripe_checkout_id:
-                try:
-                    await st.expirar_checkout(sus.stripe_checkout_id)
-                except st.StripeError:
-                    pass  # ya expiró o se completó: se sabrá al sincronizar
-            sus.estado = "cancelada"
-            sus.liga_pago = None
+                # ¿Ya pagó y el aviso no ha llegado? Entonces no se cancela nada.
+                await cobros.sincronizar_suscripcion(db, sus)
+            if sus.estado == "pendiente":
+                if sus.stripe_checkout_id:
+                    try:
+                        await st.expirar_checkout(sus.stripe_checkout_id)
+                    except st.StripeError:
+                        pass  # ya expiró: se cancela igual
+                sus.estado = "cancelada"
+                sus.liga_pago = None
     except st.StripeError as e:
         _log.error("No se pudo cancelar la suscripción %s: %s", sus.id, e)
         raise HTTPException(status_code=502, detail=_SIN_STRIPE)

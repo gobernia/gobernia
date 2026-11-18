@@ -40,6 +40,12 @@ def url_perfil(pago: str) -> str:
     return f"{settings.FRONTEND_URL.rstrip('/')}/dashboard/datos?pago={pago}"
 
 
+def url_gracias() -> str:
+    """Página de agradecimiento después de pagar. Stripe cambia {CHECKOUT_SESSION_ID} por
+    el id de la sesión, con el que la página confirma el pago."""
+    return f"{settings.FRONTEND_URL.rstrip('/')}/dashboard/gracias?session_id={{CHECKOUT_SESSION_ID}}"
+
+
 def dinero(v) -> Decimal:
     return Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -174,7 +180,10 @@ async def _cliente_previo(db: AsyncSession, user_id: str) -> str | None:
 
 async def crear_suscripcion(
     db: AsyncSession, *, user_id: str, email: str, plan: PlanSuscripcion, cupon: Cupon | None,
-) -> Suscripcion:
+    incrustado: bool = False,
+) -> tuple[Suscripcion, dict]:
+    """Abre la sesión de pago de Stripe. Devuelve la suscripción pendiente y la sesión
+    (con `incrustado`, su `client_secret`; si no, su liga en `url`)."""
     if cupon is not None and cupon.tipo == "meses_gratis":
         raise CuponInvalido("Este cupón es de meses gratis: canjéalo sin elegir un plan.")
     # Una suscripción pendiente que quedó abierta se cierra antes de abrir otra, salvo
@@ -216,12 +225,12 @@ async def crear_suscripcion(
         referencia=str(sus.id), email=email, cliente_id=await _cliente_previo(db, user_id),
         nombre=f"Gobernia — {plan.nombre}", monto=precio, moneda=plan.moneda,
         cada_meses=plan.intervalo_meses, cupon_id=cupon_stripe,
-        exito_url=url_perfil("listo"), cancelar_url=url_perfil("volver"),
+        exito_url=url_gracias(), cancelar_url=url_perfil("volver"), incrustado=incrustado,
     )
     sus.stripe_checkout_id = sesion["id"]
     sus.liga_pago = sesion.get("url")
     db.add(sus)
-    return sus
+    return sus, sesion
 
 
 async def canjear_meses_gratis(db: AsyncSession, *, user_id: str, email: str, cupon: Cupon) -> Suscripcion:

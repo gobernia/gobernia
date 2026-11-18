@@ -49,6 +49,8 @@ async def admin_cobros(request: Request, _: dict = Depends(require_superadmin), 
         # Con clave de prueba (sk_test_…) los cobros no son reales.
         "modo": st.modo(),
         "webhook_firmado": bool(settings.STRIPE_WEBHOOK_SECRET),
+        # Con la clave publicable (del mismo modo) el pago se muestra dentro de gobernia.ai.
+        "pago_incrustado": st.clave_publica() is not None,
         "url_webhook": _url_webhook(request),
         "eventos_webhook": list(EVENTOS),
         "metricas": {
