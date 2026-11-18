@@ -1,9 +1,9 @@
-"""Reglas de cobro: cupones, alta de suscripciones y su sincronización con Mercado Pago.
+"""Reglas de cobro: cupones, alta de suscripciones y su sincronización con Stripe.
 
 Tipos de cupón:
-- porcentaje / monto: descuento en el cobro, en los primeros `num_cobros` cobros (o en
-  todos si es None). Al agotarse, se le pide a Mercado Pago que cobre el precio regular.
-- meses_gratis: acceso de cortesía por N meses, sin tarjeta.
+- porcentaje / monto: descuento en los primeros `num_cobros` cobros (o en todos si es
+  None). Se traduce a un cupón de Stripe que deja de aplicar solo al cumplir su duración.
+- meses_gratis: acceso de cortesía por N meses, sin tarjeta (no pasa por Stripe).
 """
 import calendar
 from datetime import datetime, timezone
@@ -15,9 +15,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.cobro import Cupon, CuponCanje, Pago, PlanSuscripcion, Suscripcion
-from app.services.pagos import mercadopago as mp
+from app.services.pagos import stripe_api as st
 
-ESTADOS_MP = {"pending": "pendiente", "authorized": "activa", "paused": "pausada", "cancelled": "cancelada"}
+# Estado de la suscripción en Stripe → el nuestro. past_due/unpaid: el cobro falló y
+# Stripe está reintentando; se muestra como pausada hasta que el cliente pague.
+ESTADOS_STRIPE = {
+    "incomplete": "pendiente", "trialing": "activa", "active": "activa",
+    "past_due": "pausada", "unpaid": "pausada", "paused": "pausada",
+    "incomplete_expired": "cancelada", "canceled": "cancelada",
+}
 _MX = ZoneInfo("America/Mexico_City")
 
 
@@ -61,15 +67,6 @@ def sumar_meses(d: datetime, meses: int) -> datetime:
     m = d.month - 1 + meses
     anio, mes = d.year + m // 12, m % 12 + 1
     return d.replace(year=anio, month=mes, day=min(d.day, calendar.monthrange(anio, mes)[1]))
-
-
-def _fecha(iso: str | None) -> datetime | None:
-    if not iso:
-        return None
-    try:
-        return datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
-    except ValueError:
-        return None
 
 
 async def usos_por_cupon(db: AsyncSession) -> dict:
@@ -122,18 +119,52 @@ async def suscripcion_actual(db: AsyncSession, user_id: str) -> Suscripcion | No
 
 
 async def sincronizar_suscripcion(db: AsyncSession, sus: Suscripcion, datos: dict | None = None) -> Suscripcion:
-    """Trae de Mercado Pago el estado real. Al quedar autorizada se gasta el cupón."""
-    if not sus.mp_preapproval_id:
-        return sus
-    datos = datos or await mp.obtener_suscripcion(sus.mp_preapproval_id)
-    estado = ESTADOS_MP.get(datos.get("status"), sus.estado)
+    """Trae de Stripe el estado real. Mientras no hay suscripción en Stripe, revisa la
+    página de pago (Checkout). Al quedar activa se gasta el cupón."""
+    if not sus.stripe_subscription_id:
+        if not sus.stripe_checkout_id:
+            return sus
+        sesion = await st.obtener_checkout(sus.stripe_checkout_id)
+        sus.stripe_customer_id = st._id(sesion.get("customer")) or sus.stripe_customer_id
+        sus.stripe_subscription_id = st._id(sesion.get("subscription"))
+        if not sus.stripe_subscription_id:
+            if sesion.get("status") == "expired":
+                sus.estado = "cancelada"
+                sus.liga_pago = None
+            return sus
+        datos = None
+    datos = datos or await st.obtener_suscripcion(sus.stripe_subscription_id)
+    estado = ESTADOS_STRIPE.get(datos.get("status"), sus.estado)
     if estado == "activa" and sus.estado != "activa":
         await _registrar_canje(db, sus)
     sus.estado = estado
-    sus.proximo_cobro = _fecha(datos.get("next_payment_date")) or sus.proximo_cobro
+    sus.stripe_customer_id = st._id(datos.get("customer")) or sus.stripe_customer_id
+    fin = st.fin_del_periodo(datos)
+    se_cancela = bool(datos.get("cancel_at_period_end") or datos.get("cancel_at"))
+    if estado in ("activa", "pausada") and se_cancela:
+        sus.vence = st.fecha(datos.get("cancel_at")) or fin
+        sus.proximo_cobro = None
+    elif estado in ("activa", "pausada"):
+        sus.vence = None
+        sus.proximo_cobro = fin
+    else:
+        sus.proximo_cobro = None
+    # El cupón de Stripe ya terminó: lo que se cobra es el precio regular.
+    if (estado in ("activa", "pausada") and sus.monto is not None and sus.monto_regular is not None
+            and sus.monto < sus.monto_regular and not st.tiene_descuento(datos)):
+        sus.monto = sus.monto_regular
+        sus.cobros_con_descuento = None
     if estado != "pendiente":
-        sus.mp_init_point = None
+        sus.liga_pago = None
     return sus
+
+
+async def _cliente_previo(db: AsyncSession, user_id: str) -> str | None:
+    """El cliente de Stripe de una suscripción anterior, para que su historial y su
+    tarjeta queden en un solo lugar."""
+    return await db.scalar(select(Suscripcion.stripe_customer_id).where(
+        Suscripcion.user_id == user_id, Suscripcion.stripe_customer_id.is_not(None),
+    ).order_by(Suscripcion.created_at.desc()).limit(1))
 
 
 async def crear_suscripcion(
@@ -142,7 +173,7 @@ async def crear_suscripcion(
     if cupon is not None and cupon.tipo == "meses_gratis":
         raise CuponInvalido("Este cupón es de meses gratis: canjéalo sin elegir un plan.")
     # Una suscripción pendiente que quedó abierta se cierra antes de abrir otra, salvo
-    # que en Mercado Pago ya se haya pagado (el webhook pudo no haber llegado).
+    # que en Stripe ya se haya pagado (el webhook pudo no haber llegado).
     previas = (await db.execute(select(Suscripcion).where(
         Suscripcion.user_id == user_id, Suscripcion.estado.in_(("activa", "pausada", "pendiente"))
     ))).scalars().all()
@@ -151,13 +182,13 @@ async def crear_suscripcion(
             await sincronizar_suscripcion(db, p)
         if p.estado in ("activa", "pausada"):
             raise CuponInvalido("Ya tienes una suscripción activa.")
-        p.estado = "cancelada"
-        p.mp_init_point = None
-        if p.mp_preapproval_id:
+        if p.estado == "pendiente" and p.stripe_checkout_id:
             try:
-                await mp.cancelar_suscripcion(p.mp_preapproval_id)
-            except mp.MercadoPagoError:
-                pass  # una liga pendiente sin pagar no cobra nada aunque siga abierta
+                await st.expirar_checkout(p.stripe_checkout_id)
+            except st.StripeError:
+                pass  # una liga sin pagar no cobra nada aunque siga abierta
+        p.estado = "cancelada"
+        p.liga_pago = None
 
     precio = dinero(plan.precio)
     monto = precio_con_cupon(precio, cupon)
@@ -170,13 +201,21 @@ async def crear_suscripcion(
         intervalo_meses=plan.intervalo_meses,
         cobros_con_descuento=cupon.num_cobros if con_descuento else None,
     )
-    datos = await mp.crear_suscripcion(
-        referencia=str(sus.id), email=email, motivo=f"Gobernia — {plan.nombre}",
-        monto=float(monto), moneda=plan.moneda, cada_meses=plan.intervalo_meses,
-        back_url=f"{settings.FRONTEND_URL.rstrip('/')}/dashboard/suscripcion",
+    cupon_stripe = None
+    if con_descuento:
+        cupon_stripe = await st.crear_cupon(
+            referencia=str(sus.id), nombre=cupon.codigo, tipo=cupon.tipo, valor=cupon.valor,
+            moneda=plan.moneda, num_cobros=cupon.num_cobros, cada_meses=plan.intervalo_meses,
+        )
+    regreso = f"{settings.FRONTEND_URL.rstrip('/')}/dashboard/suscripcion"
+    sesion = await st.crear_checkout(
+        referencia=str(sus.id), email=email, cliente_id=await _cliente_previo(db, user_id),
+        nombre=f"Gobernia — {plan.nombre}", monto=precio, moneda=plan.moneda,
+        cada_meses=plan.intervalo_meses, cupon_id=cupon_stripe,
+        exito_url=f"{regreso}?pago=listo", cancelar_url=regreso,
     )
-    sus.mp_preapproval_id = str(datos["id"])
-    sus.mp_init_point = datos.get("init_point")
+    sus.stripe_checkout_id = sesion["id"]
+    sus.liga_pago = sesion.get("url")
     db.add(sus)
     return sus
 
@@ -202,33 +241,40 @@ async def canjear_meses_gratis(db: AsyncSession, *, user_id: str, email: str, cu
     return sus
 
 
-async def registrar_cobro(db: AsyncSession, cobro: dict) -> Pago | None:
-    """Guarda un cobro periódico (authorized_payment). Si es un cobro aprobado nuevo y la
-    suscripción tiene descuento por tiempo limitado, descuenta uno; al agotarse, Mercado
-    Pago pasa a cobrar el precio regular."""
+async def registrar_pago(db: AsyncSession, factura: dict, estado: str) -> Pago | None:
+    """Guarda una factura de Stripe (`estado`: pagado | fallido). Si es un pago nuevo y la
+    suscripción tiene descuento por tiempo limitado, descuenta uno de los que faltan; el
+    precio regular lo cobra Stripe solo cuando termina el cupón."""
+    sub_id = st.suscripcion_de_factura(factura)
+    if not sub_id:
+        return None
     sus = (await db.execute(select(Suscripcion).where(
-        Suscripcion.mp_preapproval_id == str(cobro.get("preapproval_id"))
+        Suscripcion.stripe_subscription_id == sub_id
     ))).scalar_one_or_none()
     if sus is None:
         return None
-    mp_id = str(cobro["id"])
-    pago_mp = cobro.get("payment") or {}
-    estado = pago_mp.get("status") or cobro.get("status") or "desconocido"
-    pago = (await db.execute(select(Pago).where(Pago.mp_id == mp_id))).scalar_one_or_none()
-    ya_aprobado = pago is not None and pago.estado == "approved"
+    centavos = factura.get("amount_paid") if estado == "pagado" else factura.get("amount_due")
+    if not centavos:
+        return None  # factura en $0 (p. ej. cambio de plan sin cargo): no es un cobro
+    fid = str(factura["id"])
+    pago = (await db.execute(select(Pago).where(Pago.stripe_invoice_id == fid))).scalar_one_or_none()
+    ya_pagado = pago is not None and pago.estado == "pagado"
     if pago is None:
-        pago = Pago(user_id=sus.user_id, suscripcion_id=sus.id, mp_id=mp_id, estado=estado,
-                    monto=dinero(cobro.get("transaction_amount") or 0),
-                    moneda=cobro.get("currency_id") or sus.moneda)
+        pago = Pago(user_id=sus.user_id, suscripcion_id=sus.id, stripe_invoice_id=fid, estado=estado,
+                    monto=dinero(Decimal(centavos) / 100),
+                    moneda=str(factura.get("currency") or sus.moneda).upper())
         db.add(pago)
+    if ya_pagado:
+        return pago  # un aviso repetido o atrasado no deshace un pago
     pago.estado = estado
-    pago.fecha = _fecha(cobro.get("debit_date") or cobro.get("date_created")) or pago.fecha
-    pago.detalle = {"status": cobro.get("status"), "payment": pago_mp, "retry_attempt": cobro.get("retry_attempt")}
+    pago.monto = dinero(Decimal(centavos) / 100)
+    pago.fecha = st.fecha((factura.get("status_transitions") or {}).get("paid_at")) or st.fecha(factura.get("created"))
+    pago.detalle = {"motivo": factura.get("billing_reason"), "intentos": factura.get("attempt_count"),
+                    "factura_url": factura.get("hosted_invoice_url")}
 
-    if estado == "approved" and not ya_aprobado and sus.cobros_con_descuento is not None:
+    if estado == "pagado" and sus.cobros_con_descuento is not None:
         sus.cobros_con_descuento -= 1
         if sus.cobros_con_descuento <= 0:
-            await mp.cambiar_monto(sus.mp_preapproval_id, float(sus.monto_regular), sus.moneda)
             sus.monto = sus.monto_regular
             sus.cobros_con_descuento = None
     return pago
@@ -255,5 +301,6 @@ def suscripcion_dict(s: Suscripcion, plan: PlanSuscripcion | None = None) -> dic
             "monto_regular": float(s.monto_regular), "moneda": s.moneda, "intervalo_meses": s.intervalo_meses,
             "cobros_con_descuento": s.cobros_con_descuento,
             "proximo_cobro": s.proximo_cobro.isoformat() if s.proximo_cobro else None,
-            "vence": s.vence.isoformat() if s.vence else None, "liga_pago": s.mp_init_point,
+            "vence": s.vence.isoformat() if s.vence else None, "liga_pago": s.liga_pago,
+            "puede_administrar": bool(s.stripe_customer_id),
             "creada": s.created_at.isoformat() if s.created_at else None}

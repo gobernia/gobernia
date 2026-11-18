@@ -1,4 +1,4 @@
-// Suscripción del cliente con Mercado Pago. Por ahora el cobro es opcional.
+// Suscripción del cliente con Stripe. Por ahora el cobro es opcional.
 import api from "@/lib/api"
 import type { EstadoSuscripcion, Plan, TipoCupon } from "@/lib/admin"
 
@@ -14,6 +14,8 @@ export interface MiSuscripcion {
   proximo_cobro: string | null
   vence: string | null
   liga_pago: string | null
+  /** Ya tiene cliente en Stripe: puede abrir el portal (tarjeta y facturas). */
+  puede_administrar: boolean
 }
 
 export interface EstadoPagos {
@@ -38,7 +40,7 @@ export async function revisarCupon(codigo: string, planId?: string): Promise<Cup
   return (await api.post<CuponRevisado>("/pagos/cupon", { codigo, plan_id: planId ?? null })).data
 }
 
-/** Devuelve la liga de Mercado Pago donde el cliente captura su tarjeta. */
+/** Devuelve la liga de la página de pago de Stripe donde el cliente captura su tarjeta. */
 export async function suscribirme(planId: string, codigo?: string): Promise<string> {
   return (await api.post<{ liga_pago: string }>("/pagos/suscribirme", { plan_id: planId, codigo: codigo || null })).data.liga_pago
 }
@@ -49,6 +51,11 @@ export async function canjearCupon(codigo: string): Promise<MiSuscripcion> {
 
 export async function cancelarSuscripcion(): Promise<MiSuscripcion> {
   return (await api.post<{ suscripcion: MiSuscripcion }>("/pagos/cancelar")).data.suscripcion
+}
+
+/** Liga al portal de Stripe: cambiar la tarjeta y ver facturas. */
+export async function abrirPortal(): Promise<string> {
+  return (await api.post<{ url: string }>("/pagos/portal")).data.url
 }
 
 export const INTERVALO: Record<number, string> = { 1: "mensual", 3: "trimestral", 6: "semestral", 12: "anual" }

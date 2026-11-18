@@ -1,6 +1,6 @@
 "use client"
 
-// Super admin → Cobros: conexión con Mercado Pago, ingresos, planes (precios editables),
+// Super admin → Cobros: conexión con Stripe, ingresos, planes (precios editables),
 // suscripciones y pagos. Por ahora nadie pierde acceso por no pagar.
 
 import { useState } from "react"
@@ -22,14 +22,8 @@ export const ESTADO_SUSCRIPCION: Record<EstadoSuscripcion, [string, "verde" | "a
 }
 
 const ESTADO_PAGO: Record<string, [string, "verde" | "ambar" | "gris" | "rojo"]> = {
-  approved: ["Aprobado", "verde"],
-  authorized: ["Autorizado", "verde"],
-  pending: ["En proceso", "ambar"],
-  in_process: ["En proceso", "ambar"],
-  rejected: ["Rechazado", "rojo"],
-  cancelled: ["Cancelado", "gris"],
-  refunded: ["Reembolsado", "gris"],
-  charged_back: ["Contracargo", "rojo"],
+  pagado: ["Pagado", "verde"],
+  fallido: ["Cobro fallido", "rojo"],
 }
 
 const VACIO: PlanIn = { nombre: "", descripcion: null, precio: 0, intervalo_meses: 1, activo: true }
@@ -65,7 +59,7 @@ function FormPlan({ inicial, onGuardar, onCancelar }: {
           <input className={INPUT} style={INPUT_STYLE} value={p.nombre} maxLength={80} placeholder="Ej. Consejo mensual"
             onChange={e => setP({ ...p, nombre: e.target.value })} />
         </Campo>
-        <Campo label="Precio por cobro (MXN)" ayuda="Es lo que Mercado Pago le cobra al cliente.">
+        <Campo label="Precio por cobro (MXN)" ayuda="Es lo que Stripe le cobra al cliente.">
           <input className={INPUT} style={INPUT_STYLE} value={precio} inputMode="decimal" placeholder="Ej. 2500"
             onChange={e => setPrecio(e.target.value)} />
         </Campo>
@@ -150,21 +144,32 @@ function Planes({ planes, recargar }: { planes: Plan[]; recargar: () => Promise<
   )
 }
 
-function Conexion({ data }: { data: AdminCobros }) {
+function Copiable({ texto }: { texto: string }) {
   const [copiado, setCopiado] = useState(false)
-  const copiar = () => navigator.clipboard?.writeText(data.url_webhook).then(() => {
+  const copiar = () => navigator.clipboard?.writeText(texto).then(() => {
     setCopiado(true)
     setTimeout(() => setCopiado(false), 1500)
   })
+  return (
+    <span className="mt-1.5 flex items-center gap-2 rounded-[12px] px-3 py-2 font-mono text-xs break-all"
+      style={{ background: "rgba(255,255,255,.1)" }}>
+      {texto}
+      <button type="button" onClick={copiar} className="shrink-0" aria-label="Copiar">
+        {copiado ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      </button>
+    </span>
+  )
+}
 
+function Conexion({ data }: { data: AdminCobros }) {
   if (data.configurado) {
     return (
       <div className="rounded-[26px] p-5 flex flex-wrap items-center gap-3" style={{ background: B.CARD, border: `1px solid ${B.LINE}` }}>
         <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: "#15803D" }} />
         <p className="text-sm flex-1 min-w-[220px]" style={{ color: B.INK2 }}>
-          <strong style={{ color: B.INK }}>Mercado Pago conectado</strong>
+          <strong style={{ color: B.INK }}>Stripe conectado</strong>
           {data.modo === "prueba" ? " en modo de prueba: los cobros no son reales." : " en modo real."}
-          {!data.webhook_firmado && " Falta la clave secreta del webhook para validar los avisos."}
+          {!data.webhook_firmado && " Falta el secreto de firma del webhook (whsec_…) para validar los avisos."}
         </p>
         <Link href="/dashboard/suscripcion" className="text-xs font-bold underline" style={{ color: B.BNAVY }}>
           Ver la página de suscripción del cliente
@@ -176,23 +181,26 @@ function Conexion({ data }: { data: AdminCobros }) {
     <div className="rounded-[26px] p-6 space-y-3" style={{ background: B.BNAVY, color: "#fff" }}>
       <div className="flex items-center gap-2">
         <CircleAlert className="h-5 w-5" style={{ color: "rgba(255,255,255,.75)" }} />
-        <h2 className="text-lg font-bold" style={SANS}>Falta conectar Mercado Pago</h2>
+        <h2 className="text-lg font-bold" style={SANS}>Falta conectar Stripe</h2>
       </div>
       <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,.75)" }}>
         Ya puedes dar de alta planes y cupones. Para cobrar, el equipo técnico necesita:
       </p>
       <ol className="list-decimal pl-5 text-sm space-y-1.5" style={{ color: "rgba(255,255,255,.85)" }}>
-        <li>Una cuenta de Mercado Pago a nombre de la razón social de Gobernia.</li>
-        <li>El <em>Access Token</em> (en Mercado Pago: Tus integraciones → Credenciales). Primero el de prueba.</li>
-        <li>Un webhook del evento <em>Planes y suscripciones</em> apuntando a:
-          <span className="mt-1.5 flex items-center gap-2 rounded-[12px] px-3 py-2 font-mono text-xs break-all"
-            style={{ background: "rgba(255,255,255,.1)" }}>
-            {data.url_webhook}
-            <button type="button" onClick={copiar} className="shrink-0" aria-label="Copiar">
-              {copiado ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </button>
+        <li>Una cuenta de Stripe a nombre de la empresa que recibe los pagos (razón social, RFC y cuenta bancaria).</li>
+        <li>La <em>clave secreta</em> (Stripe → Desarrolladores → Claves de API). Primero la de prueba, que empieza con sk_test_.</li>
+        <li>Un webhook (Desarrolladores → Webhooks) apuntando a:
+          <Copiable texto={data.url_webhook} />
+          <span className="mt-1.5 block" style={{ color: "rgba(255,255,255,.75)" }}>con estos eventos:</span>
+          <span className="mt-1 block font-mono text-xs leading-relaxed" style={{ color: "rgba(255,255,255,.85)" }}>
+            {data.eventos_webhook.join(" · ")}
+          </span>
+          <span className="mt-1.5 block" style={{ color: "rgba(255,255,255,.75)" }}>
+            y su secreto de firma, que empieza con whsec_.
           </span>
         </li>
+        <li>Activar el portal del cliente (Configuración → Facturación → Portal del cliente) para que cada
+          cliente pueda cambiar su tarjeta y ver sus facturas.</li>
       </ol>
     </div>
   )
@@ -205,7 +213,7 @@ export default function CobrosAdmin({ data, recargar }: { data: AdminCobros; rec
       <Conexion data={data} />
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Metrica label="Suscriptores activos" valor={m.suscriptores_activos} sub="pagando con Mercado Pago" />
+        <Metrica label="Suscriptores activos" valor={m.suscriptores_activos} sub="pagando con Stripe" />
         <Metrica label="Ingreso mensual" valor={pesos(m.ingreso_mensual)} sub="recurrente, llevado a pesos por mes" />
         <Metrica label="Cobrado en 30 días" valor={pesos(m.cobrado_30d)} sub={`${pesos(m.cobrado_total)} desde el inicio`} />
         <Metrica label="Cortesías vigentes" valor={m.cortesias_vigentes} sub="meses gratis por cupón" />
@@ -234,7 +242,9 @@ export default function CobrosAdmin({ data, recargar }: { data: AdminCobros; rec
                   )}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap" style={{ color: B.INK2 }}>
-                  {fecha(s.estado === "cortesia" ? s.vence : s.proximo_cobro)}
+                  {s.estado === "cortesia" || (!s.proximo_cobro && s.vence)
+                    ? <>{s.estado !== "cortesia" && "Termina "}{fecha(s.vence)}</>
+                    : fecha(s.proximo_cobro)}
                 </td>
               </tr>
             )
@@ -242,7 +252,7 @@ export default function CobrosAdmin({ data, recargar }: { data: AdminCobros; rec
         </Tabla>
       </Tarjeta>
 
-      <Tarjeta titulo="Pagos recibidos" sub="Los últimos 100 cobros que hizo Mercado Pago">
+      <Tarjeta titulo="Pagos" sub="Las últimas 100 facturas de Stripe">
         <Tabla columnas={["Fecha", "Cliente", "Monto", "Estado"]} vacio={data.pagos.length === 0} minW={560}>
           {data.pagos.map(p => {
             const [label, tono] = ESTADO_PAGO[p.estado] ?? [p.estado, "gris"]

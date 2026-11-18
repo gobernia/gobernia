@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db
-from app.services.pagos import mercadopago as mp
+from app.services.pagos import stripe_api as st
 
 router = APIRouter()
 
@@ -158,5 +158,5 @@ async def admin_resumen(_: dict = Depends(require_superadmin), db: AsyncSession 
         "embudo": embudo,
         "etapas": [{"etapa": k, "label": label} for k, label in ETAPAS],
         "usuarios": usuarios,
-        "cobros_activos": mp.configurado(),
+        "cobros_activos": st.configurado(),
     }

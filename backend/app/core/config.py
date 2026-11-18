@@ -39,12 +39,12 @@ class Settings(BaseSettings):
     # Super admin: correos con acceso al panel /dashboard/admin (env: SUPERADMIN_EMAILS='["a@b.com"]').
     SUPERADMIN_EMAILS: list[str] = ["info@ketingmedia.com"]
 
-    # Cobros con Mercado Pago (suscripciones). Sin token, el panel muestra "sin conectar".
-    # Token de prueba: TEST-…; de producción: APP_USR-… (Tus integraciones → Credenciales).
-    MERCADOPAGO_ACCESS_TOKEN: str = ""
-    # Clave secreta del webhook (Tus integraciones → Webhooks) para validar la firma.
-    MERCADOPAGO_WEBHOOK_SECRET: str = ""
-    # A dónde regresa el cliente después de pagar en Mercado Pago (debe ser https).
+    # Cobros con Stripe (suscripciones). Sin clave, el panel muestra "sin conectar".
+    # Clave secreta de prueba: sk_test_…; real: sk_live_… (Stripe → Desarrolladores → Claves de API).
+    STRIPE_SECRET_KEY: str = ""
+    # Secreto de firma del webhook (whsec_…, Stripe → Desarrolladores → Webhooks).
+    STRIPE_WEBHOOK_SECRET: str = ""
+    # A dónde regresa el cliente después de pagar en Stripe (debe ser https).
     FRONTEND_URL: str = "https://www.gobernia.ai"
 
     # CORS

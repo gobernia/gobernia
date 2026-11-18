@@ -1,5 +1,5 @@
 """Cobros: planes con precio (editables desde el panel de super admin), cupones,
-suscripciones de Mercado Pago y los cobros que Mercado Pago realiza cada periodo.
+suscripciones de Stripe y las facturas que Stripe cobra cada periodo.
 
 Mientras no se active el cobro obligatorio, nadie pierde acceso por no tener suscripción.
 """
@@ -92,14 +92,17 @@ class Suscripcion(Base, UUIDMixin, TimestampMixin):
     monto_regular: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0)
     moneda: Mapped[str] = mapped_column(String(3), nullable=False, default="MXN")
     intervalo_meses: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    # Cobros que aún llevan descuento (None = sin fin o sin cupón). Al llegar a 0 se
-    # le pide a Mercado Pago que cobre el precio regular.
+    # Cobros que aún llevan descuento (None = sin fin o sin cupón). Solo para mostrarlo:
+    # el cupón de Stripe deja de aplicar solo al cumplir su duración.
     cobros_con_descuento: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    mp_preapproval_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True, index=True)
-    # Liga de pago de Mercado Pago mientras la suscripción está pendiente.
-    mp_init_point: Mapped[str | None] = mapped_column(Text, nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True, index=True)
+    stripe_customer_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # Sesión de Checkout (página de pago) con la que se abrió la suscripción.
+    stripe_checkout_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True, index=True)
+    # Liga de pago de Stripe mientras la suscripción está pendiente.
+    liga_pago: Mapped[str | None] = mapped_column(Text, nullable=True)
     proximo_cobro: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # Fin del acceso de cortesía.
+    # Fin del acceso: de una cortesía, o de una suscripción cancelada que ya no se renueva.
     vence: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     def __init__(self, **kwargs):
@@ -109,17 +112,17 @@ class Suscripcion(Base, UUIDMixin, TimestampMixin):
 
 
 class Pago(Base, UUIDMixin, TimestampMixin):
-    """Un cobro periódico de Mercado Pago (authorized_payment) de una suscripción."""
+    """Una factura de Stripe de una suscripción: cobrada (pagado) o con cobro fallido."""
     __tablename__ = "pagos"
 
     user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     suscripcion_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("suscripciones.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    mp_id: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    stripe_invoice_id: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     monto: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     moneda: Mapped[str] = mapped_column(String(3), nullable=False, default="MXN")
-    # approved | rejected | pending | … (estado del pago en Mercado Pago)
+    # pagado | fallido
     estado: Mapped[str] = mapped_column(String(30), nullable=False)
     fecha: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     detalle: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

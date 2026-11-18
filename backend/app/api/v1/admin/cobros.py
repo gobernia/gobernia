@@ -1,4 +1,4 @@
-"""Super admin: cobros (Mercado Pago), planes con precio y cupones."""
+"""Super admin: cobros (Stripe), planes con precio y cupones."""
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -12,14 +12,15 @@ from app.core.dependencies import get_db
 from app.models.cobro import Cupon, Pago, PlanSuscripcion, Suscripcion
 from app.schemas.pagos import CuponIn, CuponPatch, PlanIn, PlanPatch
 from app.services.pagos import cobros
-from app.services.pagos import mercadopago as mp
+from app.services.pagos import stripe_api as st
+from app.api.v1.pagos.router import EVENTOS
 
 router = APIRouter()
 
 
 def _url_webhook(request: Request) -> str:
-    url = str(request.url_for("webhook_mercadopago"))
-    # Detrás del proxy de Railway llega como http; Mercado Pago necesita https.
+    url = str(request.url_for("webhook_stripe"))
+    # Detrás del proxy de Railway llega como http; Stripe necesita https.
     if url.startswith("http://") and request.url.hostname not in ("localhost", "127.0.0.1"):
         url = "https://" + url[len("http://"):]
     return url
@@ -42,14 +43,14 @@ async def admin_cobros(request: Request, _: dict = Depends(require_superadmin), 
 
     ahora = datetime.now(timezone.utc)
     activas = [s for s in suscripciones if s.estado == "activa"]
-    aprobados = select(func.coalesce(func.sum(Pago.monto), 0)).where(Pago.estado == "approved")
+    aprobados = select(func.coalesce(func.sum(Pago.monto), 0)).where(Pago.estado == "pagado")
     return {
-        "configurado": mp.configurado(),
-        # Las credenciales de prueba empiezan con TEST-: los cobros no son reales.
-        "modo": ("prueba" if settings.MERCADOPAGO_ACCESS_TOKEN.startswith("TEST-") else "produccion")
-        if mp.configurado() else None,
-        "webhook_firmado": bool(settings.MERCADOPAGO_WEBHOOK_SECRET),
+        "configurado": st.configurado(),
+        # Con clave de prueba (sk_test_…) los cobros no son reales.
+        "modo": st.modo(),
+        "webhook_firmado": bool(settings.STRIPE_WEBHOOK_SECRET),
         "url_webhook": _url_webhook(request),
+        "eventos_webhook": list(EVENTOS),
         "metricas": {
             "suscriptores_activos": len(activas),
             "cortesias_vigentes": sum(1 for s in suscripciones if s.estado == "cortesia" and s.vence and s.vence > ahora),

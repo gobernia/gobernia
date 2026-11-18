@@ -1,23 +1,36 @@
 "use client"
 
-// SUSCRIPCIÓN del cliente: elige un plan, aplica un cupón y paga en Mercado Pago (la
-// tarjeta nunca pasa por Gobernia). Al regresar de Mercado Pago, el servidor actualiza
-// el estado. Por ahora el pago es opcional: nadie pierde acceso por no suscribirse.
+// SUSCRIPCIÓN del cliente: elige un plan, aplica un cupón y paga en la página de Stripe
+// (la tarjeta nunca pasa por Gobernia). Al regresar de Stripe, el servidor actualiza el
+// estado. Tarjeta y facturas, en el portal de Stripe. Por ahora el pago es opcional:
+// nadie pierde acceso por no suscribirse.
 
 import { useCallback, useEffect, useState } from "react"
-import { CheckCircle2, Clock, Gift, Loader2, Lock, Ticket } from "lucide-react"
+import { CheckCircle2, Clock, CreditCard, Gift, Loader2, Lock, Ticket } from "lucide-react"
 import { PageShell, PageHeader } from "@/components/ui/PageShell"
 import { mensajeError } from "@/lib/admin"
 import {
-  CADA, canjearCupon, cancelarSuscripcion, getPagos, pesos, revisarCupon, suscribirme,
+  CADA, abrirPortal, canjearCupon, cancelarSuscripcion, getPagos, pesos, revisarCupon, suscribirme,
   type CuponRevisado, type EstadoPagos, type MiSuscripcion,
 } from "@/lib/pagos"
 import { B, Boton, fecha, INPUT, INPUT_STYLE, SANS } from "@/components/admin/ui"
 
-function MiPlan({ s, onCancelar }: { s: MiSuscripcion; onCancelar: () => Promise<void> }) {
+function MiPlan({ s, regreso, onCancelar }: { s: MiSuscripcion; regreso: boolean; onCancelar: () => Promise<void> }) {
   const [confirmar, setConfirmar] = useState(false)
   const [trabajando, setTrabajando] = useState(false)
+  const [abriendo, setAbriendo] = useState(false)
   const [error, setError] = useState("")
+
+  async function administrar() {
+    setAbriendo(true)
+    setError("")
+    try {
+      window.location.href = await abrirPortal()
+    } catch (e) {
+      setError(mensajeError(e, "No se pudo abrir el portal de pagos. Intenta de nuevo."))
+      setAbriendo(false)
+    }
+  }
 
   async function cancelar() {
     setTrabajando(true)
@@ -52,7 +65,9 @@ function MiPlan({ s, onCancelar }: { s: MiSuscripcion; onCancelar: () => Promise
         <div className="flex items-start gap-3">
           <Clock className="h-5 w-5 mt-0.5 shrink-0" style={{ color: "#B45309" }} />
           <div>
-            <p className="font-bold" style={{ ...SANS, color: B.INK }}>Tu pago está pendiente</p>
+            <p className="font-bold" style={{ ...SANS, color: B.INK }}>
+              {regreso ? "Estamos confirmando tu pago" : "Tu pago está pendiente"}
+            </p>
             <p className="text-sm mt-1" style={{ color: B.INK2 }}>
               {s.plan} · {pesos(s.monto, s.moneda)} {CADA[s.intervalo_meses]}. Si ya pagaste, en unos minutos
               aparecerá como activa.
@@ -68,13 +83,15 @@ function MiPlan({ s, onCancelar }: { s: MiSuscripcion; onCancelar: () => Promise
   }
 
   const pausada = s.estado === "pausada"
+  // Cancelada por el cliente: ya no se renueva, pero conserva el acceso hasta `vence`.
+  const termina = !s.proximo_cobro && s.vence ? s.vence : null
   return (
     <div className="rounded-[26px] p-6 space-y-4" style={{ background: B.CARD, border: `1px solid ${B.LINE}` }}>
       <div className="flex items-start gap-3">
         <CheckCircle2 className="h-5 w-5 mt-0.5 shrink-0" style={{ color: pausada ? "#B45309" : "#15803D" }} />
         <div>
           <p className="font-bold" style={{ ...SANS, color: B.INK }}>
-            {pausada ? "Tu suscripción está pausada" : "Tu suscripción está activa"}
+            {pausada ? "No pudimos cobrar tu tarjeta" : termina ? "Tu suscripción ya no se renovará" : "Tu suscripción está activa"}
           </p>
           <p className="text-sm mt-1" style={{ color: B.INK2 }}>
             {s.plan} · {pesos(s.monto, s.moneda)} {CADA[s.intervalo_meses]}
@@ -82,14 +99,23 @@ function MiPlan({ s, onCancelar }: { s: MiSuscripcion; onCancelar: () => Promise
               ` con descuento (${s.cobros_con_descuento === 1 ? "1 cobro más" : `${s.cobros_con_descuento} cobros más`}; después ${pesos(s.monto_regular, s.moneda)})`}
           </p>
           {pausada
-            ? <p className="text-sm mt-1" style={{ color: B.INK2 }}>Revisa tu tarjeta en tu cuenta de Mercado Pago.</p>
-            : s.proximo_cobro && <p className="text-sm mt-1" style={{ color: B.MUTED }}>Próximo cobro: {fecha(s.proximo_cobro)}</p>}
+            ? <p className="text-sm mt-1" style={{ color: B.INK2 }}>Actualiza tu tarjeta en “Administrar mi pago” y Stripe volverá a intentar el cobro.</p>
+            : termina
+              ? <p className="text-sm mt-1" style={{ color: B.INK2 }}>Conservas el acceso hasta el {fecha(termina)}. No se harán más cobros.</p>
+              : s.proximo_cobro && <p className="text-sm mt-1" style={{ color: B.MUTED }}>Próximo cobro: {fecha(s.proximo_cobro)}</p>}
         </div>
       </div>
       {error && <p className="text-xs font-medium" style={{ color: B.ACCENT }}>{error}</p>}
-      {confirmar ? (
+      {s.puede_administrar && (
+        <Boton variante="secundario" onClick={administrar} disabled={abriendo}>
+          <CreditCard className="h-4 w-4" /> {abriendo ? "Abriendo…" : "Administrar mi pago"}
+        </Boton>
+      )}
+      {termina ? null : confirmar ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm" style={{ color: B.INK2 }}>¿Cancelar? No se harán más cobros.</span>
+          <span className="text-sm" style={{ color: B.INK2 }}>
+            ¿Cancelar? Ya no se renovará{s.proximo_cobro ? ` y conservas el acceso hasta el ${fecha(s.proximo_cobro)}` : ""}.
+          </span>
           <Boton onClick={cancelar} disabled={trabajando}>{trabajando ? "Cancelando…" : "Sí, cancelar"}</Boton>
           <Boton variante="secundario" onClick={() => setConfirmar(false)}>No</Boton>
         </div>
@@ -103,6 +129,9 @@ function MiPlan({ s, onCancelar }: { s: MiSuscripcion; onCancelar: () => Promise
 }
 
 export default function SuscripcionPage() {
+  // Stripe regresa aquí con ?pago=listo después de pagar.
+  const [regreso] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pago") === "listo")
   const [data, setData] = useState<EstadoPagos | null>(null)
   const [error, setError] = useState(false)
   const [planId, setPlanId] = useState<string | null>(null)
@@ -182,7 +211,7 @@ export default function SuscripcionPage() {
           )}
           {error && <p className="text-sm" style={{ color: B.MUTED }}>No se pudo cargar tu suscripción. Intenta de nuevo.</p>}
 
-          {data && s && <MiPlan s={s} onCancelar={async () => { await cancelarSuscripcion(); await cargar() }} />}
+          {data && s && <MiPlan s={s} regreso={regreso} onCancelar={async () => { await cancelarSuscripcion(); await cargar() }} />}
 
           {data && !dePago && (
             <>
@@ -248,12 +277,12 @@ export default function SuscripcionPage() {
               {plan && (
                 <div className="space-y-2">
                   <Boton onClick={pagar} disabled={!data.cobros_activos || trabajando === "pagar"} className="!px-6 !py-3">
-                    {trabajando === "pagar" ? "Abriendo Mercado Pago…" : "Suscribirme con Mercado Pago"}
+                    {trabajando === "pagar" ? "Abriendo el pago…" : "Suscribirme"}
                   </Boton>
                   <p className="flex items-center gap-1.5 text-xs" style={{ color: B.MUTED }}>
                     <Lock className="h-3.5 w-3.5" />
                     {data.cobros_activos
-                      ? "Pagas en Mercado Pago con tarjeta; Gobernia no guarda los datos de tu tarjeta. Puedes cancelar cuando quieras."
+                      ? "Pagas con tarjeta en la página segura de Stripe; Gobernia no guarda los datos de tu tarjeta. Puedes cancelar cuando quieras."
                       : "Los pagos se activarán pronto."}
                   </p>
                 </div>

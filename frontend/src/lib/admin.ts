@@ -47,7 +47,7 @@ export async function getAdminResumen(): Promise<AdminResumen> {
   return r.data
 }
 
-// ── Cobros (Mercado Pago), planes y cupones ──────────────────────────────────
+// ── Cobros (Stripe), planes y cupones ──────────────────────────────────
 
 export type Intervalo = 1 | 3 | 6 | 12
 
@@ -111,6 +111,7 @@ export interface AdminCobros {
   modo: "prueba" | "produccion" | null
   webhook_firmado: boolean
   url_webhook: string
+  eventos_webhook: string[]
   metricas: {
     suscriptores_activos: number
     cortesias_vigentes: number

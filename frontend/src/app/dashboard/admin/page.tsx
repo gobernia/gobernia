@@ -1,7 +1,7 @@
 "use client"
 
 // SUPER ADMIN — quién se registró, en qué etapa va cada cliente, cuánta actividad hay,
-// y los cobros: planes con precio, cupones, suscripciones y pagos de Mercado Pago.
+// y los cobros: planes con precio, cupones, suscripciones y pagos de Stripe.
 // El servidor rechaza a cualquiera que no esté en SUPERADMIN_EMAILS.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -220,7 +220,7 @@ export default function AdminPage() {
                   ) : (
                     <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,.72)" }}>
                       Todos usan la plataforma sin pago por ahora. Los planes y cupones ya se pueden
-                      crear; falta conectar Mercado Pago para cobrar.
+                      crear; falta conectar Stripe para cobrar.
                     </p>
                   )}
                   <button type="button" onClick={() => setPestana("cobros")}
