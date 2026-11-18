@@ -4,7 +4,7 @@
 // Solo lectura. El servidor rechaza a cualquiera que no esté en SUPERADMIN_EMAILS.
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react"
-import { Loader2, Search, ShieldAlert, CreditCard, Download } from "lucide-react"
+import { Loader2, Search, ShieldAlert, CreditCard, Download, ChevronLeft, ChevronRight } from "lucide-react"
 import { PageShell, PageHeader } from "@/components/ui/PageShell"
 import { getAdminResumen, type AdminResumen, type AdminUsuario } from "@/lib/admin"
 
@@ -19,6 +19,15 @@ const LINE  = "#E2E2DC"
 const SANS: CSSProperties = { fontFamily: "var(--font-sans)" }
 
 const PERIODICIDAD: Record<string, string> = { mensual: "Mensual", trimestral: "Trimestral", semestral: "Semestral" }
+
+const POR_PAGINA = 15
+
+/** Números de página a mostrar: primera, última y las vecinas de la actual; null = "…". */
+function paginasVisibles(actual: number, total: number): (number | null)[] {
+  const n = new Set([1, total, actual - 1, actual, actual + 1].filter(p => p >= 1 && p <= total))
+  const orden = [...n].sort((a, b) => a - b)
+  return orden.flatMap((p, i) => (i > 0 && p - orden[i - 1] > 1 ? [null, p] : [p]))
+}
 
 function fecha(iso: string | null): string {
   if (!iso) return "—"
@@ -80,6 +89,11 @@ export default function AdminPage() {
   const [estado, setEstado] = useState<"cargando" | "listo" | "prohibido" | "error">("cargando")
   const [q, setQ] = useState("")
   const [etapa, setEtapa] = useState("")
+  const [pagina, setPagina] = useState(1)
+
+  // Cambiar la búsqueda o el filtro regresa a la primera página.
+  const buscar = (v: string) => { setQ(v); setPagina(1) }
+  const filtrarEtapa = (v: string) => { setEtapa(v); setPagina(1) }
 
   useEffect(() => {
     getAdminResumen()
@@ -101,6 +115,11 @@ export default function AdminPage() {
       (!etapa || u.etapa === etapa) &&
       (!t || u.email.toLowerCase().includes(t) || (u.empresa ?? "").toLowerCase().includes(t)))
   }, [data, q, etapa])
+
+  const totalPaginas = Math.max(1, Math.ceil(usuarios.length / POR_PAGINA))
+  const actual = Math.min(pagina, totalPaginas)
+  const desde = (actual - 1) * POR_PAGINA
+  const visibles = usuarios.slice(desde, desde + POR_PAGINA)
 
   const max = Math.max(1, ...(data?.embudo ?? []).map(e => e.usuarios))
 
@@ -145,7 +164,7 @@ export default function AdminPage() {
                   <ul className="space-y-2.5">
                     {data.embudo.map(e => (
                       <li key={e.etapa}>
-                        <button type="button" onClick={() => setEtapa(etapa === e.etapa ? "" : e.etapa)}
+                        <button type="button" onClick={() => filtrarEtapa(etapa === e.etapa ? "" : e.etapa)}
                           className="w-full text-left group" aria-pressed={etapa === e.etapa}>
                           <div className="flex items-center justify-between text-xs mb-1">
                             <span className="font-medium" style={{ color: etapa === e.etapa ? ACCENT : INK2 }}>{e.label}</span>
@@ -179,14 +198,14 @@ export default function AdminPage() {
                     <p className="text-xs mt-0.5" style={{ color: MUTED }}>
                       {usuarios.length} de {data.usuarios.length}
                       {etapa && <> · etapa: <strong>{etiquetaEtapa[etapa]}</strong>{" "}
-                        <button type="button" className="underline" onClick={() => setEtapa("")}>quitar filtro</button></>}
+                        <button type="button" className="underline" onClick={() => filtrarEtapa("")}>quitar filtro</button></>}
                     </p>
                   </div>
                   <div className="flex w-full sm:w-auto flex-wrap items-center gap-2">
                     <label className="flex items-center gap-2 rounded-[14px] px-3 py-2 flex-1 sm:w-72 sm:flex-none"
                       style={{ background: CARD, border: `1px solid ${LINE}` }}>
                       <Search className="h-4 w-4 shrink-0" style={{ color: MUTED }} />
-                      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar correo o empresa"
+                      <input value={q} onChange={e => buscar(e.target.value)} placeholder="Buscar correo o empresa"
                         className="w-full bg-transparent text-sm outline-none" style={{ color: INK }} />
                     </label>
                     <button type="button" onClick={() => descargarCsv(usuarios, etiquetaEtapa)}
@@ -209,7 +228,7 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {usuarios.map(u => (
+                      {visibles.map(u => (
                         <tr key={u.id} style={{ borderTop: `1px solid ${LINE}` }}>
                           <td className="px-4 py-3">
                             <p className="font-semibold" style={{ color: INK }}>{u.empresa ?? "Sin empresa aún"}</p>
@@ -238,6 +257,40 @@ export default function AdminPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {totalPaginas > 1 && (
+                  <nav aria-label="Páginas de usuarios" className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs tabular-nums" style={{ color: MUTED }}>
+                      {desde + 1}–{desde + visibles.length} de {usuarios.length}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <button type="button" onClick={() => setPagina(actual - 1)} disabled={actual === 1}
+                        aria-label="Página anterior"
+                        className="grid h-9 w-9 place-items-center rounded-[12px] transition-colors hover:brightness-95 disabled:opacity-40"
+                        style={{ background: CARD, border: `1px solid ${LINE}`, color: INK }}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      {paginasVisibles(actual, totalPaginas).map((p, i) => p === null ? (
+                        <span key={`hueco-${i}`} className="px-1 text-sm" style={{ color: MUTED }}>…</span>
+                      ) : (
+                        <button key={p} type="button" onClick={() => setPagina(p)}
+                          aria-current={p === actual ? "page" : undefined}
+                          className="h-9 min-w-9 rounded-[12px] px-2.5 text-sm font-bold tabular-nums transition-colors hover:brightness-95"
+                          style={p === actual
+                            ? { ...SANS, background: BNAVY, color: CARD, border: `1px solid ${BNAVY}` }
+                            : { ...SANS, background: CARD, color: INK, border: `1px solid ${LINE}` }}>
+                          {p}
+                        </button>
+                      ))}
+                      <button type="button" onClick={() => setPagina(actual + 1)} disabled={actual === totalPaginas}
+                        aria-label="Página siguiente"
+                        className="grid h-9 w-9 place-items-center rounded-[12px] transition-colors hover:brightness-95 disabled:opacity-40"
+                        style={{ background: CARD, border: `1px solid ${LINE}`, color: INK }}>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </nav>
+                )}
               </section>
             </>
           )}
