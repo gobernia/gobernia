@@ -19,6 +19,9 @@ export function PageShell({ children, className = "" }: { children: ReactNode; c
   )
 }
 
+/** Margen derecho para encabezados fijos: deja libre la esquina del botón de ayuda (WelcomeTour). */
+export const RESERVA_AYUDA = "pr-[max(var(--px-fluid),3.75rem)]"
+
 /** Ancho de lectura para texto corrido (~72 caracteres). */
 export function Prose({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`max-w-[68ch] ${className}`}>{children}</div>
@@ -30,7 +33,7 @@ export function PageHeader({
 }: { eyebrow?: string; title: string; actions?: ReactNode }) {
   return (
     <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100">
-      <PageShell className="py-3.5 flex items-center justify-between gap-4 flex-wrap">
+      <PageShell className={`py-3.5 flex items-center justify-between gap-4 flex-wrap ${RESERVA_AYUDA}`}>
         <div className="min-w-0">
           {eyebrow && (
             <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">{eyebrow}</p>

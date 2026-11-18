@@ -41,8 +41,9 @@ export default function Notices() {
 
   if (alerts.length === 0) return null
 
+  // top-16: deja libre la esquina del botón de ayuda (WelcomeTour, top-3 right-3).
   return (
-    <div className="fixed top-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] space-y-2">
+    <div className="fixed top-16 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] space-y-2">
       <AnimatePresence>
         {alerts.map(a => (
           <motion.div

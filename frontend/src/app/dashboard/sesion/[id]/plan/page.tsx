@@ -28,6 +28,7 @@ import {
 import api from "@/lib/api"
 import { agentShort, agentLabel } from "@/lib/agents"
 
+import { RESERVA_AYUDA } from "@/components/ui/PageShell"
 type CubicBezier = [number, number, number, number]
 const EASE: CubicBezier = [0.22, 1, 0.36, 1]
 
@@ -545,7 +546,7 @@ export default function PlanPage() {
     <div className="min-h-dvh bg-white text-black font-sans antialiased">
       {/* Navbar */}
       <header className="fixed top-0 inset-x-0 md:left-56 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between">
+        <div className={`w-full max-w-[var(--container-fluid)] mx-auto px-[var(--px-fluid)] h-14 flex items-center justify-between ${RESERVA_AYUDA}`}>
           <button
             onClick={() => router.push(`/dashboard/sesion/${id}`)}
             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"

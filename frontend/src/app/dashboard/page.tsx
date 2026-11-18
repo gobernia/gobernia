@@ -68,7 +68,7 @@ function TareaItem({ n, texto, dark = false }: { n: number; texto: string; dark?
   )
 }
 import SecretarioWelcome from "@/components/dashboard/SecretarioWelcome"
-import { PageShell } from "@/components/ui/PageShell"
+import { PageShell, RESERVA_AYUDA } from "@/components/ui/PageShell"
 import { supabase } from "@/lib/supabase"
 import { useOnboardingStore } from "@/lib/store"
 import api from "@/lib/api"
@@ -723,7 +723,7 @@ export default function DashboardPage() {
 
       {/* ── Navbar ───────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 md:left-56 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <PageShell className="h-14 flex items-center justify-between">
+        <PageShell className={`h-14 flex items-center justify-between ${RESERVA_AYUDA}`}>
           <GoberniaLogo size={16} />
 
           <div className="flex items-center gap-5">

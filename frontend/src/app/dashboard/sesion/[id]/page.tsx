@@ -8,7 +8,7 @@ import Link from "next/link"
 import api from "@/lib/api"
 import { supabase } from "@/lib/supabase"
 import { GoberniaIcon } from "@/components/ui/GoberniaLogo"
-import { PageShell } from "@/components/ui/PageShell"
+import { PageShell, RESERVA_AYUDA } from "@/components/ui/PageShell"
 import AgentsCollaboration from "@/components/plan/AgentsCollaboration"
 import BoardPack from "@/components/consejo/BoardPack"
 import ConclusionConsejo from "@/components/consejo/ConclusionConsejo"
@@ -261,7 +261,7 @@ export default function SessionPage() {
 
       {/* ── Navbar ───────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 md:left-56 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <PageShell className="h-14 flex items-center gap-4">
+        <PageShell className={`h-14 flex items-center gap-4 ${RESERVA_AYUDA}`}>
           <button
             onClick={() => router.push("/dashboard")}
             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[var(--gob-navy)] transition-colors"
