@@ -339,6 +339,36 @@ def test_formulario_de_stripe():
 
 
 @pytest.mark.asyncio
+async def test_pedir_manda_el_formulario_por_http(monkeypatch):
+    # Con httpx real (transporte simulado): antes la lista de pares en `data` tronaba con
+    # "Attempted to send an sync request with an AsyncClient instance".
+    import httpx
+
+    vistas = []
+
+    def responder(req: httpx.Request) -> httpx.Response:
+        vistas.append(req)
+        return httpx.Response(200, json={"id": "cs_1"})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(st.httpx, "AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(responder), **kw))
+    monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", "sk_test_123")
+
+    r = await st._pedir("POST", "/checkout/sessions",
+                        {"mode": "subscription", "line_items": [{"quantity": 1}], "x": None}, idempotencia="k1")
+    assert r == {"id": "cs_1"}
+    req = vistas[0]
+    assert req.method == "POST" and req.url == "https://api.stripe.com/v1/checkout/sessions"
+    assert req.headers["content-type"] == "application/x-www-form-urlencoded"
+    assert req.headers["authorization"] == "Bearer sk_test_123" and req.headers["idempotency-key"] == "k1"
+    assert req.content == b"mode=subscription&line_items%5B0%5D%5Bquantity%5D=1"
+
+    await st._pedir("GET", "/subscriptions/sub_1")
+    assert vistas[1].method == "GET" and vistas[1].content == b""
+
+
+@pytest.mark.asyncio
 async def test_duracion_del_cupon_de_stripe(monkeypatch):
     pedir = AsyncMock(return_value={"id": "cpn"})
     monkeypatch.setattr(st, "_pedir", pedir)

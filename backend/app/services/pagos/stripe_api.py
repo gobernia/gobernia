@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import time
 from datetime import datetime, timezone
+from urllib.parse import urlencode
 from decimal import Decimal
 
 import httpx
@@ -71,8 +72,14 @@ async def _pedir(metodo: str, ruta: str, datos: dict | None = None, idempotencia
     headers = {"Authorization": f"Bearer {settings.STRIPE_SECRET_KEY}"}
     if idempotencia:
         headers["Idempotency-Key"] = idempotencia
+    cuerpo = None
+    if datos:
+        # El formulario se codifica aquí: httpx no acepta una lista de pares en `data`
+        # (la toma como contenido síncrono y el cliente asíncrono la rechaza).
+        cuerpo = urlencode(aplanar(datos))
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
     async with httpx.AsyncClient(base_url=API, timeout=20) as c:
-        r = await c.request(metodo, ruta, data=aplanar(datos) if datos else None, headers=headers)
+        r = await c.request(metodo, ruta, content=cuerpo, headers=headers)
     if r.status_code >= 400:
         try:
             msg = r.json().get("error", {}).get("message") or r.text
