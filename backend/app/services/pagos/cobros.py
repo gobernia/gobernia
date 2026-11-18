@@ -221,12 +221,19 @@ async def crear_suscripcion(
             referencia=str(sus.id), nombre=cupon.codigo, tipo=cupon.tipo, valor=cupon.valor,
             moneda=plan.moneda, num_cobros=cupon.num_cobros, cada_meses=plan.intervalo_meses,
         )
-    sesion = await st.crear_checkout(
-        referencia=str(sus.id), email=email, cliente_id=await _cliente_previo(db, user_id),
-        nombre=f"Gobernia — {plan.nombre}", monto=precio, moneda=plan.moneda,
-        cada_meses=plan.intervalo_meses, cupon_id=cupon_stripe,
+    cliente = await _cliente_previo(db, user_id)
+    datos = dict(
+        referencia=str(sus.id), email=email, nombre=f"Gobernia — {plan.nombre}", monto=precio,
+        moneda=plan.moneda, cada_meses=plan.intervalo_meses, cupon_id=cupon_stripe,
         exito_url=url_gracias(), cancelar_url=url_perfil("volver"), incrustado=incrustado,
     )
+    try:
+        sesion = await st.crear_checkout(cliente_id=cliente, **datos)
+    except st.StripeError as e:
+        # El cliente de Stripe de una suscripción anterior se borró en Stripe: paga como nuevo.
+        if not cliente or "No such customer" not in str(e):
+            raise
+        sesion = await st.crear_checkout(cliente_id=None, **datos)
     sus.stripe_checkout_id = sesion["id"]
     sus.liga_pago = sesion.get("url")
     db.add(sus)

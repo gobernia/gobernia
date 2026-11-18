@@ -198,6 +198,29 @@ async def test_sin_cupon_no_crea_cupon_y_reusa_el_cliente(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_si_el_cliente_previo_se_borro_en_stripe_paga_como_nuevo(monkeypatch):
+    clientes = []
+
+    async def checkout(**kw):
+        clientes.append(kw["cliente_id"])
+        if kw["cliente_id"]:
+            raise st.StripeError("Stripe respondió 400: No such customer: 'cus_9'")
+        return {"id": "cs_2", "url": "x"}
+    monkeypatch.setattr(st, "crear_checkout", checkout)
+    sus, _ = await cobros.crear_suscripcion(_db_para_crear(cliente_previo="cus_9"), user_id="u1", email="a@b.com",
+                                            plan=_plan(), cupon=None)
+    assert clientes == ["cus_9", None] and sus.stripe_checkout_id == "cs_2"
+
+    # Otro error de Stripe no se esconde.
+    async def otro(**kw):
+        raise st.StripeError("Stripe respondió 500: error interno")
+    monkeypatch.setattr(st, "crear_checkout", otro)
+    with pytest.raises(st.StripeError):
+        await cobros.crear_suscripcion(_db_para_crear(cliente_previo="cus_9"), user_id="u1", email="a@b.com",
+                                       plan=_plan(), cupon=None)
+
+
+@pytest.mark.asyncio
 async def test_crear_suscripcion_no_duplica_una_activa(monkeypatch):
     checkout = AsyncMock()
     monkeypatch.setattr(st, "crear_checkout", checkout)

@@ -169,7 +169,7 @@ async def _sesion_de_pago(referencia, email, cliente_id, nombre, monto, moneda, 
         "subscription_data": {"metadata": {"suscripcion_id": referencia}},
         "locale": "es-419",
         **destino,
-    }, idempotencia=f"checkout-{referencia}")
+    }, idempotencia=f"checkout-{referencia}-{cliente_id or 'nuevo'}")
 
 
 async def obtener_checkout(sesion_id: str) -> dict:
