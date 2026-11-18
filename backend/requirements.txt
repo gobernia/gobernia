@@ -24,6 +24,9 @@ anthropic==0.40.0
 # Async tasks (document processing)
 celery==5.4.0
 redis==5.2.1
+# Fijado: kombu 5.7 (3 nov 2026) exige redis>=6.4 y tumba la cola con redis 5.2.1
+# (VersionMismatch al encolar y al arrancar el worker). Subir los tres juntos si se actualiza.
+kombu==5.6.2
 
 # File handling
 python-multipart==0.0.19  # file uploads
