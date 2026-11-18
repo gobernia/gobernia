@@ -10,6 +10,7 @@ import {
 import api from "@/lib/api"
 import { PageShell, PageHeader, Prose } from "@/components/ui/PageShell"
 import LogoUpload from "@/components/company/LogoUpload"
+import SuscripcionCuenta from "@/components/cuenta/SuscripcionCuenta"
 import { getFoda, type FodaOut } from "@/lib/foda"
 import { normalizeHallazgos } from "@/lib/diagnostico"
 
@@ -167,6 +168,9 @@ export default function DatosPage() {
 
           {/* Tablero: rejilla de tarjetas. Las bandas anchas van al final para no dejar huecos. */}
           <div className="grid gap-4 items-start lg:grid-cols-2 xl:grid-cols-3">
+
+            {/* Suscripción — banda ancha; se oculta sola mientras no haya cobros reales */}
+            <SuscripcionCuenta className="lg:col-span-2 xl:col-span-3" />
 
             {/* Tu marca — el logo del cliente (siempre disponible) */}
             <Section icon={Palette} title="Tu marca">

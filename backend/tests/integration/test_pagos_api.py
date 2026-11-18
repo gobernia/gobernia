@@ -96,6 +96,23 @@ async def test_plan_con_intervalo_invalido():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("clave,activos,modo", [
+    ("", False, None), ("sk_test_123", True, "prueba"), ("sk_live_123", True, "produccion"),
+])
+async def test_mi_suscripcion_dice_si_los_cobros_son_reales(monkeypatch, clave, activos, modo):
+    # El perfil del cliente solo muestra la suscripción cuando Stripe cobra de verdad.
+    monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", clave)
+    monkeypatch.setattr("app.api.v1.pagos.router.cobros.suscripcion_actual", AsyncMock(return_value=None))
+    res = MagicMock()
+    res.scalars.return_value.all.return_value = []
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=res)
+    r = await _llamar("GET", "/pagos", db)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"cobros_activos": activos, "modo": modo, "planes": [], "suscripcion": None}
+
+
+@pytest.mark.asyncio
 async def test_sin_stripe_no_se_puede_suscribir(monkeypatch):
     monkeypatch.setattr(st.settings, "STRIPE_SECRET_KEY", "")
     r = await _llamar("POST", "/pagos/suscribirme", json={"plan_id": "00000000-0000-0000-0000-000000000001"})
@@ -129,7 +146,7 @@ async def test_portal_de_stripe(monkeypatch):
     r = await _llamar("POST", "/pagos/portal")
     assert r.status_code == 200, r.text
     assert r.json() == {"url": "https://billing.stripe.test/p"}
-    assert portal.await_args.args[0] == "cus_1" and portal.await_args.args[1].endswith("/dashboard/suscripcion")
+    assert portal.await_args.args[0] == "cus_1" and portal.await_args.args[1].endswith("/dashboard/datos?pago=volver")
 
 
 @pytest.mark.asyncio

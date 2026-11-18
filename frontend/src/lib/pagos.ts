@@ -20,6 +20,8 @@ export interface MiSuscripcion {
 
 export interface EstadoPagos {
   cobros_activos: boolean
+  /** Con Stripe conectado: prueba (sk_test_) o produccion. Los clientes solo ven la suscripción en produccion. */
+  modo: "prueba" | "produccion" | null
   planes: Plan[]
   suscripcion: MiSuscripcion | null
 }

@@ -171,8 +171,8 @@ function Conexion({ data }: { data: AdminCobros }) {
           {data.modo === "prueba" ? " en modo de prueba: los cobros no son reales." : " en modo real."}
           {!data.webhook_firmado && " Falta el secreto de firma del webhook (whsec_…) para validar los avisos."}
         </p>
-        <Link href="/dashboard/suscripcion" className="text-xs font-bold underline" style={{ color: B.BNAVY }}>
-          Ver la página de suscripción del cliente
+        <Link href="/dashboard/datos#suscripcion" className="text-xs font-bold underline" style={{ color: B.BNAVY }}>
+          Ver la suscripción en Mi perfil
         </Link>
       </div>
     )

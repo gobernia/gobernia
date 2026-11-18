@@ -115,8 +115,8 @@ async def test_crear_suscripcion_aplica_el_descuento(monkeypatch):
         "moneda": "MXN", "num_cobros": 3, "cada_meses": 1}
     k = checkout.await_args.kwargs
     assert k["monto"] == Decimal("1000.00") and k["cupon_id"] == "cpn_1" and k["cliente_id"] is None
-    assert k["exito_url"].endswith("/dashboard/suscripcion?pago=listo")
-    assert k["cancelar_url"].endswith("/dashboard/suscripcion")
+    assert k["exito_url"].endswith("/dashboard/datos?pago=listo")
+    assert k["cancelar_url"].endswith("/dashboard/datos?pago=volver")
     db.add.assert_called_once_with(sus)
 
 

@@ -59,6 +59,8 @@ async def mi_suscripcion(user: dict = Depends(get_current_user), db: AsyncSessio
     )).scalars().all()
     return {
         "cobros_activos": st.configurado(),
+        # prueba | produccion: los clientes solo ven la suscripción con cobros reales.
+        "modo": st.modo(),
         "planes": [cobros.plan_dict(p) for p in planes],
         "suscripcion": await _salida(db, sus),
     }
@@ -149,7 +151,7 @@ async def portal(user: dict = Depends(get_current_user), db: AsyncSession = Depe
     if sus is None or not sus.stripe_customer_id:
         raise HTTPException(status_code=404, detail="No tienes una suscripción de pago.")
     try:
-        sesion = await st.crear_portal(sus.stripe_customer_id, f"{settings.FRONTEND_URL.rstrip('/')}/dashboard/suscripcion")
+        sesion = await st.crear_portal(sus.stripe_customer_id, cobros.url_perfil("volver"))
     except st.StripeError as e:
         _log.error("No se pudo abrir el portal de Stripe de %s: %s", user["sub"], e)
         raise HTTPException(status_code=502, detail=_SIN_STRIPE)

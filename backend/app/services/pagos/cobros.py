@@ -35,6 +35,11 @@ def normalizar_codigo(codigo: str | None) -> str:
     return (codigo or "").strip().upper()
 
 
+def url_perfil(pago: str) -> str:
+    """Mi perfil: ahí vive la suscripción del cliente. `pago`: listo (regresa de pagar) o volver."""
+    return f"{settings.FRONTEND_URL.rstrip('/')}/dashboard/datos?pago={pago}"
+
+
 def dinero(v) -> Decimal:
     return Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -207,12 +212,11 @@ async def crear_suscripcion(
             referencia=str(sus.id), nombre=cupon.codigo, tipo=cupon.tipo, valor=cupon.valor,
             moneda=plan.moneda, num_cobros=cupon.num_cobros, cada_meses=plan.intervalo_meses,
         )
-    regreso = f"{settings.FRONTEND_URL.rstrip('/')}/dashboard/suscripcion"
     sesion = await st.crear_checkout(
         referencia=str(sus.id), email=email, cliente_id=await _cliente_previo(db, user_id),
         nombre=f"Gobernia — {plan.nombre}", monto=precio, moneda=plan.moneda,
         cada_meses=plan.intervalo_meses, cupon_id=cupon_stripe,
-        exito_url=f"{regreso}?pago=listo", cancelar_url=regreso,
+        exito_url=url_perfil("listo"), cancelar_url=url_perfil("volver"),
     )
     sus.stripe_checkout_id = sesion["id"]
     sus.liga_pago = sesion.get("url")
