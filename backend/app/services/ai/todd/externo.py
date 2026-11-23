@@ -112,7 +112,7 @@ import anthropic
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
 from app.services.ai.todd.agent import (
-    build_anthropic_messages, _normalize_turn, enforce_coverage_against, RESPONSE_TOOL,
+    build_anthropic_messages, _entrada_del_turno, _normalize_turn, enforce_coverage_against, RESPONSE_TOOL,
 )
 from app.services.ai.todd.streaming import stream_turno
 
@@ -126,9 +126,7 @@ def _externo_call(messages: list[dict], system: str, al_avanzar=None) -> dict:
     )
     response = (stream_turno(client, al_avanzar, **peticion) if al_avanzar
                 else _create_with_retry(client, **peticion))
-    block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
-    parsed = dict(block.input) if block is not None and isinstance(block.input, dict) else {}
-    return enforce_coverage_against(_normalize_turn(parsed), PESTEL_CATS)
+    return enforce_coverage_against(_normalize_turn(_entrada_del_turno(response)), PESTEL_CATS)
 
 
 def run_externo_turn(messages: list[dict], state: dict | None, diagnostico_ctx: str, al_avanzar=None) -> dict:

@@ -12,7 +12,7 @@ from typing import Callable
 
 import anthropic
 
-from app.services.ai.agents.base import _RETRY_DELAYS, _RETRYABLE
+from app.services.ai.agents.base import _RETRY_DELAYS, _RETRYABLE, _create_with_retry
 
 _log = logging.getLogger(__name__)
 _DEC = json.JSONDecoder()
@@ -102,7 +102,7 @@ def stream_turno(client: anthropic.Anthropic, al_avanzar: Callable[[dict], None]
     hay más pregunta visible. Devuelve el Message final (el mismo que daría sin streaming).
     Si hay un reintento, la pregunta vuelve a empezar: cada aviso trae el texto completo."""
     # Sin esto, la API junta la entrada de la herramienta y la entrega de golpe al final.
-    kwargs["tools"] = [dict(t, eager_input_streaming=True) for t in kwargs["tools"]]
+    en_vivo = dict(kwargs, tools=[dict(t, eager_input_streaming=True) for t in kwargs["tools"]])
     last_exc: Exception | None = None
     for intento, espera in enumerate(_RETRY_DELAYS):
         if espera > 0:
@@ -111,7 +111,7 @@ def stream_turno(client: anthropic.Anthropic, al_avanzar: Callable[[dict], None]
             time.sleep(espera)
         try:
             parcial, ultimo, completo = "", None, False
-            with client.messages.stream(**kwargs) as s:
+            with client.messages.stream(**en_vivo) as s:
                 for ev in s:
                     if completo or ev.type != "content_block_delta":
                         continue
@@ -127,5 +127,10 @@ def stream_turno(client: anthropic.Anthropic, al_avanzar: Callable[[dict], None]
                 return s.get_final_message()
         except _RETRYABLE as e:
             last_exc = e
+        except ValueError as e:
+            # El JSON llegó mal formado (en vivo la API ya no lo corrige): se pide el turno otra
+            # vez por la vía normal, sin streaming. La persona ve la pregunta al final, como antes.
+            _log.warning("turno en vivo con JSON inválido (%s); se repite por la vía normal", e)
+            return _create_with_retry(client, **kwargs)
     assert last_exc is not None
     raise last_exc

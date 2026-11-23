@@ -91,7 +91,7 @@ async def todd_turn(
     return ToddTurnOut(
         message=turn["message"], options=turn["options"],
         input=turn["input"], done=turn["done"],
-        areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+        areas_cubiertas=list((sess.state or {}).get("areas_cubiertas") or []),
         expects_detail=turn.get("expects_detail", False),
     )
 
@@ -170,7 +170,7 @@ async def _turno_en_vivo(user_id: str, answer: str | None, phase: str):
         await db.commit()
         yield _sse("fin", ToddTurnOut(
             message=turn["message"], options=turn["options"], input=turn["input"], done=turn["done"],
-            areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+            areas_cubiertas=list((sess.state or {}).get("areas_cubiertas") or []),
             expects_detail=turn.get("expects_detail", False),
         ).model_dump())
 
@@ -224,7 +224,7 @@ async def todd_edit(
     return ToddTurnOut(
         message=turn["message"], options=turn["options"],
         input=turn["input"], done=turn["done"],
-        areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+        areas_cubiertas=list((sess.state or {}).get("areas_cubiertas") or []),
         expects_detail=turn.get("expects_detail", False),
     )
 
@@ -260,7 +260,7 @@ async def externo_turn(body: ToddTurnIn, user_id: str = Depends(get_current_user
     flag_modified(sess, "messages"); flag_modified(sess, "state")
     await db.commit()
     return ToddTurnOut(message=turn["message"], options=turn["options"], input=turn["input"],
-                       done=turn["done"], areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+                       done=turn["done"], areas_cubiertas=list((sess.state or {}).get("areas_cubiertas") or []),
                        expects_detail=turn.get("expects_detail", False))
 
 
@@ -288,7 +288,7 @@ async def externo_edit(body: ToddEditIn, user_id: str = Depends(get_current_user
     flag_modified(sess, "messages"); flag_modified(sess, "state")
     await db.commit()
     return ToddTurnOut(message=turn["message"], options=turn["options"], input=turn["input"],
-                       done=turn["done"], areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+                       done=turn["done"], areas_cubiertas=list((sess.state or {}).get("areas_cubiertas") or []),
                        expects_detail=turn.get("expects_detail", False))
 
 

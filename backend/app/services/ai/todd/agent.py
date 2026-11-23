@@ -2,6 +2,7 @@
 Lógica pura (sin red) salvo run_todd_turn (la llamada a Sonnet, con salida estructurada por tool use).
 """
 import json
+import logging
 
 from app.services.ai.prompt_loader import load_prompt
 import unicodedata
@@ -12,6 +13,8 @@ from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object, sistema_con_cache
 from app.services.ai.todd import areas
 from app.services.ai.todd.streaming import stream_turno
+
+_log = logging.getLogger(__name__)
 
 # El modelo a veces marca las áreas con etiquetas libres ("Recursos Humanos", "Financiera",
 # "Operaciones", con acentos/mayúsculas). Las mapeamos a las 7 claves canónicas para que la
@@ -122,6 +125,30 @@ def build_anthropic_messages(messages: list[dict]) -> list[dict]:
     return out
 
 
+def _si(valor) -> bool:
+    """True solo si la IA dijo que sí. Con el turno en vivo la API ya no convierte tipos, y
+    bool("false") daría True (cerraría la entrevista sin querer)."""
+    return valor is True or (isinstance(valor, str) and valor.strip().lower() == "true")
+
+
+# Respuestas que terminaron antes de tiempo: el JSON puede venir a medias.
+_CORTADA = ("max_tokens", "model_context_window_exceeded", "refusal")
+
+
+def _entrada_del_turno(response) -> dict:
+    """La entrada de 'responder_turno'. Si la respuesta se cortó, el expediente puede venir a
+    medias (p. ej. {'company': {}}): se descarta, para que el router conserve el anterior
+    completo, y la entrevista no se cierra en ese turno. La conversación sí se guarda, y en el
+    turno siguiente Todd vuelve a escribir el expediente completo."""
+    block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
+    parsed = dict(block.input) if block is not None and isinstance(block.input, dict) else {}
+    if getattr(response, "stop_reason", None) in _CORTADA:
+        _log.warning("turno de Todd cortado (%s): se conserva el expediente anterior", response.stop_reason)
+        parsed.pop("state", None)
+        parsed["done"] = False
+    return parsed
+
+
 def _normalize_turn(parsed: dict) -> dict:
     """Normaliza un turno (dict ya parseado) a la forma segura. Ante datos faltantes, defaults inocuos."""
     parsed = parsed or {}
@@ -139,8 +166,8 @@ def _normalize_turn(parsed: dict) -> dict:
         "options": [str(o) for o in options] if options else None,
         "input": input_type,
         "state": state,
-        "done": bool(parsed.get("done")),
-        "expects_detail": bool(parsed.get("expects_detail")) and input_type == "text",
+        "done": _si(parsed.get("done")),
+        "expects_detail": _si(parsed.get("expects_detail")) and input_type == "text",
         "reanudar_desde": parsed.get("reanudar_desde") if parsed.get("reanudar_desde") in ("continuar", "rehacer") else "continuar",
     }
 
@@ -156,7 +183,9 @@ def enforce_coverage_against(turn: dict, required: list[str],
     Normaliza las áreas marcadas a claves canónicas (tolera etiquetas libres del modelo:
     acentos, mayúsculas, sinónimos), evitando el bucle de cierre."""
     state = turn.get("state")
-    if isinstance(state, dict):
+    # Un expediente vacío se deja vacío: así el router conserva el anterior completo (antes se
+    # volvía {'areas_cubiertas': []} y se guardaba encima del bueno).
+    if isinstance(state, dict) and state:
         state["areas_cubiertas"] = _normalize_areas(state.get("areas_cubiertas"), required, aliases)
     if turn.get("done"):
         cubiertas = set((turn.get("state") or {}).get("areas_cubiertas") or [])
@@ -207,9 +236,7 @@ def run_todd_turn(messages: list[dict], state: dict | None = None, al_avanzar=No
     )
     response = (stream_turno(client, al_avanzar, **peticion) if al_avanzar
                 else _create_with_retry(client, **peticion))
-    block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
-    parsed = dict(block.input) if block is not None and isinstance(block.input, dict) else {}
-    return enforce_coverage(_normalize_turn(parsed))
+    return enforce_coverage(_normalize_turn(_entrada_del_turno(response)))
 
 
 def _edit_note(edited_question: str, new_answer: str) -> str:
@@ -239,6 +266,4 @@ def run_todd_edit(messages: list[dict], edited_question: str, new_answer: str,
         tools=[RESPONSE_TOOL],
         tool_choice={"type": "tool", "name": "responder_turno"},
     )
-    block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
-    parsed = dict(block.input) if block is not None and isinstance(block.input, dict) else {}
-    return enforce_coverage(_normalize_turn(parsed))
+    return enforce_coverage(_normalize_turn(_entrada_del_turno(response)))
