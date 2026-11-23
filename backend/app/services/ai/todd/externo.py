@@ -114,25 +114,31 @@ from app.services.ai.agents.base import _create_with_retry
 from app.services.ai.todd.agent import (
     build_anthropic_messages, _normalize_turn, enforce_coverage_against, RESPONSE_TOOL,
 )
+from app.services.ai.todd.streaming import stream_turno
 
 
-def _externo_call(messages: list[dict], system: str) -> dict:
+def _externo_call(messages: list[dict], system: str, al_avanzar=None) -> dict:
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=4096,
+    peticion = dict(
+        model=settings.AI_MODEL, max_tokens=4096,
         system=system, messages=build_anthropic_messages(messages),
         tools=[RESPONSE_TOOL], tool_choice={"type": "tool", "name": "responder_turno"},
     )
+    response = (stream_turno(client, al_avanzar, **peticion) if al_avanzar
+                else _create_with_retry(client, **peticion))
     block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
     parsed = dict(block.input) if block is not None and isinstance(block.input, dict) else {}
     return enforce_coverage_against(_normalize_turn(parsed), PESTEL_CATS)
 
 
-def run_externo_turn(messages: list[dict], state: dict | None, diagnostico_ctx: str) -> dict:
+def run_externo_turn(messages: list[dict], state: dict | None, diagnostico_ctx: str, al_avanzar=None) -> dict:
     if not settings.ANTHROPIC_API_KEY:
-        return {"message": "(sin IA) ¿Qué factores del entorno te preocupan?", "options": None,
-                "input": "text", "state": state or {}, "done": False, "reanudar_desde": "continuar"}
-    return _externo_call(messages, build_externo_prompt(state, diagnostico_ctx))
+        turno = {"message": "(sin IA) ¿Qué factores del entorno te preocupan?", "options": None,
+                 "input": "text", "state": state or {}, "done": False, "reanudar_desde": "continuar"}
+        if al_avanzar:
+            al_avanzar({"message": turno["message"], "options": None, "input": "text"})
+        return turno
+    return _externo_call(messages, build_externo_prompt(state, diagnostico_ctx), al_avanzar)
 
 
 def run_externo_edit(messages: list[dict], edited_question: str, new_answer: str,

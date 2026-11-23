@@ -1,13 +1,17 @@
+import asyncio
 import json
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Response, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 import anyio
 
 from app.core.dependencies import get_current_user_id, get_db
+from app.db.session import AsyncSessionLocal
 from app.models.todd_session import ToddSession
 from app.models.onboarding_session import OnboardingSession
 from app.models.diagnostico_estrategico import DiagnosticoEstrategico
@@ -17,6 +21,7 @@ from app.services.ai.todd.agent import run_todd_turn, run_todd_edit, state_to_me
 from app.services.ai.todd.externo import run_externo_turn, run_externo_edit, generar_metas
 
 router = APIRouter()
+_log = logging.getLogger(__name__)
 
 
 async def _current(user_id: str, db: AsyncSession, phase: str = "interno") -> ToddSession | None:
@@ -89,6 +94,99 @@ async def todd_turn(
         areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
         expects_detail=turn.get("expects_detail", False),
     )
+
+
+# ── Turnos EN VIVO: la pregunta llega mientras la IA termina el expediente ──────────────────
+# Mismo turno, mismo guardado y mismo expediente que /turn; solo cambia que la pregunta se ve
+# a los ~2 s en lugar de esperar a que la IA termine de reescribir el expediente (10+ s).
+
+_SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+_LATIDO_S = 10  # comentario SSE para que ningún proxy corte la conexión en una espera larga
+
+
+def _sse(evento: str, datos) -> str:
+    return f"event: {evento}\ndata: {json.dumps(datos, ensure_ascii=False)}\n\n"
+
+
+async def _turno_en_vivo(user_id: str, answer: str | None, phase: str):
+    """Eventos: 'pregunta' (lo visible del turno mientras se escribe), luego 'fin' con el turno
+    ya guardado, o 'error'. Abre su propia sesión de base: la del endpoint se cierra antes de que
+    termine una respuesta en streaming. Si la persona cierra la página a medias, no se guarda nada."""
+    loop = asyncio.get_running_loop()
+    cola: asyncio.Queue = asyncio.Queue()
+
+    def avisar(campos: dict) -> None:  # corre en el hilo de la llamada a la IA
+        loop.call_soon_threadsafe(cola.put_nowait, ("pregunta", campos))
+
+    def terminado(tarea: asyncio.Future) -> None:
+        if not tarea.cancelled():
+            tarea.exception()  # la excepción se atiende abajo; esto evita el aviso de "nunca leída"
+        cola.put_nowait(("listo", None))
+
+    async with AsyncSessionLocal() as db:
+        sess = await _current(user_id, db, phase=phase)
+        if sess is None:
+            sess = ToddSession(user_id=user_id, status="active", phase=phase, messages=[], state={})
+            db.add(sess)
+            await db.flush()
+        ctx = await _diagnostico_ctx(user_id, db) if phase == "externo" else ""
+        messages = list(sess.messages or [])
+        if answer:
+            messages.append({"role": "user", "text": answer, "options": None})
+        state = sess.state or {}
+        if phase == "externo":
+            def correr():
+                return run_externo_turn(messages, state, ctx, avisar)
+        else:
+            def correr():
+                return run_todd_turn(messages, state, avisar)
+        tarea = asyncio.ensure_future(anyio.to_thread.run_sync(correr))
+        tarea.add_done_callback(terminado)
+
+        while True:
+            try:
+                tipo, datos = await asyncio.wait_for(cola.get(), timeout=_LATIDO_S)
+            except asyncio.TimeoutError:
+                yield ": sigo\n\n"
+                continue
+            if tipo != "pregunta":
+                break
+            yield _sse("pregunta", datos)
+
+        try:
+            turn = tarea.result()
+        except Exception:
+            _log.exception("turno de Todd en vivo falló (%s)", phase)
+            yield _sse("error", {"detail": "No se pudo generar la siguiente pregunta. Intenta de nuevo."})
+            return
+
+        messages.append({"role": "todd", "text": turn["message"], "options": turn["options"]})
+        sess.messages = messages
+        sess.state = turn["state"] or sess.state
+        if turn["done"]:
+            sess.status = "done"
+        flag_modified(sess, "messages")
+        flag_modified(sess, "state")
+        await db.commit()
+        yield _sse("fin", ToddTurnOut(
+            message=turn["message"], options=turn["options"], input=turn["input"], done=turn["done"],
+            areas_cubiertas=list((turn["state"] or {}).get("areas_cubiertas") or []),
+            expects_detail=turn.get("expects_detail", False),
+        ).model_dump())
+
+
+@router.post("/onboarding/todd/turn/stream")
+async def todd_turn_stream(body: ToddTurnIn, user_id: str = Depends(get_current_user_id)):
+    """Como /onboarding/todd/turn, pero manda la pregunta mientras se escribe."""
+    return StreamingResponse(_turno_en_vivo(user_id, body.answer, "interno"),
+                             media_type="text/event-stream", headers=_SSE_HEADERS)
+
+
+@router.post("/onboarding/todd/externo/turn/stream")
+async def externo_turn_stream(body: ToddTurnIn, user_id: str = Depends(get_current_user_id)):
+    """Como /onboarding/todd/externo/turn, pero manda la pregunta mientras se escribe."""
+    return StreamingResponse(_turno_en_vivo(user_id, body.answer, "externo"),
+                             media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 @router.post("/onboarding/todd/edit", response_model=ToddTurnOut)

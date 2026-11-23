@@ -11,6 +11,7 @@ import anthropic
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object, sistema_con_cache
 from app.services.ai.todd import areas
+from app.services.ai.todd.streaming import stream_turno
 
 # El modelo a veces marca las áreas con etiquetas libres ("Recursos Humanos", "Financiera",
 # "Operaciones", con acentos/mayúsculas). Las mapeamos a las 7 claves canónicas para que la
@@ -182,23 +183,30 @@ def state_to_memory_buffer(state: dict) -> dict:
     }
 
 
-def run_todd_turn(messages: list[dict], state: dict | None = None) -> dict:
+def run_todd_turn(messages: list[dict], state: dict | None = None, al_avanzar=None) -> dict:
     """Llamada de red: Sonnet produce el siguiente turno con salida ESTRUCTURADA (tool use forzado),
     así que siempre devuelve un objeto válido (nunca prosa suelta). Devuelve el turno normalizado y
-    con cobertura forzada. Sin API key → un turno determinista mínimo (dev/tests sin red)."""
+    con cobertura forzada. Sin API key → un turno determinista mínimo (dev/tests sin red).
+    Con `al_avanzar`, va avisando la pregunta mientras se escribe (ver streaming.py); el turno
+    que devuelve es el mismo."""
     if not settings.ANTHROPIC_API_KEY:
-        return {
+        turno = {
             "message": "Hola, soy Todd. (Modo sin IA) ¿Cómo se llama tu empresa?",
             "options": None, "input": "text", "state": {}, "done": False,
         }
+        if al_avanzar:
+            al_avanzar({"message": turno["message"], "options": None, "input": "text"})
+        return turno
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=4096,
+    peticion = dict(
+        model=settings.AI_MODEL, max_tokens=4096,
         system=build_system_blocks(state),
         messages=build_anthropic_messages(messages),
         tools=[RESPONSE_TOOL],
         tool_choice={"type": "tool", "name": "responder_turno"},
     )
+    response = (stream_turno(client, al_avanzar, **peticion) if al_avanzar
+                else _create_with_retry(client, **peticion))
     block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
     parsed = dict(block.input) if block is not None and isinstance(block.input, dict) else {}
     return enforce_coverage(_normalize_turn(parsed))

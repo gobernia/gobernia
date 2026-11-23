@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ArrowRight, ArrowLeft, Loader2, Pencil, X, Check, Clock } from "lucide-react"
 import {
-  ToddMessage, ToddTurn, QAPair, TODD_AREAS,
-  getToddSession, sendToddAnswer, editToddAnswer, closeTodd, buildQAPairs,
+  ToddMessage, ToddTurn, ToddEnVivo, QAPair, TODD_AREAS,
+  getToddSession, sendToddAnswerEnVivo, editToddAnswer, closeTodd, buildQAPairs,
 } from "@/lib/todd"
 import GoberniaLogo from "@/components/ui/GoberniaLogo"
 
@@ -22,6 +22,10 @@ export default function ToddFormPage() {
   const [areas, setAreas] = useState<string[]>([])
   const [text, setText] = useState("")
   const [busy, setBusy] = useState(false)
+  // El siguiente turno mientras Todd lo escribe: la pregunta se ve antes de que termine de
+  // guardar el expediente. `turnoN` cambia con cada respuesta (anima la pregunta nueva una vez).
+  const [vivo, setVivo] = useState<ToddEnVivo | null>(null)
+  const [turnoN, setTurnoN] = useState(0)
   const [closing, setClosing] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editPair, setEditPair] = useState<QAPair | null>(null)
@@ -40,9 +44,12 @@ export default function ToddFormPage() {
             input: last.options ? "single_choice" : "text", done: sess.done,
             areas_cubiertas: sess.areas_cubiertas })
         } else {
-          const t = await sendToddAnswer(null)
-          setTurn(t); setAreas(t.areas_cubiertas)
-          setMessages([{ role: "todd", text: t.message, options: t.options }])
+          setBusy(true); setVivo({ message: "" })
+          try {
+            const t = await sendToddAnswerEnVivo(null, setVivo)
+            setTurn(t); setAreas(t.areas_cubiertas)
+            setMessages([{ role: "todd", text: t.message, options: t.options }])
+          } finally { setVivo(null); setBusy(false) }
         }
       })
       .catch(() => {})
@@ -61,13 +68,13 @@ export default function ToddFormPage() {
   const answer = async (value: string) => {
     const min = turn?.expects_detail ? 15 : 1
     if (value.trim().length < min || busy) return
-    setBusy(true); setText("")
+    setBusy(true); setText(""); setTurnoN(n => n + 1); setVivo({ message: "" })
     try {
-      const t = await sendToddAnswer(value)
+      const t = await sendToddAnswerEnVivo(value, setVivo)
       applyTurn(t, value)
     } catch {
-      /* deja el paso actual */
-    } finally { setBusy(false) }
+      setText(value) // deja el paso actual, sin perder lo que escribió
+    } finally { setVivo(null); setBusy(false) }
   }
 
   const finish = async () => {
@@ -100,6 +107,12 @@ export default function ToddFormPage() {
   }
 
   const pairs = buildQAPairs(messages)
+  // Lo que se muestra: el turno en vivo (mientras Todd escribe) o el último turno guardado.
+  const vista: ToddTurn | null = vivo
+    ? { message: vivo.message, options: vivo.options ?? null, input: vivo.input ?? "text", done: false, areas_cubiertas: areas }
+    : turn
+  // Todd aún escribe la pregunta: todavía no se sabe si pide opciones o texto.
+  const escribiendo = !!vivo && !vivo.input
 
   return (
     <div className="min-h-dvh bg-white text-black flex flex-col">
@@ -195,26 +208,29 @@ export default function ToddFormPage() {
             </div>
           ) : (
             <AnimatePresence mode="wait">
-              <motion.div key={turn?.message}
+              <motion.div key={turnoN}
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.25 }} className="space-y-6">
                 <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-full bg-[var(--gob-navy)] text-[var(--gob-bone)] flex items-center justify-center text-sm font-bold shrink-0">T</div>
                   <div>
                     <p className="text-xs font-medium text-gray-400">Todd</p>
-                    <h2 className="text-lg font-bold text-black leading-snug">{turn?.message}</h2>
+                    <h2 className="text-lg font-bold text-black leading-snug">
+                      {vista?.message || (vivo && <span className="text-gray-300 font-medium">Todd está pensando<span className="animate-pulse">…</span></span>)}
+                      {escribiendo && vivo?.message && <span className="ml-1 inline-block h-5 w-[2px] translate-y-1 bg-gray-300 animate-pulse" />}
+                    </h2>
                   </div>
                 </div>
 
-                {turn && !turn.done && (
-                  turn.options && turn.options.length > 0 ? (
-                    busy ? (
+                {vista && !vista.done && !escribiendo && (
+                  vista.options && vista.options.length > 0 ? (
+                    busy && !vivo ? (
                       <div className="flex items-center gap-2 text-sm text-gray-400">
                         <Loader2 className="h-4 w-4 animate-spin" /> Procesando tu respuesta…
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-2">
-                        {turn.options.map(o => (
+                        {vista.options.map(o => (
                           <button key={o} disabled={busy} onClick={() => answer(o)}
                             className="text-sm border border-gray-200 rounded-xl px-4 py-2.5 hover:border-[var(--gob-navy)] hover:bg-gray-50 transition-colors disabled:opacity-50">
                             {o}
@@ -224,23 +240,23 @@ export default function ToddFormPage() {
                     )
                   ) : (
                     <form onSubmit={e => { e.preventDefault(); answer(text) }} className="space-y-3">
-                      <textarea value={text} onChange={e => setText(e.target.value)} disabled={busy}
-                        rows={turn?.expects_detail ? 4 : 3} placeholder="Tu respuesta…"
+                      <textarea value={text} onChange={e => setText(e.target.value)} disabled={busy && !vivo}
+                        rows={vista?.expects_detail ? 4 : 3} placeholder="Tu respuesta…"
                         className="w-full rounded-xl border-2 border-gray-100 px-4 py-3 text-sm focus:border-black focus:outline-none resize-none" />
-                      {turn?.expects_detail && (
+                      {vista?.expects_detail && (
                         <p className="text-xs text-gray-400 leading-relaxed">
                           💡 Sé específico: da contexto, números o un ejemplo. Entre más detalle, mejor tu diagnóstico.
                         </p>
                       )}
-                      <button type="submit" disabled={busy || text.trim().length < (turn?.expects_detail ? 15 : 1)}
+                      <button type="submit" disabled={busy || text.trim().length < (vista?.expects_detail ? 15 : 1)}
                         className="w-full inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl disabled:opacity-40">
-                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continuar <ArrowRight className="h-4 w-4" /></>}
+                        {busy ? <><Loader2 className="h-4 w-4 animate-spin" />{vivo && " Un momento…"}</> : <>Continuar <ArrowRight className="h-4 w-4" /></>}
                       </button>
                     </form>
                   )
                 )}
 
-                {turn?.done && (
+                {turn?.done && !vivo && (
                   <button onClick={finish} disabled={closing}
                     className="w-full inline-flex items-center justify-center gap-2 bg-[var(--gob-navy)] text-[var(--gob-bone)] text-sm font-medium py-3 rounded-xl disabled:opacity-50">
                     {closing ? <><Loader2 className="h-4 w-4 animate-spin" /> Preparando tu diagnóstico…</> : "Finalizar y ver mi diagnóstico"}
