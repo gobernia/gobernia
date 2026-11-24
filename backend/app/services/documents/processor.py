@@ -5,6 +5,7 @@ Corre dentro del worker de Celery (no en el proceso FastAPI).
 import anthropic
 
 from app.core.config import settings
+from app.services.ai.modelos import ajustes_ai, pedir_texto, texto
 
 _ANALYSIS_PROMPT = """Eres un analista de gobierno corporativo. Analiza el siguiente documento
 empresarial y extrae los insights más relevantes para el consejo de administración.
@@ -96,13 +97,15 @@ def analyze_document_with_claude(
         company_context=company_context,
         text=text[:12_000],   # ~3k tokens, deja margen para el modelo
     )
-    message = client.messages.create(
+    message = pedir_texto(
+        lambda c, **kw: c.messages.create(**kw), client,
         model=settings.AI_MODEL,
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
+        **ajustes_ai(),
     )
     import json, re
-    raw = message.content[0].text
+    raw = texto(message)
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if match:
         return json.loads(match.group())

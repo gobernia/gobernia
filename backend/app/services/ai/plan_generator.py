@@ -9,6 +9,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object
+from app.services.ai.modelos import ajustes_ai, pedir_texto, texto
 
 
 PLAN_GENERATOR_SYSTEM_PROMPT = """Eres el director del consejo. Tu trabajo es traducir los análisis
@@ -84,13 +85,14 @@ def generate_action_plan(
     )
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(client,
+    response = pedir_texto(_create_with_retry, client,
         model=settings.AI_MODEL,
         max_tokens=4096,
         system=PLAN_GENERATOR_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
+        **ajustes_ai(),
     )
-    raw = response.content[0].text
+    raw = texto(response)
     parsed = _extract_json_object(raw)
     if not parsed or not isinstance(parsed.get("tasks"), list):
         return _fallback_plan_from_analyses(agent_analyses)

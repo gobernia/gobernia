@@ -10,6 +10,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _build_company_context, _create_with_retry
+from app.services.ai.modelos import ajustes_ai, pedir_texto, texto
 
 _CHAIR_SYSTEM = (
     "Eres el Chair (presidente) de un consejo de administración de una empresa familiar. "
@@ -47,12 +48,13 @@ def chair_curate_agenda(deterministic_agenda: list[dict], memory_buffer: dict, p
     )
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        response = _create_with_retry(
-            client, model=settings.AI_MODEL, max_tokens=2048,
+        response = pedir_texto(
+            _create_with_retry, client, model=settings.AI_MODEL, max_tokens=2048,
             system=_CHAIR_SYSTEM,
             messages=[{"role": "user", "content": user_prompt}],
+            **ajustes_ai(),
         )
-        return _rebuild(deterministic_agenda, response.content[0].text)
+        return _rebuild(deterministic_agenda, texto(response))
     except Exception:
         return {"carta": "", "items": deterministic_agenda}
 

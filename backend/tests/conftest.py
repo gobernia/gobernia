@@ -14,6 +14,7 @@ def _llamadas_de_la_familia_4(monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "DIAGNOSTICO_AI_MODEL", "claude-opus-4-8")
+    monkeypatch.setattr(settings, "AI_MODEL", "claude-sonnet-4-6")
 
 
 @pytest.fixture(autouse=True)

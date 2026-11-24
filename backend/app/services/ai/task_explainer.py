@@ -3,6 +3,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.modelos import ajustes_ai, pedir_herramienta
 
 _DIFS = ("Fácil", "Media", "Difícil")
 
@@ -53,10 +54,10 @@ def generate_explicacion(task_title: str, objetivo: str, empresa: str, kpi: str 
     )
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
-        response = _create_with_retry(
-            client, model=settings.AI_MODEL, max_tokens=1024, system=system,
+        response = pedir_herramienta(
+            _create_with_retry, client, model=settings.AI_MODEL, max_tokens=1024, system=system,
             messages=[{"role": "user", "content": user}],
-            tools=[EXPLICACION_TOOL], tool_choice={"type": "tool", "name": "explicar_tarea"},
+            tool=EXPLICACION_TOOL, **ajustes_ai(en_vivo=True),
         )
         block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
         return parse_explicacion(dict(block.input) if block and isinstance(block.input, dict) else {})

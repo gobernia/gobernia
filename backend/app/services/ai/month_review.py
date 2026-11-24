@@ -13,6 +13,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object
+from app.services.ai.modelos import ajustes_ai, pedir_texto, texto
 from app.services.ai.doc_blocks import build_doc_blocks, readable_docs
 from app.services.ai.kpi_engine import build_kpi_templates, _run_alert_rules
 from app.services.ai.prompt_loader import load_prompt
@@ -222,9 +223,10 @@ def run_month_review(signals: dict, month_focus, objectives: list[dict],
         f"{REVIEW_SCHEMA}"
     )
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=2048,
+    response = pedir_texto(
+        _create_with_retry, client, model=settings.AI_MODEL, max_tokens=2048,
         system=REVIEW_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _build_review_content(user_prompt, documents)}],
+        **ajustes_ai(),
     )
-    return parse_review(response.content[0].text, fallback_grade=fallback_grade)
+    return parse_review(texto(response), fallback_grade=fallback_grade)

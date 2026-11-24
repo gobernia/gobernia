@@ -4,6 +4,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.modelos import ajustes_ai, pedir_herramienta
 from app.services.ai.todd.agent import RESPONSE_TOOL, build_anthropic_messages, _normalize_turn
 from app.services.ai.perspectivas import roles as roles_mod
 
@@ -36,11 +37,11 @@ def run_perspectiva_turn(messages: list[dict], state: dict | None,
         return {"message": "Hola, soy Todd. (Modo sin IA) ¿Qué es lo que más valoras de la empresa?",
                 "options": None, "input": "text", "state": state or {}, "done": False}
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=4096,
+    response = pedir_herramienta(
+        _create_with_retry, client, model=settings.AI_MODEL, max_tokens=4096,
         system=build_perspectiva_prompt(role, empresa_ctx),
         messages=build_anthropic_messages(messages),
-        tools=[RESPONSE_TOOL], tool_choice={"type": "tool", "name": "responder_turno"},
+        tool=RESPONSE_TOOL, **ajustes_ai(en_vivo=True),
     )
     block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
     parsed = dict(block.input) if block is not None and isinstance(block.input, dict) else {}

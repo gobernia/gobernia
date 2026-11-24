@@ -7,7 +7,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _stream_with_retry, _create_with_retry, _extract_json_object
-from app.services.ai.modelos import con_espacio_para_pensar, opciones_de_esfuerzo
+from app.services.ai.modelos import ajustes_ai, con_espacio_para_pensar, opciones_del_modelo, pedir_herramienta
 from app.services.ai.citas import sin_citas
 
 SECTION_KEYS = (
@@ -293,10 +293,10 @@ def derive_riesgos(memory_buffer: dict, fortalezas_debilidades: dict) -> list[di
     )
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
-        response = _create_with_retry(
-            client, model=settings.AI_MODEL, max_tokens=1024,
+        response = pedir_herramienta(
+            _create_with_retry, client, model=settings.AI_MODEL, max_tokens=1024,
             system=_RIESGOS_SYSTEM, messages=[{"role": "user", "content": user}],
-            tools=[RIESGOS_TOOL], tool_choice={"type": "tool", "name": "listar_riesgos"},
+            tool=RIESGOS_TOOL, **ajustes_ai(),
         )
         block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
         data = dict(block.input) if block and isinstance(block.input, dict) else {}
@@ -336,7 +336,7 @@ def generate_diagnostico(memory_buffer: dict) -> dict:
                 system=SYSTEM_PROMPT,
                 messages=messages,
                 tools=tools,
-                **opciones_de_esfuerzo(settings.DIAGNOSTICO_AI_MODEL, settings.DIAGNOSTICO_AI_EFFORT),
+                **opciones_del_modelo(settings.DIAGNOSTICO_AI_MODEL, settings.DIAGNOSTICO_AI_EFFORT),
             )
             if response.stop_reason != "pause_turn":
                 break

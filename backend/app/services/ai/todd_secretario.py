@@ -18,6 +18,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, sistema_con_cache
+from app.services.ai.modelos import con_espacio_para_pensar, es_generacion_nueva, opciones_del_modelo
 from app.services.ai.prompt_loader import load_prompt
 
 # ── Herramienta: proponer adaptar una tarea que el dueño no puede cumplir ──────
@@ -330,6 +331,25 @@ def _resolver_consulta(b, leer_documento, buscar_expediente) -> list[dict]:
     return [{"type": "text", "text": "Esa herramienta no está disponible ahora."}]
 
 
+# Modelos nuevos: la lista de herramientas no puede cambiar a media conversación (la API revisa que
+# lo anterior siga igual para reusar lo que la IA pensó). En vez de quitarle las de lectura en la
+# última ronda, se le avisa junto con los resultados.
+_AVISO_ULTIMA_RONDA = {"type": "text", "text": (
+    "Ya no puedes abrir más documentos ni buscar más en este turno: responde ahora con lo que tienes.")}
+
+
+def _herramientas_de_la_ronda(tools: list[dict], ultima: bool) -> list[dict]:
+    if ultima and not es_generacion_nueva(settings.AI_MODEL):
+        return [PROPONER_CAMBIO_TOOL]  # en la última ronda ya no se permite abrir más documentos
+    return tools
+
+
+def _resultados_de_la_ronda(resultados: list[dict], ronda: int) -> list[dict]:
+    if ronda + 1 == _MAX_LECTURAS and es_generacion_nueva(settings.AI_MODEL):
+        return [*resultados, _AVISO_ULTIMA_RONDA]
+    return resultados
+
+
 def _para_reenviar(content) -> list[dict]:
     """Lo que respondió la IA, listo para mandarlo de vuelta en la siguiente ronda.
     Sin los campos vacíos: el SDK 2.x agrega a cada bloque campos opcionales en None
@@ -396,11 +416,12 @@ def run_todd_secretario_turn(
             response = _create_with_retry(
                 client,
                 model=settings.AI_MODEL,
-                max_tokens=1500,
+                max_tokens=con_espacio_para_pensar(settings.AI_MODEL, 1500),
                 system=system,
                 messages=conversacion,
                 # En la última ronda ya no se permite abrir más documentos: debe responder.
-                tools=[PROPONER_CAMBIO_TOOL] if ultima else tools,
+                tools=_herramientas_de_la_ronda(tools, ultima),
+                **opciones_del_modelo(settings.AI_MODEL, settings.AI_EFFORT_EN_VIVO, settings.AI_THINKING),
             )
             lecturas = [b for b in response.content
                         if getattr(b, "type", None) == "tool_use" and b.name in _CONSULTAS]
@@ -410,7 +431,7 @@ def run_todd_secretario_turn(
             resultados = [{"type": "tool_result", "tool_use_id": b.id,
                            "content": _resolver_consulta(b, leer_documento, buscar_expediente)}
                           for b in lecturas]
-            conversacion.append({"role": "user", "content": resultados})
+            conversacion.append({"role": "user", "content": _resultados_de_la_ronda(resultados, ronda)})
         return _parse_response(response)
     except Exception:
         return {"reply": _fallback_reply(contexto), "accion": None}
@@ -454,8 +475,9 @@ def stream_todd_secretario_turn(
             emitido = False
             try:
                 with client.messages.stream(
-                    model=settings.AI_MODEL, max_tokens=1500, system=system,
-                    messages=conversacion, tools=herramientas,
+                    model=settings.AI_MODEL, max_tokens=con_espacio_para_pensar(settings.AI_MODEL, 1500),
+                    system=system, messages=conversacion, tools=herramientas,
+                    **opciones_del_modelo(settings.AI_MODEL, settings.AI_EFFORT_EN_VIVO, settings.AI_THINKING),
                 ) as st:
                     texto = ""
                     for fragmento in st.text_stream:
@@ -472,7 +494,7 @@ def stream_todd_secretario_turn(
 
     for ronda in range(_MAX_LECTURAS + 1):
         ultima = ronda == _MAX_LECTURAS
-        respuesta, texto = _ronda([PROPONER_CAMBIO_TOOL] if ultima else tools)
+        respuesta, texto = _ronda(_herramientas_de_la_ronda(tools, ultima))
         if texto.strip():
             partes.append(texto.strip())
         lecturas = []
@@ -503,7 +525,7 @@ def stream_todd_secretario_turn(
                 emit({"t": "leyendo", "doc": nombre_documento(ref) if nombre_documento else ref})
             resultados.append({"type": "tool_result", "tool_use_id": b.id,
                                "content": _resolver_consulta(b, leer_documento, buscar_expediente)})
-        conversacion.append({"role": "user", "content": resultados})
+        conversacion.append({"role": "user", "content": _resultados_de_la_ronda(resultados, ronda)})
         if partes:
             emit({"t": "texto", "d": "\n\n"})
 

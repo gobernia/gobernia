@@ -11,6 +11,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object, sistema_con_cache
+from app.services.ai.modelos import ajustes_ai, pedir_herramienta
 from app.services.ai.todd import areas
 from app.services.ai.todd.streaming import stream_turno
 
@@ -227,16 +228,24 @@ def run_todd_turn(messages: list[dict], state: dict | None = None, al_avanzar=No
             al_avanzar({"message": turno["message"], "options": None, "input": "text"})
         return turno
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    peticion = dict(
-        model=settings.AI_MODEL, max_tokens=4096,
-        system=build_system_blocks(state),
-        messages=build_anthropic_messages(messages),
-        tools=[RESPONSE_TOOL],
-        tool_choice={"type": "tool", "name": "responder_turno"},
-    )
-    response = (stream_turno(client, al_avanzar, **peticion) if al_avanzar
-                else _create_with_retry(client, **peticion))
+    response = pedir_turno(client, al_avanzar, system=build_system_blocks(state),
+                           messages=build_anthropic_messages(messages))
     return enforce_coverage(_normalize_turn(_entrada_del_turno(response)))
+
+
+def pedir_turno(client, al_avanzar=None, *, system, messages):
+    """La llamada de un turno de entrevista (Todd interno o externo): la IA contesta con
+    'responder_turno'. Con `al_avanzar`, en vivo (ver streaming.py)."""
+    if al_avanzar:
+        def llamar(c, **kw):
+            return stream_turno(c, al_avanzar, **kw)
+    else:
+        llamar = _create_with_retry
+    return pedir_herramienta(
+        llamar, client, model=settings.AI_MODEL, max_tokens=4096, system=system, messages=messages,
+        tool=RESPONSE_TOOL, transmitir=llamar if al_avanzar else None,
+        **ajustes_ai(en_vivo=True),
+    )
 
 
 def _edit_note(edited_question: str, new_answer: str) -> str:
@@ -259,11 +268,6 @@ def run_todd_edit(messages: list[dict], edited_question: str, new_answer: str,
         return {"message": "Listo, lo dejé corregido. Continuemos.", "options": None,
                 "input": "text", "state": state or {}, "done": False, "reanudar_desde": "rehacer"}
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=4096,
-        system=build_system_blocks(state, _edit_note(edited_question, new_answer)),
-        messages=build_anthropic_messages(messages),
-        tools=[RESPONSE_TOOL],
-        tool_choice={"type": "tool", "name": "responder_turno"},
-    )
+    response = pedir_turno(client, system=build_system_blocks(state, _edit_note(edited_question, new_answer)),
+                           messages=build_anthropic_messages(messages))
     return enforce_coverage(_normalize_turn(_entrada_del_turno(response)))

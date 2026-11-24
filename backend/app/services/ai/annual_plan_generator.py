@@ -16,6 +16,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, _extract_json_object
+from app.services.ai.modelos import ajustes_ai, pedir_texto, texto
 from app.services.ai.prompt_loader import load_prompt
 
 
@@ -214,12 +215,13 @@ def generate_skeleton(memory_buffer: dict, diagnostico: str, kpi_labels: list[st
     )
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     for _ in range(2):
-        response = _create_with_retry(
-            client, model=settings.AI_MODEL, max_tokens=8192,
+        response = pedir_texto(
+            _create_with_retry, client, model=settings.AI_MODEL, max_tokens=8192,
             system=SKELETON_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
+            **ajustes_ai(),
         )
-        skeleton = parse_skeleton(response.content[0].text)
+        skeleton = parse_skeleton(texto(response))
         if not _skeleton_vacio(skeleton):
             return skeleton
     raise RuntimeError("El esqueleto del plan llegó vacío o ilegible tras 2 intentos.")
@@ -276,12 +278,13 @@ def generate_milestones(memory_buffer: dict, diagnostico: str, kpi_labels: list[
     )
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     for _ in range(2):
-        response = _create_with_retry(
-            client, model=settings.AI_MODEL, max_tokens=4096,
+        response = pedir_texto(
+            _create_with_retry, client, model=settings.AI_MODEL, max_tokens=4096,
             system=MILESTONES_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
+            **ajustes_ai(),
         )
-        milestones = parse_milestones(response.content[0].text)
+        milestones = parse_milestones(texto(response))
         if not _milestones_vacio(milestones):
             return milestones
     raise RuntimeError("Los hitos del plan llegaron vacíos tras 2 intentos.")
@@ -379,12 +382,13 @@ def generate_quarter_plan(memory_buffer: dict, kpi_labels: list[str], milestones
         f"Diseña los 3 meses del trimestre. Responde ÚNICAMENTE con JSON válido:\n{QUARTER_SCHEMA}"
     )
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=4096,
+    response = pedir_texto(
+        _create_with_retry, client, model=settings.AI_MODEL, max_tokens=4096,
         system=QUARTER_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
+        **ajustes_ai(),
     )
-    return parse_quarter_plan(response.content[0].text, year, quarter)
+    return parse_quarter_plan(texto(response), year, quarter)
 
 
 BLOCK_SCHEMA = QUARTER_SCHEMA.replace('"month_in_quarter": 1', '"month_in_period": 1')
@@ -446,18 +450,19 @@ def generate_block_plan(memory_buffer: dict, kpi_labels: list[str], milestones: 
     )
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     mensajes = [{"role": "user", "content": user_prompt}]
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=4096,
+    response = pedir_texto(
+        _create_with_retry, client, model=settings.AI_MODEL, max_tokens=4096,
         system=QUARTER_SYSTEM_PROMPT, messages=mensajes,
+        **ajustes_ai(),
     )
-    raw = response.content[0].text
+    raw = texto(response)
     meses = parse_block_plan(raw, idxs)
     # El orden del día de UNA sesión del Consejo lleva 4-8 puntos. Si se pasó, se le pide
     # UNA vez que priorice y fusione (tope fijo: nunca más de un reintento).
     total = _puntos(meses)
     if total > MAX_PUNTOS_POR_BLOQUE:
-        response = _create_with_retry(
-            client, model=settings.AI_MODEL, max_tokens=4096,
+        response = pedir_texto(
+            _create_with_retry, client, model=settings.AI_MODEL, max_tokens=4096,
             system=QUARTER_SYSTEM_PROMPT,
             messages=mensajes + [
                 {"role": "assistant", "content": raw},
@@ -468,8 +473,9 @@ def generate_block_plan(memory_buffer: dict, kpi_labels: list[str], milestones: 
                     "ÚNICAMENTE con el JSON completo corregido."
                 )},
             ],
+            **ajustes_ai(),
         )
-        corregido = parse_block_plan(response.content[0].text, idxs)
+        corregido = parse_block_plan(texto(response), idxs)
         if 0 < _puntos(corregido) <= total:
             meses = corregido
     return meses
@@ -500,9 +506,10 @@ def generate_month_tasks(focus, objectives: list[dict], memory_buffer: dict,
         f"{MONTH_TASKS_SCHEMA}"
     )
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=2048,
+    response = pedir_texto(
+        _create_with_retry, client, model=settings.AI_MODEL, max_tokens=2048,
         system=MONTH_TASKS_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
+        **ajustes_ai(),
     )
-    return map_month_tasks(response.content[0].text, objectives, year, month)
+    return map_month_tasks(texto(response), objectives, year, month)

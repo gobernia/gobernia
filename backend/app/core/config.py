@@ -22,7 +22,18 @@ class Settings(BaseSettings):
 
     # AI
     ANTHROPIC_API_KEY: str = ""
-    AI_MODEL: str = "claude-sonnet-4-6"
+    AI_MODEL: str = "claude-sonnet-5-5"
+    # Solo para Sonnet 5.5 en adelante (a Sonnet 4.6 no se le manda nada de esto; ver
+    # app/services/ai/modelos.py). Esfuerzo: low | medium | high. AI_EFFORT_EN_VIVO: cuando alguien
+    # espera la respuesta en pantalla (entrevista y chats de Todd, chat del Consejo, explicar/adaptar
+    # tarea); AI_EFFORT: lo demás (análisis del Consejo, plan anual, minutas…). AI_THINKING:
+    # "adaptive" = piensa solo cuando le sirve (con low casi nunca); "between_tools" = nunca.
+    # Medido el 24 nov 2026: en Todd, low + adaptive fue lo más rápido sin perder calidad; en el
+    # Consejo y el plan, medium da algo más de detalle casi al mismo tiempo. Con high el análisis del
+    # Consejo llegó una vez mal formado (por eso pedir_herramienta revisa y repite).
+    AI_EFFORT: str = "medium"
+    AI_EFFORT_EN_VIVO: str = "low"
+    AI_THINKING: str = "adaptive"
     DIAGNOSTICO_AI_MODEL: str = "claude-opus-5-5"
     # Cuánto piensa la IA en los modelos nuevos (Opus 5.5+): low | medium | high | xhigh | max.
     # A Opus 4.8 no se le manda (ver app/services/ai/modelos.py).

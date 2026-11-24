@@ -9,6 +9,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _build_company_context, _create_with_retry
+from app.services.ai.modelos import ajustes_ai, pedir_texto, texto
 
 _MAX_TEMAS = 5
 _DEF_PREGUNTA = "¿Cómo proceder con: {titulo}?"
@@ -50,12 +51,13 @@ def generate_minuta(agenda_items: list[dict], memory_buffer: dict, period_label:
     )
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        response = _create_with_retry(
-            client, model=settings.AI_MODEL, max_tokens=2048,
+        response = pedir_texto(
+            _create_with_retry, client, model=settings.AI_MODEL, max_tokens=2048,
             system=_MINUTA_SYSTEM,
             messages=[{"role": "user", "content": user_prompt}],
+            **ajustes_ai(),
         )
-        parsed = json.loads(_extract_json(response.content[0].text))
+        parsed = json.loads(_extract_json(texto(response)))
         carta = str(parsed.get("carta") or "")
         temas_llm = parsed.get("temas") or {}
         return {"carta": carta, "temas": _rebuild_minuta(items, temas_llm)}

@@ -13,6 +13,9 @@ from app.core.config import settings
 from app.schemas.board_session import normalize_analysis
 from app.services.ai.doc_blocks import build_doc_blocks
 from app.services.ai.knowledge_base import build_knowledge_for_agent
+from app.services.ai.modelos import (
+    ajustes_ai, con_espacio_para_pensar, opciones_del_modelo, pedir_herramienta, pedir_texto, texto,
+)
 from app.services.ai.prompt_loader import load_prompt
 
 _log = logging.getLogger(__name__)
@@ -472,13 +475,12 @@ def run_challenger_critique(
     )
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(client,
+    response = pedir_herramienta(_create_with_retry, client,
         model=settings.AI_MODEL,
         max_tokens=2048,
         system=CHALLENGER_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
-        tools=[CHALLENGER_TOOL],
-        tool_choice={"type": "tool", "name": CHALLENGER_TOOL["name"]},
+        tool=CHALLENGER_TOOL, **ajustes_ai(),
     )
     critique = _tool_input(response, CHALLENGER_TOOL["name"])
     return critique if critique is not None else {}
@@ -544,13 +546,12 @@ def run_agent_revision(
     )
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(client,
+    response = pedir_herramienta(_create_with_retry, client,
         model=settings.AI_MODEL,
         max_tokens=ANALYSIS_MAX_TOKENS,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
-        tools=[ANALYSIS_TOOL],
-        tool_choice={"type": "tool", "name": ANALYSIS_TOOL["name"]},
+        tool=ANALYSIS_TOOL, **ajustes_ai(),
     )
     revised = _usable_analysis(response, ANALYSIS_TOOL["name"])
     # Si el modelo no devolvió una revisión utilizable, conservamos el análisis original.
@@ -704,13 +705,12 @@ def run_agent_analysis(
         if documents else user_prompt
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(client,
+    response = pedir_herramienta(_create_with_retry, client,
         model=settings.AI_MODEL,
         max_tokens=ANALYSIS_MAX_TOKENS,
         system=system_prompt,
         messages=[{"role": "user", "content": content}],
-        tools=[ANALYSIS_TOOL],
-        tool_choice={"type": "tool", "name": ANALYSIS_TOOL["name"]},
+        tool=ANALYSIS_TOOL, **ajustes_ai(),
     )
 
     parsed = _usable_analysis(response, ANALYSIS_TOOL["name"])
@@ -765,13 +765,13 @@ def run_agent_chat(
     messages.append({"role": "user", "content": user_message})
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(client,
+    response = pedir_texto(_create_with_retry, client,
         model=settings.AI_MODEL,
         max_tokens=800,
         system=sistema_con_cache(system_prompt),
-        messages=messages,
+        messages=messages, **ajustes_ai(en_vivo=True),
     )
-    return response.content[0].text
+    return texto(response)
 
 
 async def run_agent_chat_stream(
@@ -819,9 +819,10 @@ async def run_agent_chat_stream(
     client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
     async with client.messages.stream(
         model=settings.AI_MODEL,
-        max_tokens=800,
+        max_tokens=con_espacio_para_pensar(settings.AI_MODEL, 800),
         system=sistema_con_cache(system_prompt),
         messages=messages,
+        **opciones_del_modelo(settings.AI_MODEL, settings.AI_EFFORT_EN_VIVO, settings.AI_THINKING),
     ) as stream:
         async for text in stream.text_stream:
             yield text

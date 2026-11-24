@@ -10,6 +10,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, sistema_con_cache
+from app.services.ai.modelos import ajustes_ai, pedir_texto
 
 _ESTADO_LABEL = {
     "pendiente": "pendiente",
@@ -108,12 +109,12 @@ def run_todd_responsable(
 
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
-        response = _create_with_retry(
-            client,
+        response = pedir_texto(
+            _create_with_retry, client,
             model=settings.AI_MODEL,
             max_tokens=800,
             system=sistema_con_cache(build_system_prompt(nombre, empresa, tareas)),
-            messages=_to_anthropic_messages(mensajes),
+            messages=_to_anthropic_messages(mensajes), **ajustes_ai(en_vivo=True),
         )
         reply = _parse_reply(response)
         return reply or _FALLBACK

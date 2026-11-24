@@ -112,20 +112,14 @@ import anthropic
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
 from app.services.ai.todd.agent import (
-    build_anthropic_messages, _entrada_del_turno, _normalize_turn, enforce_coverage_against, RESPONSE_TOOL,
+    build_anthropic_messages, _entrada_del_turno, _normalize_turn, enforce_coverage_against, pedir_turno,
 )
-from app.services.ai.todd.streaming import stream_turno
+from app.services.ai.modelos import ajustes_ai, pedir_herramienta
 
 
 def _externo_call(messages: list[dict], system: str, al_avanzar=None) -> dict:
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    peticion = dict(
-        model=settings.AI_MODEL, max_tokens=4096,
-        system=system, messages=build_anthropic_messages(messages),
-        tools=[RESPONSE_TOOL], tool_choice={"type": "tool", "name": "responder_turno"},
-    )
-    response = (stream_turno(client, al_avanzar, **peticion) if al_avanzar
-                else _create_with_retry(client, **peticion))
+    response = pedir_turno(client, al_avanzar, system=system, messages=build_anthropic_messages(messages))
     return enforce_coverage_against(_normalize_turn(_entrada_del_turno(response)), PESTEL_CATS)
 
 
@@ -174,10 +168,10 @@ def generar_metas(diagnostico_ctx: str, state_interno: dict, state_externo: dict
         "EXTERNO:\n" + json.dumps(state_externo or {}, ensure_ascii=False)[:2000]
     )
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = _create_with_retry(
-        client, model=settings.AI_MODEL, max_tokens=1024, system=system,
+    response = pedir_herramienta(
+        _create_with_retry, client, model=settings.AI_MODEL, max_tokens=1024, system=system,
         messages=[{"role": "user", "content": "Propón las metas a priorizar."}],
-        tools=[_METAS_TOOL], tool_choice={"type": "tool", "name": "proponer_metas"},
+        tool=_METAS_TOOL, **ajustes_ai(),
     )
     block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
     metas = (block.input.get("metas") if block and isinstance(block.input, dict) else None) or []
