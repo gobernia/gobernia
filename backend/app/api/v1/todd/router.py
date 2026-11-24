@@ -15,6 +15,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.todd_session import ToddSession
 from app.models.onboarding_session import OnboardingSession
 from app.models.diagnostico_estrategico import DiagnosticoEstrategico
+from app.services.ai.citas import sin_citas
 from app.schemas.todd import ToddTurnIn, ToddTurnOut, ToddSessionOut, ToddMessage, ToddEditIn
 from app.schemas.todd import ToddMetasOut, ToddMetasIn, FodaOut
 from app.services.ai.todd.agent import run_todd_turn, run_todd_edit, state_to_memory_buffer
@@ -40,7 +41,7 @@ async def _diagnostico_ctx(user_id: str, db: AsyncSession) -> str:
     partes = []
     for s in (c.get("sections") or [])[:3]:
         if s.get("body"):
-            partes.append(f"{s.get('title','')}: {s['body'][:600]}")
+            partes.append(f"{s.get('title','')}: {sin_citas(s['body'])[:600]}")
     fd = c.get("fortalezas_debilidades") or {}
     if fd:
         partes.append("Hallazgos internos: " + json.dumps(fd, ensure_ascii=False)[:1200])

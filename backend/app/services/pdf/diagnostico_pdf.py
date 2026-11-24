@@ -7,6 +7,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
+from app.services.ai.citas import sin_citas
 from app.services.pdf.logo import logo_flowable
 
 _SEV_COLOR = {"alta": "#dc2626", "media": "#d97706", "baja": "#6b7280"}
@@ -90,7 +91,7 @@ def build_diagnostico_pdf(content: dict, company_name: str | None,
         story.append(Paragraph("Contexto de mercado", h2))
         for s in secciones:
             story.append(Paragraph(escape(s.get("title", "")), h3))
-            for para in (s.get("body", "") or "").split("\n"):
+            for para in sin_citas(s.get("body")).split("\n"):
                 if para.strip():
                     story.append(Paragraph(escape(para.strip()), body))
 

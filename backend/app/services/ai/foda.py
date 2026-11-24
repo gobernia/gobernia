@@ -6,6 +6,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.citas import sin_citas
 
 FODA_TOOL = {
     "name": "matriz_foda",
@@ -91,7 +92,7 @@ def generate_foda(memory_buffer: dict, diagnostico_content: dict,
     secciones = []
     for s in ((diagnostico_content or {}).get("sections") or [])[:4]:
         if s.get("body"):
-            secciones.append(f"{s.get('title','')}: {s['body'][:600]}")
+            secciones.append(f"{s.get('title','')}: {sin_citas(s['body'])[:600]}")
     user = (
         "HALLAZGOS INTERNOS:\n" + json.dumps(hallazgos, ensure_ascii=False)[:2500] + "\n\n"
         "FACTORES EXTERNOS:\n" + json.dumps(factores_externos or {}, ensure_ascii=False)[:2500] + "\n\n"

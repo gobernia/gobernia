@@ -11,6 +11,7 @@ from app.schemas.diagnostico import DiagnosticoOut, DiagnosticoStatusOut
 from app.services.data_completeness import missing_diagnostico_data
 from app.api.v1.company.service import get_logo_bytes
 from app.services.pdf.diagnostico_pdf import build_diagnostico_pdf
+from app.services.ai.citas import sin_citas
 
 router = APIRouter()
 
@@ -104,7 +105,8 @@ async def get_diagnostico(
     content = diag.content or {}
     return DiagnosticoOut(
         status=diag.status, fail_reason=diag.fail_reason,
-        sections=content.get("sections", []), sources=content.get("sources", []),
+        sections=[{**s, "body": sin_citas(s.get("body"))} for s in content.get("sections", [])],
+        sources=content.get("sources", []),
         fortalezas_debilidades=content.get("fortalezas_debilidades", {}),
         riesgos=content.get("riesgos", []),
     )

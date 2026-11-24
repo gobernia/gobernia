@@ -7,6 +7,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _stream_with_retry, _create_with_retry, _extract_json_object
+from app.services.ai.citas import sin_citas
 
 SECTION_KEYS = (
     "resumen_ejecutivo",
@@ -206,7 +207,7 @@ def parse_diagnostico(raw: str) -> dict:
     parsed = _extract_json_object(raw) or {}
     sections_in = parsed.get("sections") or {}
     sections = [
-        {"key": k, "title": SECTION_TITLES[k], "body": str(sections_in.get(k) or "").strip()}
+        {"key": k, "title": SECTION_TITLES[k], "body": sin_citas(str(sections_in.get(k) or "")).strip()}
         for k in SECTION_KEYS
     ]
     sources = []
