@@ -330,6 +330,13 @@ def _resolver_consulta(b, leer_documento, buscar_expediente) -> list[dict]:
     return [{"type": "text", "text": "Esa herramienta no está disponible ahora."}]
 
 
+def _para_reenviar(content) -> list[dict]:
+    """Lo que respondió la IA, listo para mandarlo de vuelta en la siguiente ronda.
+    Sin los campos vacíos: el SDK 2.x agrega a cada bloque campos opcionales en None
+    ("caller", "toolset_name", "citations") y la API no acepta, p. ej., "caller": null."""
+    return [b.model_dump(exclude_none=True) for b in content]
+
+
 def _parse_response(response) -> dict:
     """Extrae reply + accion de la respuesta de Claude (texto y/o tool_use)."""
     reply_parts: list[str] = []
@@ -399,7 +406,7 @@ def run_todd_secretario_turn(
                         if getattr(b, "type", None) == "tool_use" and b.name in _CONSULTAS]
             if not lecturas or ultima:
                 return _parse_response(response)
-            conversacion.append({"role": "assistant", "content": [b.model_dump() for b in response.content]})
+            conversacion.append({"role": "assistant", "content": _para_reenviar(response.content)})
             resultados = [{"type": "tool_result", "tool_use_id": b.id,
                            "content": _resolver_consulta(b, leer_documento, buscar_expediente)}
                           for b in lecturas]
@@ -486,7 +493,7 @@ def stream_todd_secretario_turn(
                         partes.append(tool_reply)
         if not lecturas:
             break
-        conversacion.append({"role": "assistant", "content": [b.model_dump() for b in respuesta.content]})
+        conversacion.append({"role": "assistant", "content": _para_reenviar(respuesta.content)})
         resultados = []
         for b in lecturas:
             if b.name == BUSCAR_EXPEDIENTE_TOOL["name"]:

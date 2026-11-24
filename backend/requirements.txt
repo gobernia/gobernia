@@ -19,7 +19,7 @@ python-jose[cryptography]==3.3.0
 cryptography==44.0.0
 
 # AI
-anthropic==0.40.0
+anthropic==2.13.0  # 2.x usa la versión de API 2026-10-21; necesaria para los modelos 5.x
 
 # Async tasks (document processing)
 celery==5.4.0

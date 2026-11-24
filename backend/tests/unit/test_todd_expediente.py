@@ -71,7 +71,7 @@ class _ClienteFalso:
         if len(self.llamadas) == 1:
             bloque = SimpleNamespace(type="tool_use", id="tu1", name="buscar_en_expediente",
                                      input={"consulta": "14%"},
-                                     model_dump=lambda: {"type": "tool_use", "id": "tu1",
+                                     model_dump=lambda **kw: {"type": "tool_use", "id": "tu1",
                                                          "name": "buscar_en_expediente", "input": {"consulta": "14%"}})
             yield SimpleNamespace(text_stream=iter([]), get_final_message=lambda: SimpleNamespace(content=[bloque]))
         else:
@@ -99,3 +99,15 @@ def test_todd_busca_en_el_expediente_antes_de_responder(monkeypatch):
     resultado = cliente.llamadas[1]["messages"][-1]["content"][0]
     assert resultado["type"] == "tool_result" and "lo que respondió el dueño" in resultado["content"][0]["text"]
     assert r["reply"] == "Sale de tu entrevista del 11 de noviembre."
+
+
+def test_lo_que_se_reenvia_a_la_api_no_lleva_campos_vacios():
+    """El SDK 2.x agrega "caller": None y "toolset_name": None a cada tool_use (y "citations": None
+    al texto); la API no acepta "caller": null, así que la ronda siguiente se manda sin ellos."""
+    from anthropic.types import TextBlock, ToolUseBlock
+    bloques = [TextBlock(type="text", text="Déjame revisar."),
+               ToolUseBlock(type="tool_use", id="tu1", name="buscar_en_expediente", input={"consulta": "14%"})]
+    assert ts._para_reenviar(bloques) == [
+        {"type": "text", "text": "Déjame revisar."},
+        {"type": "tool_use", "id": "tu1", "name": "buscar_en_expediente", "input": {"consulta": "14%"}},
+    ]
