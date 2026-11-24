@@ -21,6 +21,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _build_company_context, _create_with_retry, _tool_input
+from app.services.ai.modelos import pedir_herramienta
 from app.services.ai.prompt_loader import load_prompt
 
 _log = logging.getLogger(__name__)
@@ -163,14 +164,15 @@ def validar_evidencias(tareas_con_docs: list[dict], memory_buffer: dict) -> list
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
     try:
-        response = _create_with_retry(
+        response = pedir_herramienta(
+            _create_with_retry,
             client,
             model=settings.DIAGNOSTICO_AI_MODEL,
             max_tokens=VALIDACION_MAX_TOKENS,
             system=VALIDACION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": content}],
-            tools=[VALIDACION_TOOL],
-            tool_choice={"type": "tool", "name": VALIDACION_TOOL["name"]},
+            tool=VALIDACION_TOOL,
+            effort=settings.DIAGNOSTICO_AI_EFFORT,
         )
     except Exception:
         _log.exception("la validación de evidencias falló; las tareas quedan sin_revisar")

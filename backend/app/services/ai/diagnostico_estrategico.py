@@ -7,6 +7,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _stream_with_retry, _create_with_retry, _extract_json_object
+from app.services.ai.modelos import con_espacio_para_pensar, opciones_de_esfuerzo
 from app.services.ai.citas import sin_citas
 
 SECTION_KEYS = (
@@ -326,13 +327,16 @@ def generate_diagnostico(memory_buffer: dict) -> dict:
         response = None
         for _ in range(_MAX_CONTINUATIONS):
             # streaming: mantiene viva la conexión (pings) durante las búsquedas → sin APITimeoutError.
+            # En los modelos nuevos (Opus 5.5+) la IA piensa antes de escribir: se le da espacio
+            # y se le indica cuánto pensar. Con Opus 4.8 la llamada queda exactamente igual.
             response = _stream_with_retry(
                 client,
                 model=settings.DIAGNOSTICO_AI_MODEL,
-                max_tokens=8192,
+                max_tokens=con_espacio_para_pensar(settings.DIAGNOSTICO_AI_MODEL, 8192),
                 system=SYSTEM_PROMPT,
                 messages=messages,
                 tools=tools,
+                **opciones_de_esfuerzo(settings.DIAGNOSTICO_AI_MODEL, settings.DIAGNOSTICO_AI_EFFORT),
             )
             if response.stop_reason != "pause_turn":
                 break

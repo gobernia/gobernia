@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     AI_MODEL: str = "claude-sonnet-4-6"
     DIAGNOSTICO_AI_MODEL: str = "claude-opus-4-8"
+    # Cuánto piensa la IA en los modelos nuevos (Opus 5.5+): low | medium | high | xhigh | max.
+    # A Opus 4.8 no se le manda (ver app/services/ai/modelos.py).
+    DIAGNOSTICO_AI_EFFORT: str = "medium"
 
     # Storage (S3-compatible: AWS S3 o Supabase Storage)
     AWS_ACCESS_KEY_ID: str = ""

@@ -10,6 +10,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.modelos import pedir_herramienta
 from app.services.ai.prompt_loader import load_prompt
 
 _log = logging.getLogger(__name__)
@@ -324,14 +325,14 @@ def generate_roadmap(memory_buffer: dict, diagnostico_content: dict,
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
 
         def _llamar(extra: str = "") -> dict:
-            response = _create_with_retry(
-                client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=16000,
+            response = pedir_herramienta(
+                _create_with_retry, client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=16000,
                 system=system,
                 messages=[{"role": "user", "content": user + extra
                            + "\n\nEn este paso entrega los pilares con su nombre, descripción, razón, "
                              "objetivo, estrategias, riesgos, KPIs y resultados esperados; sus fases y "
                              "milestones por año se piden después, pilar por pilar."}],
-                tools=[ROADMAP_TOOL], tool_choice={"type": "tool", "name": "roadmap_estrategico"},
+                tool=ROADMAP_TOOL, effort=settings.DIAGNOSTICO_AI_EFFORT,
             )
             if getattr(response, "stop_reason", None) == "max_tokens":
                 _log.warning("roadmap: respuesta principal truncada por max_tokens")
@@ -427,13 +428,13 @@ def completar_pilares(roadmap: dict, system: str, contexto: str, client=None) ->
         )
         for intento in range(2):
             try:
-                r = _create_with_retry(
-                    client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=4096,
+                r = pedir_herramienta(
+                    _create_with_retry, client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=4096,
                     system=system,
                     messages=[{"role": "user", "content": pedido + (
                         "\n\nATENCIÓN: tu respuesta anterior quedó incompleta; las estrategias "
                         "y los milestones de los 3 años son OBLIGATORIOS." if intento else "")}],
-                    tools=[DETALLE_PILAR_TOOL], tool_choice={"type": "tool", "name": "detalle_pilar"},
+                    tool=DETALLE_PILAR_TOOL, effort=settings.DIAGNOSTICO_AI_EFFORT,
                 )
                 det = _tool_input(r)
             except Exception:

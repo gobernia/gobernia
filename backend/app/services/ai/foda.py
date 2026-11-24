@@ -6,6 +6,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.modelos import pedir_herramienta
 from app.services.ai.citas import sin_citas
 
 FODA_TOOL = {
@@ -106,10 +107,10 @@ def generate_foda(memory_buffer: dict, diagnostico_content: dict,
             ensure_ascii=False)[:1500])
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
-        response = _create_with_retry(
-            client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=2048,
+        response = pedir_herramienta(
+            _create_with_retry, client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=2048,
             system=_SYSTEM, messages=[{"role": "user", "content": user}],
-            tools=[FODA_TOOL], tool_choice={"type": "tool", "name": "matriz_foda"},
+            tool=FODA_TOOL, effort=settings.DIAGNOSTICO_AI_EFFORT,
         )
         block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
         d = dict(block.input) if block is not None and isinstance(block.input, dict) else {}

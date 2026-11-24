@@ -31,6 +31,7 @@ from app.services.ai.agents.base import (
     _tool_input,
     roadmap_pilares,
 )
+from app.services.ai.modelos import pedir_herramienta
 from app.schemas.board_session import normalize_analysis
 from app.services.ai.prompt_loader import load_prompt
 
@@ -378,14 +379,15 @@ def run_deliberacion_fundacional(
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
     try:
-        response = _create_with_retry(
+        response = pedir_herramienta(
+            _create_with_retry,
             client,
             model=settings.DIAGNOSTICO_AI_MODEL,
             max_tokens=DELIBERACION_MAX_TOKENS,
             system=DELIBERACION_FUNDACIONAL_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
-            tools=[DELIBERACION_FUNDACIONAL_TOOL],
-            tool_choice={"type": "tool", "name": DELIBERACION_FUNDACIONAL_TOOL["name"]},
+            tool=DELIBERACION_FUNDACIONAL_TOOL,
+            effort=settings.DIAGNOSTICO_AI_EFFORT,
         )
     except Exception:
         _log.exception("la deliberación fundacional falló; se usa el fallback determinista")
@@ -604,14 +606,15 @@ def run_deliberacion(
 
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
     try:
-        response = _create_with_retry(
+        response = pedir_herramienta(
+            _create_with_retry,
             client,
             model=settings.DIAGNOSTICO_AI_MODEL,
             max_tokens=DELIBERACION_MAX_TOKENS,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
-            tools=[DELIBERACION_TOOL],
-            tool_choice={"type": "tool", "name": DELIBERACION_TOOL["name"]},
+            tool=DELIBERACION_TOOL,
+            effort=settings.DIAGNOSTICO_AI_EFFORT,
         )
     except Exception:
         _log.exception("la deliberación del Consejo falló; se usa el fallback determinista")

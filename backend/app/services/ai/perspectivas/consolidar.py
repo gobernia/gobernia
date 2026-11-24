@@ -6,6 +6,7 @@ import anthropic
 
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry
+from app.services.ai.modelos import pedir_herramienta
 from app.services.ai.perspectivas import roles as roles_mod
 
 CONSOLIDAR_TOOL = {
@@ -83,10 +84,10 @@ def consolidar_perspectivas(owner_memory_buffer: dict, invites: list[dict]) -> d
     )
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=300.0)
-        response = _create_with_retry(
-            client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=2048,
+        response = pedir_herramienta(
+            _create_with_retry, client, model=settings.DIAGNOSTICO_AI_MODEL, max_tokens=2048,
             system=_SYSTEM, messages=[{"role": "user", "content": user}],
-            tools=[CONSOLIDAR_TOOL], tool_choice={"type": "tool", "name": "consolidar_perspectivas"},
+            tool=CONSOLIDAR_TOOL, effort=settings.DIAGNOSTICO_AI_EFFORT,
         )
         block = next((b for b in response.content if getattr(b, "type", None) == "tool_use"), None)
         data = dict(block.input) if block and isinstance(block.input, dict) else {}
