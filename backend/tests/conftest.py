@@ -7,6 +7,16 @@ def anyio_backend():
 
 
 @pytest.fixture(autouse=True)
+def _llamadas_de_la_familia_4(monkeypatch):
+    """Los dobles de las pruebas de siempre imitan la llamada de la familia 4.x
+    (_create_with_retry con la herramienta forzada). El camino de los modelos nuevos
+    (Opus/Sonnet 5.5) se prueba aparte, en tests/unit/test_modelos.py."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DIAGNOSTICO_AI_MODEL", "claude-opus-4-8")
+
+
+@pytest.fixture(autouse=True)
 def _sin_almacenamiento_real(monkeypatch):
     """Las pruebas NUNCA suben archivos al bucket real (el .env local trae credenciales de prod)."""
     from unittest.mock import AsyncMock
