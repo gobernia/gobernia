@@ -69,6 +69,30 @@ LEER_DOCUMENTO_TOOL = {
     },
 }
 
+# ── Herramienta: buscar de dónde salió un dato en el expediente de la empresa ─────
+BUSCAR_EXPEDIENTE_TOOL = {
+    "name": "buscar_en_expediente",
+    "description": (
+        "Busca una cifra o una frase en TODO el expediente de la empresa: la entrevista con Todd "
+        "(lo que respondió el dueño), los datos de la empresa, el diagnóstico, las sesiones del "
+        "Consejo, el plan (postura del Consejo, roadmap, hitos), los periodos, las tareas y los "
+        "acuerdos. Devuelve dónde aparece, del más antiguo al más reciente. Úsala SIEMPRE que el "
+        "dueño pregunte de dónde salió un dato o una afirmación, y antes de dar una cifra que no "
+        "esté en tu contexto."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "consulta": {
+                "type": "string",
+                "description": "La cifra o frase corta a buscar, tal como aparece "
+                               "(p. ej. «14%», «4.7%», «brecha de rentabilidad»).",
+            },
+        },
+        "required": ["consulta"],
+    },
+}
+
 # Rondas máximas de lectura por turno (acota costo y latencia).
 _MAX_LECTURAS = 3
 # Un documento más grande que esto no se adjunta (la API corta la request a 32 MB en base64).
@@ -217,8 +241,16 @@ def build_system_prompt(contexto: dict) -> str:
         "atrasadas, de quién son, qué es lo más urgente. Ayudas a preparar la sesión, a priorizar "
         "y a entender el porqué de cada cosa.\n\n"
         "REGLAS:\n"
-        "1. NUNCA inventes tareas, responsables, fechas ni acuerdos que no estén en el contexto. "
-        "Si algo no está, dilo con honestidad y ofrece ayudar a crearlo o revisarlo.\n"
+        "1. NUNCA inventes tareas, responsables, fechas, acuerdos ni CIFRAS (porcentajes, montos, "
+        "indicadores) que no estén en el contexto, en un documento que abriste o en lo que "
+        "encontraste con `buscar_en_expediente`. Si algo no está, dilo con honestidad y ofrece "
+        "ayudar a crearlo o revisarlo.\n"
+        "1b. ORIGEN DE UN DATO: si el dueño pregunta de dónde salió una cifra o una afirmación "
+        "(del plan, el roadmap, el diagnóstico, una sesión), búscala con `buscar_en_expediente` "
+        "ANTES de responder y dile dónde aparece primero (p. ej. «sale de tu entrevista: tú "
+        "respondiste…») y por dónde pasó después. Si no la encuentras, di que no la ves en el "
+        "expediente. NUNCA digas que inventaste algo que no escribiste TÚ en esta conversación: "
+        "el plan, el diagnóstico y las sesiones los escribe el Consejo, no tú.\n"
         "2. Sé breve y útil. Si el dueño pregunta por el estado, dale el dato exacto "
         "(p. ej. «tienes 3 tareas atrasadas; la más urgente es X, de Finanzas»).\n"
         "3. Cuando el dueño diga que NO puede cumplir una tarea concreta (le falta presupuesto, "
@@ -232,7 +264,9 @@ def build_system_prompt(contexto: dict) -> str:
         "supongas su contenido. Cita el nombre del documento en tu respuesta.\n"
         "5. FORMATO DE CHAT: escribe como en una conversación, en párrafos cortos. Puedes usar "
         "**negritas** y listas con guion (-). NO uses tablas, títulos con #, separadores (---) "
-        "ni emojis decorativos: la ventana de Todd es angosta y los muestra como texto.\n\n"
+        "ni emojis decorativos: la ventana de Todd es angosta y los muestra como texto. Nunca le "
+        "muestres al dueño identificadores internos (task_id, referencias tipo E1): nombra las "
+        "tareas y los documentos por su título.\n\n"
         "───────────────────────── CONTEXTO ACTUAL ─────────────────────────\n"
         + _render_tablero(contexto.get("tablero"))
         + "\n\n"
@@ -277,6 +311,25 @@ def _fallback_reply(contexto: dict) -> str:
     return " ".join(partes)
 
 
+def _herramientas(leer_documento, buscar_expediente) -> list[dict]:
+    return ([PROPONER_CAMBIO_TOOL]
+            + ([LEER_DOCUMENTO_TOOL] if leer_documento else [])
+            + ([BUSCAR_EXPEDIENTE_TOOL] if buscar_expediente else []))
+
+
+_CONSULTAS = (LEER_DOCUMENTO_TOOL["name"], BUSCAR_EXPEDIENTE_TOOL["name"])
+
+
+def _resolver_consulta(b, leer_documento, buscar_expediente) -> list[dict]:
+    """Contenido del tool_result de una consulta de Todd (abrir documento o buscar en expediente)."""
+    datos = b.input if isinstance(b.input, dict) else {}
+    if b.name == BUSCAR_EXPEDIENTE_TOOL["name"] and buscar_expediente:
+        return [{"type": "text", "text": buscar_expediente(str(datos.get("consulta") or "").strip())}]
+    if b.name == LEER_DOCUMENTO_TOOL["name"] and leer_documento:
+        return leer_documento(str(datos.get("ref") or "").strip())
+    return [{"type": "text", "text": "Esa herramienta no está disponible ahora."}]
+
+
 def _parse_response(response) -> dict:
     """Extrae reply + accion de la respuesta de Claude (texto y/o tool_use)."""
     reply_parts: list[str] = []
@@ -309,6 +362,7 @@ def run_todd_secretario_turn(
     mensajes: list[dict],
     contexto: dict,
     leer_documento: Callable[[str], list[dict]] | None = None,
+    buscar_expediente: Callable[[str], str] | None = None,
 ) -> dict:
     """Un turno del chat de Todd secretario.
 
@@ -316,6 +370,7 @@ def run_todd_secretario_turn(
     `contexto`: {empresa, tablero, roadmap, acuerdos_abiertos, documentos} ya armado por el router.
     `leer_documento(ref)`: devuelve el contenido de un documento como bloques; si viene, Todd
     puede abrir documentos (hasta _MAX_LECTURAS por turno).
+    `buscar_expediente(consulta)`: si viene, Todd puede buscar de dónde salió un dato.
 
     Devuelve: {"reply": str, "accion": None | {"tipo": "proponer_cambio", "task_id": str, "motivo": str}}
     El router resuelve la accion (ownership + adapt_task) y le añade la `propuesta`.
@@ -324,7 +379,7 @@ def run_todd_secretario_turn(
     if not settings.ANTHROPIC_API_KEY:
         return {"reply": _fallback_reply(contexto), "accion": None}
 
-    tools = [PROPONER_CAMBIO_TOOL] + ([LEER_DOCUMENTO_TOOL] if leer_documento else [])
+    tools = _herramientas(leer_documento, buscar_expediente)
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
         system = sistema_con_cache(build_system_prompt(contexto))
@@ -341,15 +396,13 @@ def run_todd_secretario_turn(
                 tools=[PROPONER_CAMBIO_TOOL] if ultima else tools,
             )
             lecturas = [b for b in response.content
-                        if getattr(b, "type", None) == "tool_use" and b.name == LEER_DOCUMENTO_TOOL["name"]]
+                        if getattr(b, "type", None) == "tool_use" and b.name in _CONSULTAS]
             if not lecturas or ultima:
                 return _parse_response(response)
             conversacion.append({"role": "assistant", "content": [b.model_dump() for b in response.content]})
-            resultados = []
-            for b in lecturas:
-                ref = str((b.input or {}).get("ref") or "").strip()
-                resultados.append({"type": "tool_result", "tool_use_id": b.id,
-                                   "content": leer_documento(ref)})
+            resultados = [{"type": "tool_result", "tool_use_id": b.id,
+                           "content": _resolver_consulta(b, leer_documento, buscar_expediente)}
+                          for b in lecturas]
             conversacion.append({"role": "user", "content": resultados})
         return _parse_response(response)
     except Exception:
@@ -362,10 +415,11 @@ def stream_todd_secretario_turn(
     emit: Callable[[dict], None],
     leer_documento: Callable[[str], list[dict]] | None = None,
     nombre_documento: Callable[[str], str] | None = None,
+    buscar_expediente: Callable[[str], str] | None = None,
 ) -> dict:
     """Igual que run_todd_secretario_turn, pero va emitiendo eventos mientras Todd escribe:
       {"t": "texto", "d": "<fragmento>"}   texto de Todd según se genera
-      {"t": "leyendo", "doc": "<nombre>"}  Todd abrió un documento para leerlo
+      {"t": "leyendo", "doc": "<nombre>"}  Todd abrió un documento (o busca en el expediente)
     Devuelve {"reply", "accion"} igual que la versión sin streaming (para persistir).
     Corre en un hilo: `emit` debe ser thread-safe.
     """
@@ -377,7 +431,7 @@ def stream_todd_secretario_turn(
     from app.services.ai.agents.base import _RETRY_DELAYS, _RETRYABLE
     import time
 
-    tools = [PROPONER_CAMBIO_TOOL] + ([LEER_DOCUMENTO_TOOL] if leer_documento else [])
+    tools = _herramientas(leer_documento, buscar_expediente)
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
     system = sistema_con_cache(build_system_prompt(contexto))
     conversacion = _to_anthropic_messages(mensajes)
@@ -418,7 +472,7 @@ def stream_todd_secretario_turn(
         for b in respuesta.content:
             if getattr(b, "type", None) != "tool_use":
                 continue
-            if b.name == LEER_DOCUMENTO_TOOL["name"] and not ultima:
+            if b.name in _CONSULTAS and not ultima:
                 lecturas.append(b)
             elif b.name == PROPONER_CAMBIO_TOOL["name"]:
                 data = dict(b.input) if isinstance(b.input, dict) else {}
@@ -430,14 +484,18 @@ def stream_todd_secretario_turn(
                     if tool_reply:
                         emit({"t": "texto", "d": ("\n\n" if partes else "") + tool_reply})
                         partes.append(tool_reply)
-        if not lecturas or not leer_documento:
+        if not lecturas:
             break
         conversacion.append({"role": "assistant", "content": [b.model_dump() for b in respuesta.content]})
         resultados = []
         for b in lecturas:
-            ref = str((b.input or {}).get("ref") or "").strip()
-            emit({"t": "leyendo", "doc": nombre_documento(ref) if nombre_documento else ref})
-            resultados.append({"type": "tool_result", "tool_use_id": b.id, "content": leer_documento(ref)})
+            if b.name == BUSCAR_EXPEDIENTE_TOOL["name"]:
+                emit({"t": "leyendo", "doc": "tu expediente"})
+            else:
+                ref = str((b.input or {}).get("ref") or "").strip()
+                emit({"t": "leyendo", "doc": nombre_documento(ref) if nombre_documento else ref})
+            resultados.append({"type": "tool_result", "tool_use_id": b.id,
+                               "content": _resolver_consulta(b, leer_documento, buscar_expediente)})
         conversacion.append({"role": "user", "content": resultados})
         if partes:
             emit({"t": "texto", "d": "\n\n"})

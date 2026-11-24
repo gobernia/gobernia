@@ -7,6 +7,7 @@ Reusa ChatMessage con el discriminador agent="todd_secretario" (sin columnas nue
 La accion "proponer_cambio" se resuelve aquí llamando a `adapt_task`; el "Reemplazar" lo
 hace el frontend con el PATCH /tasks/{id} que ya existe (por eso devolvemos title/description).
 """
+import asyncio
 import logging
 import uuid
 
@@ -22,6 +23,7 @@ from app.services.ai.task_adapter import adapt_task
 from app.services.ai.todd_secretario import bloques_de_documento, run_todd_secretario_turn
 from app.services.documents.storage import download_from_storage
 from app.api.v1.todd_secretario.service import (
+    buscador_de_expediente,
     TODD_SECRETARIO_AGENT,
     build_contexto,
     get_anchor_board_session_id,
@@ -115,8 +117,10 @@ async def enviar_mensaje(
             return [{"type": "text", "text": f"No existe un documento con la referencia «{ref}»."}]
         return bloques_de_documento(doc["filename"], download_from_storage(doc["s3_key"]))
 
+    # Todd puede buscar de dónde salió un dato (entrevista, diagnóstico, sesiones, plan…).
+    buscar = buscador_de_expediente(user_id, asyncio.get_running_loop())
     turn = await anyio.to_thread.run_sync(
-        lambda: run_todd_secretario_turn(mensajes, contexto, leer_documento)
+        lambda: run_todd_secretario_turn(mensajes, contexto, leer_documento, buscar_expediente=buscar)
     )
     reply = turn.get("reply") or ""
     accion = turn.get("accion")
@@ -185,6 +189,8 @@ async def enviar_mensaje_stream(
     def nombre_documento(ref: str) -> str:
         return (abrir.get(ref) or {}).get("filename") or "un documento"
 
+    buscar = buscador_de_expediente(user_id, asyncio.get_running_loop())
+
     async def eventos():
         loop = asyncio.get_running_loop()
         cola: asyncio.Queue = asyncio.Queue()
@@ -193,7 +199,7 @@ async def enviar_mensaje_stream(
             loop.call_soon_threadsafe(cola.put_nowait, ev)
 
         tarea = asyncio.ensure_future(asyncio.to_thread(
-            stream_todd_secretario_turn, mensajes, contexto, emit, leer_documento, nombre_documento))
+            stream_todd_secretario_turn, mensajes, contexto, emit, leer_documento, nombre_documento, buscar))
         tarea.add_done_callback(lambda _: cola.put_nowait(None))
 
         while (ev := await cola.get()) is not None:

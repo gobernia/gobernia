@@ -201,3 +201,110 @@ async def documentos_del_usuario(
         inventario.append({"ref": ref, "fecha": fecha.date().isoformat() if fecha else None, **vis})
         abrir[ref] = {"s3_key": key, "filename": vis["nombre"]}
     return inventario, abrir
+
+
+# ── Expediente: para que Todd sepa de dónde salió un dato ─────────────────────────────────
+
+def _fuentes_de(donde: str, fecha, valor) -> list[dict]:
+    from app.services.ai.expediente import hojas
+    return [{"donde": donde, "fecha": fecha, "ruta": ruta, "texto": texto} for ruta, texto in hojas(valor)]
+
+
+async def cargar_expediente(user_id: str, db: AsyncSession) -> list[dict]:
+    """Todo lo que la empresa dijo y lo que el Consejo escribió, como fuentes para
+    `expediente.buscar`: [{donde, fecha, ruta, texto}]. Solo lectura y solo de este usuario."""
+    from app.models.action_plan import ActionPlan
+    from app.models.diagnostico_estrategico import DiagnosticoEstrategico
+    from app.models.todd_session import ToddSession
+
+    fuentes: list[dict] = []
+
+    for s in (await db.execute(select(ToddSession).where(ToddSession.user_id == user_id))).scalars().all():
+        etapa = "análisis externo" if s.phase == "externo" else "entrevista"
+        for m in s.messages or []:
+            quien = "lo que respondió el dueño" if m.get("role") == "user" else "pregunta de Todd"
+            fuentes += _fuentes_de(f"Entrevista con Todd ({etapa}) — {quien}", s.created_at, m.get("text"))
+        fuentes += _fuentes_de(f"Expediente que Todd armó en la {etapa} (su resumen)", s.created_at, s.state)
+
+    for o in (await db.execute(select(OnboardingSession).where(OnboardingSession.user_id == user_id))).scalars().all():
+        fuentes += _fuentes_de("Datos de la empresa", o.created_at, o.memory_buffer)
+
+    for d in (await db.execute(
+        select(DiagnosticoEstrategico).where(DiagnosticoEstrategico.user_id == user_id)
+    )).scalars().all():
+        fuentes += _fuentes_de("Diagnóstico estratégico", d.created_at, d.content)
+
+    for b in (await db.execute(select(BoardSession).where(BoardSession.user_id == user_id))).scalars().all():
+        sesion = f"Sesión del Consejo {b.period_month:02d}/{b.period_year}"
+        fuentes += _fuentes_de(f"{sesion} — análisis de los consejeros", b.created_at, b.agent_analyses)
+        fuentes += _fuentes_de(f"{sesion} — críticas entre consejeros", b.created_at, b.agent_critiques)
+        fuentes += _fuentes_de(f"{sesion} — conclusión del Consejo", b.created_at, b.conclusion)
+        fuentes += _fuentes_de(f"{sesion} — acta", b.created_at, b.acta_snapshot)
+
+    planes = (await db.execute(
+        select(AnnualPlan).where(AnnualPlan.user_id == user_id)
+        .options(selectinload(AnnualPlan.months).selectinload(MonthlyPlan.objectives))
+    )).scalars().all()
+    objetivo_ids = []
+    for p in planes:
+        fuentes += _fuentes_de("Plan: postura del Consejo", p.created_at, p.diagnostico_summary)
+        fuentes += _fuentes_de("Plan: roadmap", p.created_at, p.roadmap)
+        fuentes += _fuentes_de("Plan: hitos", p.created_at, p.milestones)
+        fuentes += _fuentes_de("Plan: plan anual", p.created_at, p.plan_anual)
+        for m in p.months or []:
+            mes = f"Plan: periodo {m.period_month:02d}/{m.period_year}"
+            fuentes += _fuentes_de(f"{mes} — enfoque", p.created_at, m.focus)
+            fuentes += _fuentes_de(f"{mes} — revisión", m.updated_at, m.review)
+            fuentes += _fuentes_de(f"{mes} — agenda", m.updated_at, m.chair_agenda)
+            fuentes += _fuentes_de(f"{mes} — minuta", m.updated_at, m.minuta)
+            objetivo_ids += [o.id for o in m.objectives or []]
+
+    plan_ids = list((await db.execute(select(ActionPlan.id).where(ActionPlan.user_id == user_id))).scalars().all())
+    condiciones = []
+    if objetivo_ids:
+        condiciones.append(ActionTask.objective_id.in_(objetivo_ids))
+    if plan_ids:
+        condiciones.append(ActionTask.plan_id.in_(plan_ids))
+    if condiciones:
+        from sqlalchemy import or_
+        for t in (await db.execute(select(ActionTask).where(or_(*condiciones)))).scalars().all():
+            fuentes += _fuentes_de(f"Tarea «{t.title[:80]}»", t.created_at, {
+                "título": t.title, "descripción": t.description, "decisión esperada": t.decision_expected,
+                "documento requerido": t.required_doc, "explicación": t.explicacion})
+
+    for c in (await db.execute(select(Compromiso).where(Compromiso.user_id == user_id))).scalars().all():
+        fuentes += _fuentes_de("Acuerdo del Consejo", c.created_at, {
+            "descripción": c.descripcion, "racional": c.racional, "avances": c.avances})
+
+    for d in (await db.execute(select(Document).where(Document.user_id == user_id))).scalars().all():
+        fuentes += _fuentes_de(f"Lectura de la IA del documento «{d.filename}»", d.created_at, d.agent_insights)
+
+    return fuentes
+
+
+def buscador_de_expediente(user_id: str, loop):
+    """`buscar(consulta) -> str` para el hilo del turno de Todd. El expediente se carga una sola
+    vez y solo si Todd lo usa (en el event loop, con su propia conexión)."""
+    import asyncio
+    import logging
+
+    from app.db.session import AsyncSessionLocal
+    from app.services.ai.expediente import buscar as _buscar
+
+    cache: dict = {}
+
+    async def _cargar() -> list[dict]:
+        async with AsyncSessionLocal() as sdb:
+            return await cargar_expediente(user_id, sdb)
+
+    def buscar(consulta: str) -> str:
+        if "fuentes" not in cache:
+            try:
+                cache["fuentes"] = asyncio.run_coroutine_threadsafe(_cargar(), loop).result(timeout=30)
+            except Exception:
+                logging.getLogger(__name__).exception("no se pudo cargar el expediente para Todd")
+                return ("No pude abrir el expediente en este momento. Dile al dueño que ahora no puedes "
+                        "verificar de dónde salió el dato; no afirmes que lo inventaste.")
+        return _buscar(cache["fuentes"], consulta)
+
+    return buscar

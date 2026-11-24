@@ -38,7 +38,7 @@ async def test_stream_emite_texto_leyendo_y_fin_y_guarda_el_turno(monkeypatch):
     async def ctx(uid, db):
         return {"empresa": "Demo", "_documentos_abrir": {"E1": {"filename": "acta.pdf", "s3_key": "k"}}}
 
-    def turno(mensajes, contexto, emit, leer, nombre):
+    def turno(mensajes, contexto, emit, leer, nombre, buscar=None):
         emit({"t": "texto", "d": "Déjame revisar. "})
         emit({"t": "leyendo", "doc": nombre("E1")})
         emit({"t": "texto", "d": "Se aprobaron 2.5 millones."})
