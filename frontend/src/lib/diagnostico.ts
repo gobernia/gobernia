@@ -66,6 +66,8 @@ export interface Diagnostico {
 export interface DiagnosticoStatusOut {
   status: DiagnosticoStatus
   fail_reason: string | null
+  /** Cuánto lleva generándose (solo mientras status = "generating"). */
+  segundos?: number | null
 }
 
 export async function getDiagnosticoStatus(): Promise<DiagnosticoStatusOut> {

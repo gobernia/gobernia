@@ -21,6 +21,7 @@ import {
   getRoadmap, saveRoadmap, downloadRoadmapPdf, getRoadmapEstado, validarRoadmap, reabrirRoadmap,
 } from "@/lib/roadmap"
 import RoadmapDoc from "@/components/roadmap/RoadmapDoc"
+import { EsperaConsejo } from "@/components/ui/EsperaConsejo"
 import RoadmapHeader from "@/components/roadmap/RoadmapHeader"
 import { roadmapIsEmpty } from "@/components/roadmap/shared"
 
@@ -172,6 +173,7 @@ export default function PlanPage() {
   const [fodaReady, setFodaReady] = useState<boolean | null>(null)
   const [generating, setGenerating] = useState(false)
   const [genErr, setGenErr] = useState<string | null>(null)
+  const [segundos, setSegundos] = useState<number | null>(null)
   const started = useRef(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -194,6 +196,7 @@ export default function PlanPage() {
     const st = await getAnnualPlanStatus().catch(() => null)
     if (!st) { setStatus("none"); stopPolling(); return }
     setActive(st.active_month_index ?? null)
+    setSegundos(st.segundos ?? null)
     setStatus(st.status)
     if (st.status === "active" || st.status === "completed") {
       stopPolling()
@@ -330,9 +333,20 @@ export default function PlanPage() {
     return <div className="min-h-dvh flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-300" /></div>
   }
   if (status === "generating") {
-    return <div className="min-h-dvh flex flex-col items-center justify-center gap-3 text-center px-6">
-      <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
-      <p className="text-sm text-gray-500">Tu Consejo está armando tu plan a 3 años…</p></div>
+    return <div className="min-h-dvh flex flex-col items-center justify-center px-6 py-10">
+      <EsperaConsejo
+        eyebrow="Plan estratégico"
+        titulo="Tu Consejo está armando tu plan a 3 años"
+        descripcion="Parte de tu diagnóstico y tu FODA. Así lo construye:"
+        pasos={[
+          "Cada consejero analiza tu empresa y recibe crítica",
+          "El Consejo delibera una postura común",
+          "Hitos y roadmap a 3 años",
+          "Objetivos y tareas de cada periodo",
+        ]}
+        segundos={segundos}
+        listo="Tu plan aparecerá aquí cuando esté listo."
+      /></div>
   }
   if (status === "none" || !plan) {
     return (

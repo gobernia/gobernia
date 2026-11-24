@@ -33,6 +33,12 @@ async def _expire_if_stale(diag: DiagnosticoEstrategico | None, db: AsyncSession
     return diag
 
 
+def _segundos(diag: DiagnosticoEstrategico) -> int | None:
+    if diag.created_at is None:
+        return None
+    return max(0, int((datetime.now(timezone.utc) - diag.created_at).total_seconds()))
+
+
 async def _memory_buffer(user_id: str, db: AsyncSession) -> dict:
     onb = (await db.execute(
         select(OnboardingSession).where(OnboardingSession.user_id == user_id)
@@ -84,7 +90,8 @@ async def diagnostico_status(
     diag = await _expire_if_stale(await _current(user_id, db), db)
     if not diag:
         raise HTTPException(status_code=404, detail="No hay diagnóstico generado.")
-    return DiagnosticoStatusOut(status=diag.status, fail_reason=diag.fail_reason)
+    return DiagnosticoStatusOut(status=diag.status, fail_reason=diag.fail_reason,
+                                segundos=_segundos(diag) if diag.status == "generating" else None)
 
 
 @router.get("/diagnostico", response_model=DiagnosticoOut)

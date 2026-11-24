@@ -213,9 +213,13 @@ async def get_status(
     plan = await _expire_if_stale(await _current_plan(user_id, db), db)
     if not plan:
         raise HTTPException(status_code=404, detail="No hay plan generado.")
+    segundos = None
+    if plan.status == "generating" and plan.created_at is not None:
+        segundos = max(0, int((datetime.now(timezone.utc) - plan.created_at).total_seconds()))
     return AnnualPlanStatusOut(
         status=plan.status,
         active_month_index=compute_active_month_index(plan.start_date, date.today(), total_months=(plan.horizon_years or 1) * 12),
+        segundos=segundos,
     )
 
 

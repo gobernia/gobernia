@@ -77,6 +77,8 @@ export interface AnnualPlan {
 export interface AnnualPlanStatus {
   status: PlanStatus
   active_month_index: number | null
+  /** Cuánto lleva generándose (solo mientras status = "generating"). */
+  segundos?: number | null
 }
 
 export const MONTH_NAMES = [

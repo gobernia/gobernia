@@ -193,3 +193,20 @@ async def test_etapa8_no_rompe_si_cola_caida(monkeypatch):
     # El onboarding se completa pese al fallo de la cola (best-effort, no rompe).
     assert r.status_code == 200
     assert 8 in r.json()["completed_stages"]
+
+
+@pytest.mark.asyncio
+async def test_get_status_generando_dice_cuanto_lleva():
+    from datetime import timedelta, timezone
+    plan = _mock_plan()
+    plan.status = "generating"
+    plan.created_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+    app.dependency_overrides[get_db] = _db_override(plan)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.get("/api/v1/annual-plan/status")
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 200
+    assert r.json()["status"] == "generating" and 298 <= r.json()["segundos"] <= 305

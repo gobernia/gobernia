@@ -73,3 +73,28 @@ async def test_get_diagnostico_devuelve_fortalezas_debilidades():
     assert r.status_code == 200
     body = r.json()
     assert body["fortalezas_debilidades"]["financiero"][0]["texto"] == "Márgenes apretados"
+
+
+@pytest.mark.asyncio
+async def test_status_generando_dice_cuanto_lleva():
+    """El reloj de la pantalla de espera sale del servidor: no se reinicia si se recarga la página."""
+    from datetime import datetime, timedelta, timezone
+    diag = MagicMock()
+    diag.status = "generating"
+    diag.fail_reason = None
+    diag.created_at = datetime.now(timezone.utc) - timedelta(minutes=3)
+    res = MagicMock(); res.scalars.return_value.first.return_value = diag
+    db = AsyncMock(); db.execute = AsyncMock(return_value=res); db.commit = AsyncMock()
+
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_current_user_id] = _user_override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.get("/api/v1/diagnostico/status")
+            diag.status = "active"
+            r2 = await c.get("/api/v1/diagnostico/status")
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 200 and r.json()["status"] == "generating"
+    assert 178 <= r.json()["segundos"] <= 185
+    assert r2.json()["segundos"] is None

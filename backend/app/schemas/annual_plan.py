@@ -47,6 +47,7 @@ class GeneratePlanRequest(BaseModel):
 class AnnualPlanStatusOut(BaseModel):
     status:             str            # generating | active | failed | completed
     active_month_index: int | None = None
+    segundos:           int | None = None  # cuánto lleva generándose (reloj de la pantalla de espera)
 
 
 # ── Edición ───────────────────────────────────────────────────────────────────

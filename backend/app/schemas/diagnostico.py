@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class DiagnosticoStatusOut(BaseModel):
     status: str
     fail_reason: str | None = None
+    segundos: int | None = None  # cuánto lleva generándose (para el reloj de la pantalla de espera)
 
 
 class DiagnosticoSection(BaseModel):

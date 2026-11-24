@@ -8,6 +8,7 @@ import {
   TrendingUp, TrendingDown, Link2, ShieldAlert, Globe, Compass, AlertTriangle, LayoutGrid,
 } from "lucide-react"
 import { PageShell } from "@/components/ui/PageShell"
+import { EsperaConsejo } from "@/components/ui/EsperaConsejo"
 import {
   getDiagnostico, getDiagnosticoStatus, generateDiagnostico, downloadDiagnosticoPdf,
   type Diagnostico,
@@ -287,6 +288,7 @@ export default function DiagnosticoPage() {
   const [failReason, setFailReason] = useState<"datos" | "general" | null>(null)
   const [failDetail, setFailDetail] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [segundos, setSegundos] = useState<number | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPolling = useCallback(() => {
@@ -304,6 +306,7 @@ export default function DiagnosticoPage() {
     pollRef.current = setInterval(async () => {
       try {
         const s = await getDiagnosticoStatus()
+        if (s.status === "generating") setSegundos(s.segundos ?? null)
         if (s.status === "active") { stopPolling(); await loadDiag() }
         else if (s.status === "failed") { stopPolling(); setFailReason("general"); setView("failed") }
       } catch { /* reintenta en el próximo tick */ }
@@ -313,7 +316,7 @@ export default function DiagnosticoPage() {
   const init = useCallback(async () => {
     try {
       const s = await getDiagnosticoStatus()
-      if (s.status === "generating") { setView("generating"); startPolling() }
+      if (s.status === "generating") { setSegundos(s.segundos ?? null); setView("generating"); startPolling() }
       else if (s.status === "failed") { setView("failed") }
       else await loadDiag()
     } catch (err: unknown) {
@@ -371,16 +374,21 @@ export default function DiagnosticoPage() {
 
   if (view === "generating") {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center gap-6 px-6 text-center" style={{ background: PAPER }}>
-        <Loader2 className="h-6 w-6 animate-spin" style={{ color: BNAVY }} />
-        <div className="space-y-1">
-          <p className="text-[10.5px] font-extrabold tracking-[0.17em] uppercase" style={{ color: ACCENT }}>Investigando</p>
-          <h1 className="text-2xl font-bold" style={{ ...SANS, color: INK }}>Tu Consejo está investigando tu empresa en la web</h1>
-          <p className="text-sm text-gray-500 max-w-md">
-            Analiza tu presencia digital, competidores reales, tendencias de mercado y contexto de tu región.
-            Esto puede tardar unos minutos.
-          </p>
-        </div>
+      <div className="min-h-dvh flex flex-col items-center justify-center px-6 py-10" style={{ background: PAPER }}>
+        <EsperaConsejo
+          eyebrow="Investigando"
+          titulo="Tu Consejo está investigando tu empresa en la web"
+          descripcion="Busca información real de tu empresa, tu competencia y tu mercado, y arma un diagnóstico con fuentes."
+          pasos={[
+            "Revisando tu sitio y tu presencia digital",
+            "Buscando a tus competidores reales",
+            "Tendencias de mercado y contexto económico",
+            "Redactando tu diagnóstico con fuentes",
+          ]}
+          minutosTipicos={10}
+          segundos={segundos}
+          listo="Tu diagnóstico aparecerá aquí cuando esté listo."
+        />
       </div>
     )
   }
@@ -402,7 +410,7 @@ export default function DiagnosticoPage() {
           <p className="text-sm text-gray-500 leading-relaxed">
             {isDatos ? (failDetail ?? "Para investigar tu empresa necesito tu página web y tus competidores. Complétalos en tu onboarding.")
               : isFail ? "Algo falló al investigar. Puedes reintentarlo."
-              : "Investigaré tu empresa en la web —presencia digital, competidores reales, mercado y contexto— y armaré un diagnóstico con fuentes. Tarda unos minutos."}
+              : "Investigaré tu empresa en la web —presencia digital, competidores reales, mercado y contexto— y armaré un diagnóstico con fuentes. Tarda alrededor de 10 minutos."}
           </p>
         </div>
         {isDatos ? (
