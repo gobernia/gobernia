@@ -396,6 +396,8 @@ function ValidacionBadge({ validacion, tieneEvidencia }: {
   validacion?: Validacion | null
   tieneEvidencia: boolean
 }) {
+  // El "por qué" del Auditor se abre completo con un toque (en celular no hay tooltip).
+  const [abierto, setAbierto] = useState(false)
   const estado: ValidacionEstado = validacion?.estado ?? "sin_revisar"
   // Sin evidencia y sin revisar: no ensuciamos la celda con un badge vacío.
   if (estado === "sin_revisar" && !tieneEvidencia) return null
@@ -412,9 +414,16 @@ function ValidacionBadge({ validacion, tieneEvidencia }: {
         <Icon className={`h-3 w-3 shrink-0 ${estado === "revisando" ? "animate-spin" : ""}`} />
         <span className="truncate">{label}</span>
       </span>
-      {estado === "insuficiente" && motivo && (
-        <span className="text-[10px] leading-snug line-clamp-2" style={{ color: MUTED }}>{motivo}</span>
-      )}
+      {estado === "insuficiente" && motivo && (motivo.length > 90 ? (
+        <button type="button" onClick={() => setAbierto(a => !a)} aria-expanded={abierto}
+          className="text-left text-[11px] leading-snug rounded focus-visible:outline-none focus-visible:ring-2"
+          style={{ color: MUTED, outlineColor: BNAVY }}>
+          <span className={abierto ? "block" : "line-clamp-2"}>{motivo}</span>
+          <span className="font-semibold" style={{ color: BNAVY }}>{abierto ? "Ver menos" : "Ver qué falta"}</span>
+        </button>
+      ) : (
+        <span className="text-[11px] leading-snug" style={{ color: MUTED }}>{motivo}</span>
+      ))}
     </span>
   )
 }
