@@ -15,6 +15,9 @@ export type ValidacionEstado = "validada" | "parcial" | "insuficiente" | "sin_re
 export interface Validacion {
   estado: ValidacionEstado
   motivo: string
+  /** Qué es lo que se subió y si es otro documento (no el que pide la tarea, p. ej. un CV). */
+  documento?: string
+  otro_documento?: boolean
   /** Lo que sí muestran los documentos, lo que falta y otra evidencia que también serviría. */
   cubre?: string
   falta?: string

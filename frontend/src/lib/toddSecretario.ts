@@ -17,6 +17,9 @@ export interface ToddRevision {
   tarea: string
   archivo: string
   estado: string
+  /** Qué es lo que se subió y si es otro documento (no el que pide la tarea). */
+  documento?: string
+  otro_documento?: boolean
 }
 
 export interface ToddMensaje {

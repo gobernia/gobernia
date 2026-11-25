@@ -24,13 +24,23 @@ export const avisarTodd = (aviso: ToddAviso) => emitir("todd:aviso", aviso)
 export const nuevoMensajeDeTodd = () => emitir("todd:nuevo-mensaje")
 export const pedirSubirDocumento = (taskId: string) => emitir("todd:subir", { taskId })
 
+/** Qué es lo que se subió (lo dice el Auditor) y si es otro documento, p. ej. un CV. */
+export interface QueSeSubio {
+  documento?: string
+  otro_documento?: boolean
+}
+
 /** Lo que dice el globo cuando el Auditor termina de leer un documento recién subido. */
-export function textoDelAviso(estado: string, tarea: string): string {
-  return `Revisé tu documento de ${detalleDeRevision(estado, tarea)}`
+export function textoDelAviso(estado: string, tarea: string, subido?: QueSeSubio | null): string {
+  return `Revisé tu documento de ${detalleDeRevision(estado, tarea, subido)}`
 }
 
 /** Lo que dice la campanita de una revisión de documento (el detalle está en el chat de Todd). */
-export function detalleDeRevision(estado: string, tarea: string): string {
+export function detalleDeRevision(estado: string, tarea: string, subido?: QueSeSubio | null): string {
+  if (subido?.otro_documento && estado !== "validada") {
+    const es = subido.documento ? ` (es ${subido.documento})` : ""
+    return `«${tarea}»: creo que te equivocaste de documento${es}. Te digo cuál necesito.`
+  }
   switch (estado) {
     case "validada": return `«${tarea}»: queda validado para el Consejo.`
     case "parcial": return `«${tarea}»: es un avance parcial. Te digo qué falta.`

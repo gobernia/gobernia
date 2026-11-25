@@ -198,7 +198,7 @@ def _format_acuerdos_previos(rows, today: date) -> str | None:
 
 
 # Lo que se guarda del veredicto del Auditor en task.validacion (además de fechas y origen).
-_CAMPOS_VEREDICTO = ("estado", "motivo", "cubre", "falta", "alternativas")
+_CAMPOS_VEREDICTO = ("estado", "motivo", "documento", "otro_documento", "cubre", "falta", "alternativas")
 
 
 async def _validar_evidencias_del_periodo(candidates: list[dict], memory_buffer: dict) -> dict:

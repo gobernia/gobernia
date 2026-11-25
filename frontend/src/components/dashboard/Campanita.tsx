@@ -81,7 +81,7 @@ function avisosDeRevisiones(mensajes: ToddMensaje[]): Aviso[] {
       return {
         clave: `revision:${m.message_id ?? `${r.task_id}:${m.created_at}:${i}`}`,
         titulo: `Todd revisó «${r.archivo}»`,
-        detalle: detalleDeRevision(r.estado, r.tarea),
+        detalle: detalleDeRevision(r.estado, r.tarea, r),
         fecha: m.created_at,
         ...(REVISION[r.estado] ?? REVISION.sin_revisar),
         accion: abrirTodd,

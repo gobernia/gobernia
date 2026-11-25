@@ -222,6 +222,8 @@ def _render_documentos(documentos: list) -> str:
         extra = []
         if d.get("fecha"):
             extra.append(f"subido {d['fecha']}")
+        if d.get("que_es"):
+            extra.append(f"es {d['que_es']}")
         if d.get("veredicto"):
             ver = etiquetas.get(d["veredicto"], d["veredicto"])
             extra.append(ver + (f": {d['motivo']}" if d.get("motivo") else ""))

@@ -14,7 +14,21 @@ def mensaje_de_todd(veredicto: dict, tarea: str, archivo: str) -> str:
     cubre = str(veredicto.get("cubre") or "").strip()
     falta = str(veredicto.get("falta") or "").strip()
     alternativas = [str(a).strip() for a in (veredicto.get("alternativas") or []) if str(a).strip()]
+    documento = str(veredicto.get("documento") or "").strip()
     inicio = f"Revisé «{archivo}» para la tarea «{tarea}»."
+
+    # Se subió otro documento (p. ej. un CV para una tarea de flujo de caja): se dice claro.
+    if veredicto.get("otro_documento") and estado != "validada":
+        partes = [inicio, f"Creo que te equivocaste de documento: esto es **{documento or 'otro documento'}**, "
+                          "y no tiene que ver con lo que pide la tarea."]
+        partes.append(f"**Para esta tarea necesito:** {falta or motivo}")
+        if alternativas:
+            partes.append("Si no tienes ese documento, también sirve:\n" + "\n".join(f"- {a}" for a in alternativas))
+        partes.append("Sube el documento correcto cuando lo tengas, o dime qué tienes y buscamos otra forma de demostrarlo.")
+        return "\n\n".join(partes)
+
+    if documento:
+        inicio = f"Revisé «{archivo}» ({documento}) para la tarea «{tarea}»."
 
     if estado == "validada":
         return "\n\n".join(p for p in (inicio, cubre or motivo,

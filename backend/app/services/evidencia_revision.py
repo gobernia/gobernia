@@ -48,7 +48,7 @@ def validacion_visible(v: dict | None) -> dict | None:
             return {"estado": "sin_revisar",
                     "motivo": "La revisión no terminó. Vuelve a subir el documento o sesiona el mes."}
     visible = {"estado": v.get("estado"), "motivo": v.get("motivo")}
-    for campo in ("cubre", "falta", "alternativas", "origen"):
+    for campo in ("documento", "otro_documento", "cubre", "falta", "alternativas", "origen"):
         if v.get(campo):
             visible[campo] = v[campo]
     return visible
@@ -96,7 +96,8 @@ async def revisar_evidencia_tarea(task_id: uuid.UUID, user_id: str, revision_id:
         if task is None or (task.validacion or {}).get("revision_id") != revision_id:
             return  # llegó una revisión más nueva (u otro veredicto): no se pisa
         task.validacion = {
-            **{k: veredicto[k] for k in ("estado", "cubre", "falta", "alternativas") if k in veredicto},
+            **{k: veredicto[k] for k in ("estado", "documento", "otro_documento", "cubre", "falta", "alternativas")
+               if k in veredicto},
             "motivo": veredicto.get("motivo", ""),
             "validated_at": datetime.now(timezone.utc).isoformat(),
             "origen": "al_subir",
@@ -123,8 +124,11 @@ async def _avisar_con_todd(db, user_id: str, task_id: str, tarea: str, archivo: 
         db.add(ChatMessage(
             board_session_id=anchor_id, user_id=user_id, role="assistant", agent=TODD_SECRETARIO_AGENT,
             content=mensaje_de_todd(veredicto, tarea, archivo),
-            message_metadata={"revision": {"task_id": task_id, "tarea": tarea,
-                                           "archivo": archivo, "estado": veredicto.get("estado")}},
+            message_metadata={"revision": {
+                "task_id": task_id, "tarea": tarea, "archivo": archivo, "estado": veredicto.get("estado"),
+                "documento": veredicto.get("documento") or "",
+                "otro_documento": bool(veredicto.get("otro_documento")),
+            }},
         ))
         await db.commit()
     except Exception:

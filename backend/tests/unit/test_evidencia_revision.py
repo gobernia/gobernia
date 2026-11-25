@@ -149,7 +149,8 @@ async def test_al_terminar_todd_deja_en_su_chat_que_esta_que_falta_y_que_mas_sir
     assert "Saldos al 23 nov." in msg.content and "La proyección de flujo." in msg.content
     assert "Tabla de cobros y pagos" in msg.content
     assert msg.message_metadata["revision"] == {"task_id": str(tid), "tarea": "Caja y flujo proyectado",
-                                                "archivo": "tu documento", "estado": "parcial"}
+                                                "archivo": "tu documento", "estado": "parcial",
+                                                "documento": "", "otro_documento": False}
 
 
 def test_mensaje_de_todd_segun_el_veredicto():
@@ -160,3 +161,17 @@ def test_mensaje_de_todd_segun_el_veredicto():
     assert "**Falta:** Es solo una cotización." in falta and "Ya está" not in falta
     roto = mensaje_de_todd({"estado": "sin_revisar", "motivo": ""}, "ERP", "viejo.xls")
     assert "no pude leerlo" in roto and "PDF" in roto
+
+
+def test_mensaje_de_todd_si_subieron_otro_documento():
+    """Pedido del dueño: si sube su CV por error, Todd le dice qué es y qué necesita."""
+    from app.services.evidencia_todd import mensaje_de_todd
+    m = mensaje_de_todd({"estado": "insuficiente", "motivo": "Es un CV.", "documento": "un currículum (CV)",
+                         "otro_documento": True, "falta": "Saldos bancarios y proyección de flujo a 3 meses.",
+                         "alternativas": ["Estados de cuenta de noviembre"]}, "Caja y flujo", "CV.pdf")
+    assert "te equivocaste de documento" in m and "**un currículum (CV)**" in m
+    assert "**Para esta tarea necesito:** Saldos bancarios y proyección de flujo a 3 meses." in m
+    assert "Estados de cuenta de noviembre" in m
+    del_tema = mensaje_de_todd({"estado": "parcial", "motivo": "m", "documento": "saldos al 23 nov",
+                                "falta": "La proyección."}, "Caja y flujo", "s.xlsx")
+    assert "(saldos al 23 nov)" in del_tema and "equivocaste" not in del_tema

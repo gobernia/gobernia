@@ -72,6 +72,18 @@ VALIDACION_TOOL = {
                             "type": "string",
                             "description": "Por qué. Cita el documento si aplica. 1-2 oraciones.",
                         },
+                        "documento": {
+                            "type": "string",
+                            "description": ("Qué es lo que se subió, en pocas palabras y en español (p. ej. "
+                                            "«un currículum (CV) de una persona», «saldos bancarios al 23 de "
+                                            "noviembre», «cotización de un sistema de inventarios»)."),
+                        },
+                        "otro_documento": {
+                            "type": "boolean",
+                            "description": ("true si lo que se subió es OTRO documento, que no tiene que ver "
+                                            "con lo que pide la tarea (un CV, una foto personal, un archivo de "
+                                            "otro tema). false si es del tema aunque no alcance."),
+                        },
                         "cubre": {
                             "type": "string",
                             "description": ("Lo que SÍ muestran los documentos para esta tarea (qué documento, "
@@ -216,6 +228,11 @@ def validar_evidencias(tareas_con_docs: list[dict], memory_buffer: dict) -> list
         if estado not in _ESTADOS_VALIDOS:
             estado = "insuficiente"
         veredicto = {"task_id": tid, "estado": estado, "motivo": str(v.get("motivo") or "").strip()}
+        documento = str(v.get("documento") or "").strip()
+        if documento:
+            veredicto["documento"] = documento
+        if v.get("otro_documento") is True and estado != "validada":
+            veredicto["otro_documento"] = True
         cubre = str(v.get("cubre") or "").strip()
         if cubre:
             veredicto["cubre"] = cubre

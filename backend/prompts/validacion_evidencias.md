@@ -8,6 +8,8 @@ PARA CADA ACUERDO / PUNTO DE SEGUIMIENTO:
 - Si la tarea trae "Documento que pidió el Consejo", juzga contra eso.
 
 ADEMÁS DEL VEREDICTO (Todd se lo explicará al dueño en su chat, así que escribe para el dueño):
+- `documento`: SIEMPRE di qué es lo que se subió, en pocas palabras (p. ej. «un currículum (CV) de una persona», «saldos bancarios al 23 de noviembre», «una foto», «la cotización de un sistema de inventarios»).
+- `otro_documento`: `true` si lo que se subió es OTRO documento que no tiene que ver con lo que pide la tarea (un CV para una tarea de flujo de caja, una foto personal, un archivo de otro tema). En ese caso el estado es `insuficiente` y en `falta` di exactamente qué documento(s) necesita la tarea, uno por uno. Si es del tema aunque no alcance, `false`.
 - `cubre`: qué SÍ muestran los documentos para esta tarea: cuál documento, qué periodo y las cifras clave. Vacío si no muestran nada útil.
 - `falta`: qué falta para demostrar lo pedido, en concreto. Vacío si está validada.
 - `alternativas`: si falta algo, de 1 a 3 documentos ALTERNATIVOS que una empresa mediana normalmente sí tiene o puede preparar en poco tiempo y que también demostrarían lo que falta. Por ejemplo: balanza de comprobación, estados de cuenta bancarios, declaración anual, un reporte del sistema contable, o una tabla sencilla en Excel con cobros y pagos esperados por mes. Sé realista: el dueño suele tener lo que tiene; no pidas auditorías ni documentos formales que una empresa así no tendría. Vacío si está validada.

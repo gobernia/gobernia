@@ -858,7 +858,7 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
         const estado = t.validacion?.estado ?? "sin_revisar"
         ahora.set(t.id, estado)
         if (previos.get(t.id) === "revisando" && estado !== "revisando") {
-          avisarTodd({ texto: textoDelAviso(estado, t.title) })
+          avisarTodd({ texto: textoDelAviso(estado, t.title, t.validacion) })
           nuevoMensajeDeTodd()
         }
       }

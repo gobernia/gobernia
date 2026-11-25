@@ -181,6 +181,7 @@ async def documentos_del_usuario(
                 "nombre": e.filename,
                 "origen": f"evidencia del punto «{t.title}»" + (f" (responsable: {t.owner})" if t.owner else ""),
                 "veredicto": v.get("estado"),
+                "que_es": v.get("documento") or "",
                 "motivo": v.get("motivo") or "",
                 "cubre": v.get("cubre") or "",
                 "falta": v.get("falta") or "",

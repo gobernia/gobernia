@@ -155,3 +155,15 @@ def test_parcial_con_lo_que_cubre_lo_que_falta_y_alternativas(monkeypatch):
     rotulos = " ".join(b.get("text", "") for b in captured["messages"][0]["content"] if b.get("type") == "text")
     assert "Documento que pidió el Consejo: Saldos y proyección de flujo" in rotulos
     assert "Descripción de la tarea: Posición de caja" in rotulos
+
+
+def test_dice_que_es_el_documento_y_si_es_otro(monkeypatch):
+    _mock_ai(monkeypatch, {"validaciones": [
+        {"task_id": "t1", "estado": "insuficiente", "motivo": "Es un CV.", "documento": "un currículum (CV)",
+         "otro_documento": True, "falta": "Saldos y proyección."},
+        {"task_id": "t2", "estado": "validada", "motivo": "Acta firmada.", "documento": "acta firmada",
+         "otro_documento": True},  # validada nunca va marcada como otro documento
+    ]})
+    r = {v["task_id"]: v for v in validar_evidencias([_tarea("t1"), _tarea("t2")], _MB)}
+    assert r["t1"]["documento"] == "un currículum (CV)" and r["t1"]["otro_documento"] is True
+    assert r["t2"]["documento"] == "acta firmada" and "otro_documento" not in r["t2"]
