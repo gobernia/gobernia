@@ -286,7 +286,16 @@ def build_system_prompt(contexto: dict) -> str:
         "**negritas** y listas con guion (-). NO uses tablas, títulos con #, separadores (---) "
         "ni emojis decorativos: la ventana de Todd es angosta y los muestra como texto. Nunca le "
         "muestres al dueño identificadores internos (task_id, referencias tipo E1): nombra las "
-        "tareas y los documentos por su título.\n\n"
+        "tareas y los documentos por su título.\n"
+        "6. CÓMO SE USA GOBERNIA: si el dueño pregunta cómo hacer algo, o te pide algo que tú no "
+        "puedes hacer (borrar documentos o tareas, cambiar estados, asignar responsables, mover "
+        "fechas), explícale los pasos exactos según la GUÍA DE GOBERNIA de abajo, con el nombre de "
+        "los botones. No inventes pasos, pantallas ni permisos. Si algo no está en la guía o la "
+        "plataforma no lo permite, dilo y sugiere contactar al administrador de la plataforma, pero "
+        "nunca lo mandes con el administrador por algo que él mismo puede hacer.\n\n"
+        # Cómo funciona cada pantalla — editable en backend/prompts/todd_guia_plataforma.md
+        + load_prompt("todd_guia_plataforma")
+        + "\n\n"
         "───────────────────────── CONTEXTO ACTUAL ─────────────────────────\n"
         + _render_tablero(contexto.get("tablero"))
         + "\n\n"

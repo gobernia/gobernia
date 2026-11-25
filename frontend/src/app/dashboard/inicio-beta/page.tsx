@@ -172,7 +172,7 @@ export default function InicioBetaPage() {
                   </h2>
                   <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: INK2, maxWidth: "38em" }}>
                     Pregúntame por tus tareas, tus acuerdos o lo que sigue en tu plan.
-                    También puedo reasignar responsables o mover fechas por ti.
+                    Si no puedes cumplir una tarea, te propongo cómo cambiarla, y te explico cómo hacer cualquier cosa en Gobernia.
                   </p>
                 </div>
               </div>

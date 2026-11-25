@@ -111,3 +111,11 @@ def test_lo_que_se_reenvia_a_la_api_no_lleva_campos_vacios():
         {"type": "text", "text": "Déjame revisar."},
         {"type": "tool_use", "id": "tu1", "name": "buscar_en_expediente", "input": {"consulta": "14%"}},
     ]
+
+
+def test_todd_conoce_como_se_usa_gobernia():
+    """Caso real (25 nov): Todd dijo que borrar documentos lo hacía administración; lo hace el dueño."""
+    from app.services.ai.todd_secretario import build_system_prompt
+    p = build_system_prompt({"empresa": "Acme"})
+    assert "GUÍA DE GOBERNIA" in p and "ícono del clip con el número" in p and "bote de basura" in p
+    assert "nunca lo mandes con el administrador por algo que él mismo puede hacer" in p
