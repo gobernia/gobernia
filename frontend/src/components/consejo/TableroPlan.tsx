@@ -598,6 +598,44 @@ const AGENDA_TYPE_META: Record<string, { label: string; color: string }> = {
   decision:     { label: "Decisión",     color: "#C2410C" },
 }
 
+// ── Texto que se corta a 1-2 líneas y se abre con un toque ("Ver más"), también en celular ──
+// Solo muestra el botón si de verdad no cabe (lo mide el navegador al dibujarlo y al cambiar de tamaño).
+function TextoPlegable({ lineas, className, style, children }: {
+  lineas: 1 | 2
+  className?: string
+  style?: React.CSSProperties
+  children: React.ReactNode
+}) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [abierto, setAbierto] = useState(false)
+  const [cortado, setCortado] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    // El observador avisa al empezar y cada vez que cambia el ancho de la columna.
+    const ro = new ResizeObserver(() => setCortado(el.scrollHeight > el.clientHeight + 1))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div className={className} style={style}>
+      <span ref={ref} className={abierto ? "block" : lineas === 1 ? "line-clamp-1" : "line-clamp-2"}>
+        {children}
+      </span>
+      {(cortado || abierto) && (
+        <button type="button" onClick={() => setAbierto(a => !a)} aria-expanded={abierto}
+          className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-semibold rounded focus-visible:outline-none focus-visible:ring-2"
+          style={{ color: BNAVY, outlineColor: BNAVY }}>
+          {abierto ? "Ver menos" : "Ver más"}
+          <ChevronDown className={`h-3 w-3 transition-transform ${abierto ? "rotate-180" : ""}`} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 function AgendaMeta({ tarea }: { tarea: BoardTask }) {
   const tipo = tarea.agenda_type ? AGENDA_TYPE_META[tarea.agenda_type] : undefined
   if (!tipo && !tarea.lead_agent && !tarea.decision_expected) return null
@@ -620,10 +658,10 @@ function AgendaMeta({ tarea }: { tarea: BoardTask }) {
         </div>
       )}
       {tarea.decision_expected && (
-        <p className="mt-1 text-[11px] leading-snug line-clamp-2" style={{ color: MUTED }}>
+        <TextoPlegable lineas={2} className="mt-1 text-[11px] leading-snug" style={{ color: MUTED }}>
           <span className="font-bold" style={{ color: "#C2410C" }}>Decisión esperada: </span>
           {tarea.decision_expected}
-        </p>
+        </TextoPlegable>
       )}
     </>
   )
@@ -654,7 +692,9 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
           </span>
         )}
         {tarea.objetivo && (
-          <p className="text-[11px] leading-snug mt-0.5 truncate" style={{ color: MUTED }}>{tarea.objetivo}</p>
+          <TextoPlegable lineas={1} className="text-[11px] leading-snug mt-0.5" style={{ color: MUTED }}>
+            {tarea.objetivo}
+          </TextoPlegable>
         )}
       </div>
 
