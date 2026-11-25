@@ -134,3 +134,24 @@ def test_cap_deja_sin_revisar_el_excedente(monkeypatch):
     # El excedente son las ÚLTIMAS (más viejas, dado que el llamador ordena por recencia).
     assert {v["task_id"] for v in sin_revisar} == {f"t{i}" for i in range(MAX_TAREAS_POR_SESION, n)}
     assert all("alcanzó" in v["motivo"] for v in sin_revisar)
+
+
+def test_parcial_con_lo_que_cubre_lo_que_falta_y_alternativas(monkeypatch):
+    """El Auditor recibe lo que pidió el Consejo y separa lo que sí está de lo que falta."""
+    captured: dict = {}
+    _mock_ai(monkeypatch, {"validaciones": [
+        {"task_id": "t1", "estado": "parcial", "motivo": "Trae saldos, no la proyección.",
+         "cubre": "Saldos de bancos al 23 nov.", "falta": "La proyección de flujo a 3 meses.",
+         "alternativas": ["Tabla de cobros y pagos esperados", " ", "Reporte del banco", "Otro", "Uno más"]},
+        {"task_id": "t2", "estado": "validada", "motivo": "Acta firmada.", "falta": "nada",
+         "alternativas": ["no aplica"]},
+    ]}, captured)
+    tarea = dict(_tarea("t1"), required_doc="Saldos y proyección de flujo", description="Posición de caja")
+    r = {v["task_id"]: v for v in validar_evidencias([tarea, _tarea("t2")], _MB)}
+    assert r["t1"]["estado"] == "parcial" and r["t1"]["cubre"] == "Saldos de bancos al 23 nov."
+    assert r["t1"]["falta"] == "La proyección de flujo a 3 meses."
+    assert r["t1"]["alternativas"] == ["Tabla de cobros y pagos esperados", "Reporte del banco", "Otro"]
+    assert r["t2"] == {"task_id": "t2", "estado": "validada", "motivo": "Acta firmada."}  # validada: sin "falta"
+    rotulos = " ".join(b.get("text", "") for b in captured["messages"][0]["content"] if b.get("type") == "text")
+    assert "Documento que pidió el Consejo: Saldos y proyección de flujo" in rotulos
+    assert "Descripción de la tarea: Posición de caja" in rotulos

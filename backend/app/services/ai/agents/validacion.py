@@ -3,11 +3,14 @@ El Auditor del Consejo validando la EVIDENCIA de las tareas del periodo.
 
 Al sesionar, cada responsable ha subido (o no) documentos que respaldan su tarea. Este servicio
 actúa como el Auditor del órgano: lee esos documentos y dice, tarea por tarea, si REALMENTE
-sustentan que la tarea se cumplió (`validada`) o si no bastan / no corresponden / no se pudieron
-leer (`insuficiente`).
+sustentan que la tarea se cumplió (`validada`), si cubren solo una parte real de lo pedido
+(`parcial`) o si no bastan / no corresponden / no se pudieron leer (`insuficiente`). Además separa
+lo que SÍ está (`cubre`), lo que falta (`falta`) y otra evidencia que también serviría
+(`alternativas`): con eso Todd le explica al dueño qué hacer, en vez de solo decirle que falta.
 
 Opus + tool-use forzado. Recibe, por tarea: {task_id, title, status, docs:[bloques multimodales]}.
-Devuelve [{task_id, estado:"validada"|"insuficiente"|"sin_revisar", motivo}].
+Devuelve [{task_id, estado:"validada"|"parcial"|"insuficiente"|"sin_revisar", motivo,
+cubre?, falta?, alternativas?}].
 
 Reglas de blindaje (nunca tumban la sesión):
 - Sin API key o con error del tool-use → todas las tareas con documentos quedan `sin_revisar`.
@@ -32,7 +35,8 @@ VALIDACION_MAX_TOKENS = 2048
 MAX_TAREAS_POR_SESION = 12
 MAX_BYTES_VALIDACION = 15 * 1024 * 1024  # ~20 MB en base64: margen bajo el corte de 32 MB de la API
 
-_ESTADOS_VALIDOS = {"validada", "insuficiente"}
+_ESTADOS_VALIDOS = {"validada", "parcial", "insuficiente"}
+MAX_ALTERNATIVAS = 3
 
 _MOTIVO_SIN_DOCS = "No hay documentos legibles adjuntos; no se puede verificar el cumplimiento de la tarea."
 _MOTIVO_SIN_REVISAR = "No se pudo revisar la evidencia con el Auditor en esta sesión."
@@ -59,12 +63,30 @@ VALIDACION_TOOL = {
                         },
                         "estado": {
                             "type": "string",
-                            "enum": ["validada", "insuficiente"],
-                            "description": "validada = la evidencia sustenta el cumplimiento; insuficiente = no basta.",
+                            "enum": ["validada", "parcial", "insuficiente"],
+                            "description": ("validada = la evidencia sustenta el cumplimiento; parcial = "
+                                            "demuestra una parte real de lo pedido, no todo; "
+                                            "insuficiente = no basta."),
                         },
                         "motivo": {
                             "type": "string",
                             "description": "Por qué. Cita el documento si aplica. 1-2 oraciones.",
+                        },
+                        "cubre": {
+                            "type": "string",
+                            "description": ("Lo que SÍ muestran los documentos para esta tarea (qué documento, "
+                                            "periodo, cifras clave). Vacío si no muestran nada útil."),
+                        },
+                        "falta": {
+                            "type": "string",
+                            "description": "Lo que falta para demostrar lo pedido. Vacío si está validada.",
+                        },
+                        "alternativas": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": ("1 a 3 documentos alternativos, realistas para una empresa "
+                                            "mediana, que también demostrarían lo que falta. Vacío si "
+                                            "está validada."),
                         },
                     },
                     "required": ["task_id", "estado", "motivo"],
@@ -145,13 +167,13 @@ def validar_evidencias(tareas_con_docs: list[dict], memory_buffer: dict) -> list
     if company_ctx:
         content.append({"type": "text", "text": f"EMPRESA:\n{company_ctx}"})
     for t in seleccionadas:
-        content.append({
-            "type": "text",
-            "text": (
-                f"=== TAREA task_id={t['task_id']} | «{t.get('title', '')}» "
-                f"| estado declarado por el responsable: {t.get('status', '')} ==="
-            ),
-        })
+        rotulo = (f"=== TAREA task_id={t['task_id']} | «{t.get('title', '')}» "
+                  f"| estado declarado por el responsable: {t.get('status', '')} ===")
+        if str(t.get("required_doc") or "").strip():
+            rotulo += f"\nDocumento que pidió el Consejo: {str(t['required_doc']).strip()}"
+        if str(t.get("description") or "").strip():
+            rotulo += f"\nDescripción de la tarea: {str(t['description']).strip()}"
+        content.append({"type": "text", "text": rotulo})
         content.extend(t["docs"])
     content.append({
         "type": "text",
@@ -193,7 +215,19 @@ def validar_evidencias(tareas_con_docs: list[dict], memory_buffer: dict) -> list
         estado = str(v.get("estado") or "").strip().lower()
         if estado not in _ESTADOS_VALIDOS:
             estado = "insuficiente"
-        por_id[tid] = {"task_id": tid, "estado": estado, "motivo": str(v.get("motivo") or "").strip()}
+        veredicto = {"task_id": tid, "estado": estado, "motivo": str(v.get("motivo") or "").strip()}
+        cubre = str(v.get("cubre") or "").strip()
+        if cubre:
+            veredicto["cubre"] = cubre
+        if estado != "validada":
+            falta = str(v.get("falta") or "").strip()
+            alternativas = v.get("alternativas") if isinstance(v.get("alternativas"), list) else []
+            alternativas = [str(a).strip() for a in alternativas if str(a).strip()][:MAX_ALTERNATIVAS]
+            if falta:
+                veredicto["falta"] = falta
+            if alternativas:
+                veredicto["alternativas"] = alternativas
+        por_id[tid] = veredicto
 
     # Toda tarea enviada debe salir con veredicto: si el Auditor omitió alguna, queda sin_revisar.
     for t in seleccionadas:

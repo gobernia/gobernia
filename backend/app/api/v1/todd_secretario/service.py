@@ -182,6 +182,9 @@ async def documentos_del_usuario(
                 "origen": f"evidencia del punto «{t.title}»" + (f" (responsable: {t.owner})" if t.owner else ""),
                 "veredicto": v.get("estado"),
                 "motivo": v.get("motivo") or "",
+                "cubre": v.get("cubre") or "",
+                "falta": v.get("falta") or "",
+                "alternativas": v.get("alternativas") or [],
             }, e.s3_key))
 
     docs = (await db.execute(select(Document).where(Document.user_id == user_id))).scalars().all()

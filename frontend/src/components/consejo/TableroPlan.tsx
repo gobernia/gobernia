@@ -7,6 +7,7 @@ import Link from "next/link"
 import {
   Loader2, ChevronDown, Check, ArrowRight, Gavel, CornerDownRight, UserPlus, X,
   Upload, Paperclip, Download, Trash2, ShieldCheck, AlertTriangle, Clock, Info, Link2,
+  CircleDashed, MessageSquare,
 } from "lucide-react"
 import {
   BoardMes, BoardTask, Periodicidad, TaskStatus, Validacion, ValidacionEstado,
@@ -16,6 +17,7 @@ import {
   Evidence, getEvidence, uploadEvidence, deleteEvidence, downloadEvidenceUrl,
 } from "@/lib/evidence"
 import { getColaboradorLink } from "@/lib/colaborador"
+import { abrirTodd, avisarTodd, nuevoMensajeDeTodd, textoDelAviso } from "@/lib/toddEventos"
 
 /**
  * El tablero tipo Monday del plan mensual, en el sistema de diseño Bento.
@@ -387,6 +389,7 @@ const VALIDACION: Record<ValidacionEstado, {
   color: string; label: string; Icon: typeof ShieldCheck
 }> = {
   validada:     { color: "#0f766e", label: "Validado por el Auditor", Icon: ShieldCheck },
+  parcial:      { color: "#1d4ed8", label: "Avance parcial",          Icon: CircleDashed },
   insuficiente: { color: "#b45309", label: "Falta sustento",          Icon: AlertTriangle },
   sin_revisar:  { color: MUTED,    label: "Sin revisar",             Icon: Clock },
   revisando:    { color: BNAVY,    label: "La IA lo está leyendo…",  Icon: Loader2 },
@@ -414,7 +417,15 @@ function ValidacionBadge({ validacion, tieneEvidencia }: {
         <Icon className={`h-3 w-3 shrink-0 ${estado === "revisando" ? "animate-spin" : ""}`} />
         <span className="truncate">{label}</span>
       </span>
-      {estado === "insuficiente" && motivo && (motivo.length > 90 ? (
+      {/* Si el Auditor lo revisó al subirlo, Todd ya lo explicó en su chat: se manda allá. */}
+      {(estado === "parcial" || estado === "insuficiente" || estado === "sin_revisar")
+        && validacion?.origen === "al_subir" ? (
+        <button type="button" onClick={abrirTodd}
+          className="inline-flex items-center gap-1 self-start text-[11px] font-semibold rounded focus-visible:outline-none focus-visible:ring-2"
+          style={{ color: BNAVY, outlineColor: BNAVY }}>
+          <MessageSquare className="h-3 w-3" /> Ver lo que dijo Todd
+        </button>
+      ) : (estado === "insuficiente" || estado === "parcial") && motivo && (motivo.length > 90 ? (
         <button type="button" onClick={() => setAbierto(a => !a)} aria-expanded={abierto}
           className="text-left text-[11px] leading-snug rounded focus-visible:outline-none focus-visible:ring-2"
           style={{ color: MUTED, outlineColor: BNAVY }}>
@@ -443,12 +454,25 @@ function DocumentosCelda({ tarea, onRefresh }: {
 
   const count = tarea.evidencias ?? 0
 
+  // Desde el chat de Todd ("Subir otro documento"): se abre el selector de archivos de ESTA tarea.
+  const celdaRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onSubir = (e: Event) => {
+      if ((e as CustomEvent<{ taskId: string }>).detail?.taskId !== tarea.id) return
+      celdaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+      inputRef.current?.click()
+    }
+    window.addEventListener("todd:subir", onSubir)
+    return () => window.removeEventListener("todd:subir", onSubir)
+  }, [tarea.id])
+
   const subir = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setBusy(true); setError(null)
     try {
       await uploadEvidence(tarea.id, file)
+      avisarTodd({ texto: `Estoy leyendo «${file.name}»…`, leyendo: true })
       setLista(null)   // invalida la lista para que se recargue al abrir el popover
       onRefresh()      // refresca el tablero para que suba el conteo
     } catch (err: unknown) {
@@ -496,7 +520,7 @@ function DocumentosCelda({ tarea, onRefresh }: {
   }
 
   return (
-    <div className="relative flex flex-col gap-1.5 min-w-0 w-full">
+    <div ref={celdaRef} className="relative flex flex-col gap-1.5 min-w-0 w-full">
       <ValidacionBadge validacion={tarea.validacion} tieneEvidencia={count > 0} />
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -822,6 +846,25 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
     const id = window.setTimeout(() => setTick(t => t + 1), 6000)
     return () => window.clearTimeout(id)
   }, [hayRevisando, tick])
+
+  // Todd "vigila" lo que se sube: cuando el Auditor termina de leer un documento (la tarea pasa
+  // de "revisando" a un veredicto), avisa con su globo y su chat se recarga con lo que encontró.
+  const estadosPrevios = useRef<Map<string, string>>(new Map())
+  useEffect(() => {
+    const previos = estadosPrevios.current
+    const ahora = new Map<string, string>()
+    for (const m of meses) {
+      for (const t of [...m.tareas, ...(m.arrastradas ?? [])]) {
+        const estado = t.validacion?.estado ?? "sin_revisar"
+        ahora.set(t.id, estado)
+        if (previos.get(t.id) === "revisando" && estado !== "revisando") {
+          avisarTodd({ texto: textoDelAviso(estado, t.title) })
+          nuevoMensajeDeTodd()
+        }
+      }
+    }
+    estadosPrevios.current = ahora
+  }, [meses])
 
   // Si Todd (el flotante) cambia una tarea, el tablero se refresca solo.
   useEffect(() => {

@@ -214,7 +214,8 @@ def _render_documentos(documentos: list) -> str:
     documentos = documentos or []
     if not documentos:
         return "DOCUMENTOS DE LA EMPRESA: todavía no se ha subido ninguno."
-    etiquetas = {"validada": "el Auditor lo validó", "insuficiente": "el Auditor dice que falta sustento",
+    etiquetas = {"validada": "el Auditor lo validó", "parcial": "el Auditor dice que es un avance parcial",
+                 "insuficiente": "el Auditor dice que falta sustento",
                  "revisando": "el Auditor lo está revisando", "sin_revisar": "sin revisar"}
     lineas = [f"DOCUMENTOS DE LA EMPRESA ({len(documentos)}, del más reciente al más antiguo):"]
     for d in documentos:
@@ -224,6 +225,12 @@ def _render_documentos(documentos: list) -> str:
         if d.get("veredicto"):
             ver = etiquetas.get(d["veredicto"], d["veredicto"])
             extra.append(ver + (f": {d['motivo']}" if d.get("motivo") else ""))
+            if d.get("cubre"):
+                extra.append(f"el Auditor lo leyó y encontró: {d['cubre']}")
+            if d.get("falta"):
+                extra.append(f"falta: {d['falta']}")
+            if d.get("alternativas"):
+                extra.append("también serviría: " + " / ".join(d["alternativas"]))
         lineas.append(f"  - [{d['ref']}] «{d['nombre']}» — {d['origen']}"
                       + (f" ({'; '.join(extra)})" if extra else ""))
     return "\n".join(lineas)
@@ -263,6 +270,16 @@ def build_system_prompt(contexto: dict) -> str:
         "qué se ha subido, de quién o si algo tiene sustento, responde con la lista. Si te preguntan "
         "por lo que DICE un documento, ábrelo con `leer_documento` antes de responder; nunca "
         "supongas su contenido. Cita el nombre del documento en tu respuesta.\n"
+        "4b. AVISOS DE REVISIÓN: los mensajes de tu historial que empiezan con «Revisé «documento» "
+        "para la tarea…» los dejaste tú con lo que el Auditor LEYÓ en ese documento. Sus cifras y "
+        "datos vienen del documento y son reales: puedes usarlos y nunca digas que los inventaste "
+        "o que no los puedes confirmar. Si necesitas más detalle, abre el documento.\n"
+        "4c. CUANDO FALTA SUSTENTO: el cliente sube lo que tiene. Si dice que NO tiene el "
+        "documento que falta, no le repitas que falta: averigua qué SÍ tiene (pregúntale si no lo "
+        "dijo) y propón la forma más sencilla de demostrar lo mismo con eso: uno de los documentos "
+        "alternativos que sugirió el Auditor, un reporte de su sistema o una tabla sencilla hecha "
+        "por él. Dile exactamente qué debe traer. Si de plano no hay forma de demostrarlo, usa "
+        "`proponer_cambio_de_tarea` para ajustar la tarea a algo que sí pueda cumplir.\n"
         "5. FORMATO DE CHAT: escribe como en una conversación, en párrafos cortos. Puedes usar "
         "**negritas** y listas con guion (-). NO uses tablas, títulos con #, separadores (---) "
         "ni emojis decorativos: la ventana de Todd es angosta y los muestra como texto. Nunca le "

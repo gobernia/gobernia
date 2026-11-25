@@ -51,6 +51,8 @@ class ToddMensajeOut(BaseModel):
     role: str
     content: str
     created_at: object | None = None
+    # Si el mensaje es el aviso de Todd al revisar un documento: {task_id, tarea, archivo, estado}.
+    revision: dict | None = None
 
 
 class ToddSecretarioOut(BaseModel):
@@ -79,6 +81,7 @@ async def listar_mensajes(
             role=m.role,
             content=m.content,
             created_at=m.created_at,
+            revision=(m.message_metadata or {}).get("revision"),
         )
         for m in rows
     ]

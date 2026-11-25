@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState, FormEvent } from "react"
-import { Loader2, Send, Check, X, RefreshCw } from "lucide-react"
+import { Loader2, Send, Check, X, RefreshCw, Upload, MessageSquare } from "lucide-react"
 import {
-  ToddMensaje, ToddAccionCambio,
+  ToddMensaje, ToddAccionCambio, ToddRevision,
   getMensajesTodd, streamMensajeTodd,
 } from "@/lib/toddSecretario"
 import { updateTask } from "@/lib/annualPlan"
+import { cerrarTodd, pedirSubirDocumento } from "@/lib/toddEventos"
 
 /**
  * Todd, el secretario del Consejo — chat permanente en el Centro de operaciones.
@@ -131,6 +132,31 @@ function PropuestaCambio({ accion, onReemplazado, onDescartar }: {
   )
 }
 
+// ── Respuestas rápidas al aviso de Todd cuando el Auditor revisó un documento ──
+function RespuestasRevision({ revision, onResponder }: {
+  revision: ToddRevision
+  onResponder: (texto: string) => void
+}) {
+  const subirOtro = () => {
+    cerrarTodd()
+    pedirSubirDocumento(revision.task_id)
+  }
+  const boton = "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+  return (
+    <div className="ml-9 flex flex-wrap gap-2">
+      <button type="button" onClick={subirOtro}
+        className={`${boton} bg-[var(--gob-navy)] text-[var(--gob-bone)] hover:bg-[var(--gob-ink)]`}>
+        <Upload className="h-3.5 w-3.5" /> Subir otro documento
+      </button>
+      <button type="button"
+        onClick={() => onResponder(`No tengo ese documento para «${revision.tarea}». ¿Qué otra cosa puedo usar?`)}
+        className={`${boton} border border-[var(--gob-rule)] text-[var(--gob-ink)] hover:border-[var(--gob-stone)]`}>
+        <MessageSquare className="h-3.5 w-3.5" /> No tengo ese documento
+      </button>
+    </div>
+  )
+}
+
 export default function ToddSecretario({ onTareaCambiada, fill = false }: {
   onTareaCambiada?: () => void
   /** Si es true, Todd llena el alto de su contenedor (para el cajón lateral). */
@@ -153,7 +179,7 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
   }, [])
 
   useEffect(() => {
-    getMensajesTodd()
+    const cargar = () => getMensajesTodd()
       .then(m => {
         if (!aliveRef.current) return
         setMensajes(m)
@@ -162,6 +188,10 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
       .finally(() => {
         if (aliveRef.current) setCargandoHistorial(false)
       })
+    cargar()
+    // Todd dejó un mensaje solo (p. ej. al revisar un documento recién subido): se recarga el hilo.
+    window.addEventListener("todd:nuevo-mensaje", cargar)
+    return () => window.removeEventListener("todd:nuevo-mensaje", cargar)
   }, [])
 
   // Scroll al último mensaje al cambiar el hilo o el estado "escribiendo".
@@ -172,7 +202,10 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
-    const content = texto.trim()
+    await enviarTexto(texto.trim())
+  }
+
+  const enviarTexto = async (content: string) => {
     if (!content || escribiendo) return
 
     const ahora = new Date().toISOString()
@@ -219,6 +252,10 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
   }
 
   const hayHistorial = mensajes.length > 0
+  // Los botones de respuesta solo van bajo el ÚLTIMO mensaje, si es un aviso de revisión que pide algo.
+  const ultimo = mensajes[mensajes.length - 1]
+  const revisionPendiente = !escribiendo && ultimo?.role === "assistant" && ultimo.revision
+    && ultimo.revision.estado !== "validada" ? ultimo.revision : null
 
   return (
     <div className={`flex flex-col bg-white overflow-hidden ${
@@ -248,6 +285,9 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
             {mensajes.map((m, i) => (
               <Burbuja key={`${m.created_at}-${i}`} mensaje={m} />
             ))}
+            {revisionPendiente && (
+              <RespuestasRevision revision={revisionPendiente} onResponder={t => void enviarTexto(t)} />
+            )}
             {propuesta && (
               <PropuestaCambio
                 accion={propuesta}

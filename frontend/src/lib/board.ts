@@ -11,10 +11,16 @@ export type TaskStatus = "pendiente" | "en_progreso" | "completada"
 export type TaskPriority = "alta" | "media" | "baja"
 
 // Resultado de la validación de una tarea por el Consejo al sesionar el mes.
-export type ValidacionEstado = "validada" | "insuficiente" | "sin_revisar" | "revisando"
+export type ValidacionEstado = "validada" | "parcial" | "insuficiente" | "sin_revisar" | "revisando"
 export interface Validacion {
   estado: ValidacionEstado
   motivo: string
+  /** Lo que sí muestran los documentos, lo que falta y otra evidencia que también serviría. */
+  cubre?: string
+  falta?: string
+  alternativas?: string[]
+  /** "al_subir": la revisó el Auditor en cuanto se subió (y Todd lo explicó en su chat). */
+  origen?: string
 }
 
 export interface BoardTask {

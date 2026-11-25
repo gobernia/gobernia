@@ -11,10 +11,19 @@ import { supabase } from "@/lib/supabase"
 
 export type ToddRole = "user" | "assistant"
 
+/** Mensaje de Todd al revisar un documento recién subido (para mostrar los botones de respuesta). */
+export interface ToddRevision {
+  task_id: string
+  tarea: string
+  archivo: string
+  estado: string
+}
+
 export interface ToddMensaje {
   role: ToddRole
   content: string
   created_at: string
+  revision?: ToddRevision | null
 }
 
 export interface ToddPropuesta {

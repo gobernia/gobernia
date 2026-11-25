@@ -74,10 +74,13 @@ async def test_post_persiste_usuario_y_todd_y_devuelve_reply(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_lista_el_historial(monkeypatch):
     m1 = SimpleNamespace(id=uuid.uuid4(), role="user", content="hola",
-                         created_at=datetime(2026, 7, 1))
+                         created_at=datetime(2026, 7, 1), message_metadata=None)
     m2 = SimpleNamespace(id=uuid.uuid4(), role="assistant", content="hey",
-                         created_at=datetime(2026, 7, 2))
-    db = _mock_db(rows=[m1, m2])
+                         created_at=datetime(2026, 7, 2), message_metadata={"accion": None})
+    revision = {"task_id": "t1", "tarea": "Caja y flujo", "archivo": "saldos.xlsx", "estado": "parcial"}
+    m3 = SimpleNamespace(id=uuid.uuid4(), role="assistant", content="Revisé «saldos.xlsx»…",
+                         created_at=datetime(2026, 7, 3), message_metadata={"revision": revision})
+    db = _mock_db(rows=[m1, m2, m3])
 
     app.dependency_overrides[get_db] = _dbov(db)
     app.dependency_overrides[get_current_user_id] = _uov
@@ -89,8 +92,10 @@ async def test_get_lista_el_historial(monkeypatch):
 
     assert r.status_code == 200
     data = r.json()
-    assert [m["content"] for m in data] == ["hola", "hey"]
-    assert [m["role"] for m in data] == ["user", "assistant"]
+    assert [m["content"] for m in data] == ["hola", "hey", "Revisé «saldos.xlsx»…"]
+    assert [m["role"] for m in data] == ["user", "assistant", "assistant"]
+    # El aviso de Todd al revisar un documento trae lo necesario para los botones de respuesta.
+    assert [m["revision"] for m in data] == [None, None, revision]
 
 
 @pytest.mark.asyncio

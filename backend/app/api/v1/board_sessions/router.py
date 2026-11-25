@@ -101,6 +101,7 @@ _STATUS_LABEL = {
 
 _VEREDICTO_LABEL = {
     "validada": "validada (la evidencia lo sustenta)",
+    "parcial": "avance parcial (la evidencia cubre solo una parte)",
     "insuficiente": "falta sustento",
     "revisando": "revisándose",
     "sin_revisar": "sin revisar",
@@ -196,6 +197,10 @@ def _format_acuerdos_previos(rows, today: date) -> str | None:
     return "\n".join(lines)
 
 
+# Lo que se guarda del veredicto del Auditor en task.validacion (además de fechas y origen).
+_CAMPOS_VEREDICTO = ("estado", "motivo", "cubre", "falta", "alternativas")
+
+
 async def _validar_evidencias_del_periodo(candidates: list[dict], memory_buffer: dict) -> dict:
     """
     Corre la validación de la evidencia de las tareas del periodo (fuera de la conexión de DB).
@@ -241,6 +246,8 @@ async def _validar_evidencias_del_periodo(candidates: list[dict], memory_buffer:
             "task_id": c["task_id"],
             "title": c["title"],
             "status": c["status"],
+            "required_doc": c.get("required_doc"),
+            "description": c.get("description"),
             "docs": build_doc_blocks(docs),
         })
 
@@ -249,7 +256,7 @@ async def _validar_evidencias_del_periodo(candidates: list[dict], memory_buffer:
             lambda: validar_evidencias(ai_batch, memory_buffer)
         )
         for v in veredictos:
-            resultados[str(v["task_id"])] = {"estado": v["estado"], "motivo": v.get("motivo", "")}
+            resultados[str(v["task_id"])] = {k: v[k] for k in _CAMPOS_VEREDICTO if k in v}
 
     return resultados
 
@@ -747,6 +754,8 @@ async def run_analyses(
                     "task_id": str(t.id),
                     "title": t.title,
                     "status": t.status,
+                    "required_doc": t.required_doc,
+                    "description": t.description,
                     "evidences": [
                         {"s3_key": e.s3_key, "filename": e.filename, "size_bytes": e.size_bytes}
                         for e in ev_by_task.get(t.id, [])
@@ -958,7 +967,7 @@ async def run_analyses(
                 if not v:
                     continue
                 t.validacion = {
-                    "estado": v["estado"],
+                    **{k: v[k] for k in _CAMPOS_VEREDICTO if k in v},
                     "motivo": v.get("motivo", ""),
                     "validated_at": validated_at,
                     "board_session_id": str(bs_id),
