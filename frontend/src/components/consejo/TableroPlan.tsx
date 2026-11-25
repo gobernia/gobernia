@@ -17,7 +17,7 @@ import {
   Evidence, getEvidence, uploadEvidence, deleteEvidence, downloadEvidenceUrl,
 } from "@/lib/evidence"
 import { getColaboradorLink } from "@/lib/colaborador"
-import { abrirTodd, avisarTodd, nuevoMensajeDeTodd, textoDelAviso } from "@/lib/toddEventos"
+import { abrirTodd, nuevoMensajeDeTodd } from "@/lib/toddEventos"
 
 /**
  * El tablero tipo Monday del plan mensual, en el sistema de diseño Bento.
@@ -472,7 +472,6 @@ function DocumentosCelda({ tarea, onRefresh }: {
     setBusy(true); setError(null)
     try {
       await uploadEvidence(tarea.id, file)
-      avisarTodd({ texto: `Estoy leyendo «${file.name}»…`, leyendo: true })
       setLista(null)   // invalida la lista para que se recargue al abrir el popover
       onRefresh()      // refresca el tablero para que suba el conteo
     } catch (err: unknown) {
@@ -848,7 +847,7 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
   }, [hayRevisando, tick])
 
   // Todd "vigila" lo que se sube: cuando el Auditor termina de leer un documento (la tarea pasa
-  // de "revisando" a un veredicto), avisa con su globo y su chat se recarga con lo que encontró.
+  // de "revisando" a un veredicto), la campanita y el chat de Todd se recargan con lo que encontró.
   const estadosPrevios = useRef<Map<string, string>>(new Map())
   useEffect(() => {
     const previos = estadosPrevios.current
@@ -857,10 +856,7 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
       for (const t of [...m.tareas, ...(m.arrastradas ?? [])]) {
         const estado = t.validacion?.estado ?? "sin_revisar"
         ahora.set(t.id, estado)
-        if (previos.get(t.id) === "revisando" && estado !== "revisando") {
-          avisarTodd({ texto: textoDelAviso(estado, t.title) })
-          nuevoMensajeDeTodd()
-        }
+        if (previos.get(t.id) === "revisando" && estado !== "revisando") nuevoMensajeDeTodd()
       }
     }
     estadosPrevios.current = ahora

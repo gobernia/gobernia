@@ -1,5 +1,5 @@
 import Sidebar from "@/components/ui/Sidebar"
-import Notices from "@/components/dashboard/Notices"
+import Campanita from "@/components/dashboard/Campanita"
 import WelcomeTour from "@/components/dashboard/WelcomeTour"
 import ToddFlotante from "@/components/consejo/ToddFlotante"
 
@@ -7,7 +7,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-dvh" style={{ background: "#F2F2F0" }}>
       <Sidebar />
-      <Notices />
+      <Campanita />
       <div className="md:ml-56">{children}</div>
       {/* Todd siempre disponible, en cualquier página del dashboard */}
       <ToddFlotante />

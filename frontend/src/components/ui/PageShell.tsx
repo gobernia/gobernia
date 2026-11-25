@@ -19,8 +19,8 @@ export function PageShell({ children, className = "" }: { children: ReactNode; c
   )
 }
 
-/** Margen derecho para encabezados fijos: deja libre la esquina del botón de ayuda (WelcomeTour). */
-export const RESERVA_AYUDA = "pr-[max(var(--px-fluid),3.75rem)]"
+/** Margen derecho para encabezados fijos: deja libre la esquina de la campanita y el botón de ayuda. */
+export const RESERVA_AYUDA = "pr-[max(var(--px-fluid),6.25rem)]"
 
 /** Ancho de lectura para texto corrido (~72 caracteres). */
 export function Prose({ children, className = "" }: { children: ReactNode; className?: string }) {

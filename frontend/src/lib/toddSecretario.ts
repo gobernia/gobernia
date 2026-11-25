@@ -20,6 +20,7 @@ export interface ToddRevision {
 }
 
 export interface ToddMensaje {
+  message_id?: string
   role: ToddRole
   content: string
   created_at: string

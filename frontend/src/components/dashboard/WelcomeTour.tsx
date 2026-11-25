@@ -45,7 +45,7 @@ export default function WelcomeTour() {
   return (
     <>
       {/* Botón de ayuda: esquina superior derecha, a la altura del botón de menú del celular (Sidebar, top-3 left-3).
-          Los encabezados fijos le dejan espacio con RESERVA_AYUDA; los avisos (Notices) empiezan debajo. */}
+          A su izquierda va la campanita de avisos; los encabezados fijos les dejan espacio con RESERVA_AYUDA. */}
       <button
         onClick={() => setOpen(true)}
         aria-label="¿Cómo funciona Gobernia?"
