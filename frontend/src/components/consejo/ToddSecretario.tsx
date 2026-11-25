@@ -61,7 +61,7 @@ function Burbuja({ mensaje }: { mensaje: ToddMensaje }) {
   if (esUsuario) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[var(--gob-navy)] text-[var(--gob-bone)] px-3.5 py-2.5 text-sm leading-snug whitespace-pre-wrap">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[var(--gob-navy)] text-[var(--gob-bone)] px-3.5 py-2.5 text-[13px] leading-[1.45] whitespace-pre-wrap">
           {mensaje.content}
         </div>
       </div>
@@ -70,7 +70,7 @@ function Burbuja({ mensaje }: { mensaje: ToddMensaje }) {
   return (
     <div className="flex items-start gap-2">
       <ToddAvatar />
-      <div className="max-w-[85%] rounded-2xl rounded-tl-md bg-[var(--gob-paper)] border border-[var(--gob-rule)] text-[var(--gob-ink)] px-3.5 py-2.5 text-sm leading-snug">
+      <div className="max-w-[85%] rounded-2xl rounded-tl-md bg-[var(--gob-paper)] border border-[var(--gob-rule)] text-[var(--gob-ink)] px-3.5 py-2.5 text-[13px] leading-[1.45]">
         <TextoTodd texto={mensaje.content} />
       </div>
     </div>
@@ -110,7 +110,7 @@ function PropuestaCambio({ accion, onReemplazado, onDescartar }: {
         </span>
       </div>
       <div className="space-y-1">
-        <p className="text-sm font-medium text-[var(--gob-ink)] leading-snug">{accion.propuesta.title}</p>
+        <p className="text-[13px] font-medium text-[var(--gob-ink)] leading-snug">{accion.propuesta.title}</p>
         {accion.propuesta.description && (
           <p className="text-xs text-[var(--gob-muted)] leading-snug">{accion.propuesta.description}</p>
         )}
@@ -326,7 +326,7 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
           }}
           rows={1}
           placeholder="Escríbele a Todd…"
-          className="flex-1 resize-none max-h-28 rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] px-3 py-2.5 text-sm text-[var(--gob-ink)] placeholder:text-[var(--gob-stone)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]"
+          className="flex-1 resize-none max-h-28 rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] px-3 py-2.5 text-[13px] text-[var(--gob-ink)] placeholder:text-[var(--gob-stone)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]"
         />
         <button type="submit" disabled={!texto.trim() || escribiendo}
           aria-label="Enviar mensaje a Todd"
