@@ -4,17 +4,30 @@
  *
  *   todd:abrir          abre el panel de Todd
  *   todd:cerrar         lo cierra
+ *   todd:aviso          globo junto al botón de Todd ({ texto, leyendo? })
  *   todd:nuevo-mensaje  Todd dejó un mensaje en su chat (el chat y la campanita se recargan)
  *   todd:subir          el cliente quiere subir otro documento a una tarea ({ taskId })
  */
+
+export interface ToddAviso {
+  texto: string
+  /** true mientras el Auditor lee el documento (el globo muestra que está trabajando). */
+  leyendo?: boolean
+}
 
 const emitir = (nombre: string, detail?: unknown) =>
   window.dispatchEvent(detail === undefined ? new Event(nombre) : new CustomEvent(nombre, { detail }))
 
 export const abrirTodd = () => emitir("todd:abrir")
 export const cerrarTodd = () => emitir("todd:cerrar")
+export const avisarTodd = (aviso: ToddAviso) => emitir("todd:aviso", aviso)
 export const nuevoMensajeDeTodd = () => emitir("todd:nuevo-mensaje")
 export const pedirSubirDocumento = (taskId: string) => emitir("todd:subir", { taskId })
+
+/** Lo que dice el globo cuando el Auditor termina de leer un documento recién subido. */
+export function textoDelAviso(estado: string, tarea: string): string {
+  return `Revisé tu documento de ${detalleDeRevision(estado, tarea)}`
+}
 
 /** Lo que dice la campanita de una revisión de documento (el detalle está en el chat de Todd). */
 export function detalleDeRevision(estado: string, tarea: string): string {
