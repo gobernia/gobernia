@@ -11,6 +11,7 @@ import anthropic
 
 from app.core.config import settings
 from app.schemas.board_session import normalize_analysis
+from app.schemas.enums import RevenueRange
 from app.services.ai.doc_blocks import build_doc_blocks
 from app.services.ai.knowledge_base import build_knowledge_for_agent
 from app.services.ai.modelos import (
@@ -108,6 +109,16 @@ def _get_agent_config(memory_buffer: dict, agent: str) -> dict:
     return memory_buffer.get("agent_configs", {}).get(agent, {})
 
 
+# Los rangos del formulario anterior están en dólares. Lo que anota Todd ya trae su moneda
+# (p. ej. "92 millones MXN") o las palabras del dueño: va tal cual, sin agregarle "USD".
+_RANGOS_INGRESOS_USD = {r.value for r in RevenueRange}
+
+
+def _ingresos_txt(valor) -> str:
+    texto = str(valor).strip()
+    return f"{texto} USD" if texto in _RANGOS_INGRESOS_USD else texto
+
+
 def _build_company_context(memory_buffer: dict) -> str:
     company = memory_buffer.get("company", {})
     vision = memory_buffer.get("vision", {})
@@ -123,7 +134,7 @@ def _build_company_context(memory_buffer: dict) -> str:
         if company.get("employees"):
             details.append(f"Empleados: {company['employees']}")
         if company.get("annual_revenue"):
-            details.append(f"Ingresos anuales: {company['annual_revenue']} USD")
+            details.append(f"Ingresos anuales: {_ingresos_txt(company['annual_revenue'])}")
         if company.get("years_operating"):
             details.append(f"Años de operación: {company['years_operating']}")
         if company.get("has_board"):

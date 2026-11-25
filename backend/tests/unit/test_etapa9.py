@@ -59,6 +59,18 @@ def test_build_company_context_incluye_governance():
     assert "75.0" in ctx
 
 
+@pytest.mark.parametrize("ingresos,esperado", [
+    ("92 millones MXN", "Ingresos anuales: 92 millones MXN"),     # lo anotó Todd: ya trae su moneda
+    ("Unos 30 millones de pesos", "Ingresos anuales: Unos 30 millones de pesos"),
+    ("5M-15M", "Ingresos anuales: 5M-15M USD"),                  # rango del formulario anterior (dólares)
+    ("15M+", "Ingresos anuales: 15M+ USD"),
+])
+def test_build_company_context_moneda_de_los_ingresos(ingresos, esperado):
+    ctx = _build_company_context({"company": {"annual_revenue": ingresos, "employees": 85}})
+    assert ctx.endswith(esperado)
+    assert "MXN USD" not in ctx
+
+
 def test_build_kpi_context_sin_datos():
     ctx = _build_kpi_context(None)
     assert "No ingresados" in ctx
