@@ -16,6 +16,19 @@ export interface TareaColab {
   objetivo: string | null
   explicacion: ExplicacionTarea | null
   tiene_explicacion: boolean
+  /** Documentos que ya tiene la tarea y lo que dijo el Auditor al leerlos. */
+  evidencias?: number
+  validacion?: ValidacionColab | null
+}
+
+export interface ValidacionColab {
+  estado: "validada" | "parcial" | "insuficiente" | "sin_revisar" | "revisando"
+  motivo?: string
+  documento?: string
+  otro_documento?: boolean
+  cubre?: string
+  falta?: string
+  alternativas?: string[]
 }
 
 export interface Escritorio {
@@ -37,6 +50,13 @@ export async function getColaboradorLink(
 export async function getEscritorio(token: string): Promise<Escritorio> {
   const r = await publicApi.get<Escritorio>(`/t/${token}`)
   return r.data
+}
+
+// Público por token: el responsable sube la evidencia de SU tarea (el Auditor la lee al momento).
+export async function subirEvidenciaColab(token: string, taskId: string, file: File): Promise<void> {
+  const fd = new FormData()
+  fd.append("file", file)
+  await publicApi.post(`/t/${token}/tareas/${taskId}/evidencia`, fd)
 }
 
 // Público por token: genera (o devuelve cacheada) la explicación de una tarea.

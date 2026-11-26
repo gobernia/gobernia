@@ -19,6 +19,9 @@ class TareaColabOut(BaseModel):
     objetivo: str | None
     explicacion: dict | None
     tiene_explicacion: bool
+    # Documentos subidos a la tarea y lo que dijo el Auditor (estado, documento, cubre, falta…).
+    evidencias: int = 0
+    validacion: dict | None = None
 
 
 class EscritorioOut(BaseModel):

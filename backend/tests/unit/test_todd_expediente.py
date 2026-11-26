@@ -119,3 +119,14 @@ def test_todd_conoce_como_se_usa_gobernia():
     p = build_system_prompt({"empresa": "Acme"})
     assert "GUÍA DE GOBERNIA" in p and "ícono del clip con el número" in p and "bote de basura" in p
     assert "nunca lo mandes con el administrador por algo que él mismo puede hacer" in p
+
+
+def test_todd_del_responsable_sabe_subir_evidencia_y_ve_al_auditor():
+    from app.services.ai.todd_responsable import build_system_prompt
+    p = build_system_prompt("Laura", "Acme", [{
+        "title": "Caja y flujo", "status": "en_progreso", "evidencias": 1,
+        "validacion": {"estado": "insuficiente", "documento": "un CV", "falta": "Saldos bancarios.",
+                       "alternativas": ["Estados de cuenta"]},
+    }])
+    assert "«Subir documento»" in p and "con quien le asignó la tarea" in p
+    assert "falta sustento (es un CV); falta: Saldos bancarios.; también serviría: Estados de cuenta" in p

@@ -7,7 +7,7 @@ import Link from "next/link"
 import {
   Loader2, ChevronDown, Check, ArrowRight, Gavel, CornerDownRight, UserPlus, X,
   Upload, Paperclip, Download, Trash2, ShieldCheck, AlertTriangle, Clock, Info, Link2,
-  CircleDashed, MessageSquare,
+  CircleDashed, MessageSquare, Ellipsis, LogOut,
 } from "lucide-react"
 import {
   BoardMes, BoardTask, Periodicidad, TaskStatus, Validacion, ValidacionEstado,
@@ -420,7 +420,7 @@ function ValidacionBadge({ validacion, tieneEvidencia }: {
       {/* Si el Auditor lo revisó al subirlo, Todd ya lo explicó en su chat: se manda allá. */}
       {(estado === "parcial" || estado === "insuficiente" || estado === "sin_revisar")
         && validacion?.origen === "al_subir" ? (
-        <button type="button" onClick={abrirTodd}
+        <button type="button" onClick={() => abrirTodd()}
           className="inline-flex items-center gap-1 self-start text-[11px] font-semibold rounded focus-visible:outline-none focus-visible:ring-2"
           style={{ color: BNAVY, outlineColor: BNAVY }}>
           <MessageSquare className="h-3 w-3" /> Ver lo que dijo Todd
@@ -667,6 +667,61 @@ function AgendaMeta({ tarea }: { tarea: BoardTask }) {
   )
 }
 
+// ── Menú "⋯" de una tarea: "No puedo con esta tarea" (Todd propone cambiarla) y "Sacar del plan" ──
+function MenuTarea({ tarea, onRefresh }: { tarea: BoardTask; onRefresh: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  const noPuedo = () => {
+    setOpen(false)
+    abrirTodd(`No puedo con la tarea «${tarea.title}» porque `)
+  }
+  const sacar = async () => {
+    setOpen(false)
+    setError(null)
+    try {
+      await setTaskIncluida(tarea.id, false)  // pasa a «Pendientes fuera del plan»; ahí se puede «Activar»
+      onRefresh()
+    } catch {
+      setError("No se pudo sacar del plan. Intenta de nuevo.")
+    }
+  }
+  const opcion = "flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-white focus-visible:outline-none focus-visible:bg-white"
+
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={() => setOpen(o => !o)}
+        aria-label={`Opciones de la tarea ${tarea.title}`} aria-haspopup="menu" aria-expanded={open}
+        className="absolute top-2 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2"
+        style={{ color: MUTED, outlineColor: BNAVY }}>
+        <Ellipsis className="h-4 w-4" />
+      </button>
+      {error && <p className="mt-1 text-[10px] leading-snug" style={{ color: "#b45309" }}>{error}</p>}
+      <MenuFlotante anchorRef={btnRef} open={open} onClose={() => setOpen(false)} ancho={250} altoEstimado={130}>
+        <div role="menu" className="w-full rounded-xl shadow-lg p-1.5" style={{ border: `1px solid ${LINE}`, backgroundColor: SAND }}>
+          <button type="button" role="menuitem" onClick={noPuedo} className={opcion} style={{ color: INK }}>
+            <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: BNAVY }} />
+            <span>
+              <span className="block font-medium">No puedo con esta tarea</span>
+              <span className="block text-[11px]" style={{ color: MUTED }}>Cuéntale a Todd por qué y te propone otra</span>
+            </span>
+          </button>
+          {tarea.incluida !== false && (
+            <button type="button" role="menuitem" onClick={sacar} className={opcion} style={{ color: INK }}>
+              <LogOut className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: MUTED }} />
+              <span>
+                <span className="block font-medium">Sacar del plan</span>
+                <span className="block text-[11px]" style={{ color: MUTED }}>Pasa a «Pendientes fuera del plan»</span>
+              </span>
+            </button>
+          )}
+        </div>
+      </MenuFlotante>
+    </>
+  )
+}
+
 function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
   tarea: BoardTask
   sugerencias: string[]
@@ -677,11 +732,12 @@ function TareaRow({ tarea, sugerencias, onEstado, onOwner, onRefresh }: {
   const celdaBase = "px-4 py-2.5 flex items-center gap-2"
 
   return (
-    <div className={`grid grid-cols-1 ${GRID_COLS} md:gap-x-1 md:items-stretch last:border-b-0`}
+    <div id={`tarea-${tarea.id}`} className={`grid grid-cols-1 ${GRID_COLS} md:gap-x-1 md:items-stretch last:border-b-0`}
       style={{ borderBottom: `1px solid ${LINE}`, backgroundColor: CARD }}>
       {/* Tarea + objetivo — columna congelada a la izquierda */}
-      <div className={`px-4 py-2.5 flex flex-col justify-center min-w-0 ${STICKY_TAREA}`}
+      <div className={`relative pl-4 pr-8 py-2.5 flex flex-col justify-center min-w-0 ${STICKY_TAREA}`}
         style={{ backgroundColor: CARD }}>
+        <MenuTarea tarea={tarea} onRefresh={onRefresh} />
         <p className="text-[13px] font-medium leading-snug" style={{ color: INK }}>{tarea.title}</p>
         <AgendaMeta tarea={tarea} />
         {tarea.viene_de && (
@@ -906,6 +962,24 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
     estadosPrevios.current = ahora
   }, [meses])
 
+  // Desde el chat de Todd ("Subir otro documento" estando en otra página) se llega con ?tarea=…:
+  // se baja hasta esa tarea y se marca un momento para que solo falte dar clic en «Subir».
+  const yaMarcada = useRef(false)
+  useEffect(() => {
+    if (status !== "ready" || yaMarcada.current) return
+    const id = new URLSearchParams(window.location.search).get("tarea")
+    if (!id) return
+    yaMarcada.current = true
+    const fila = document.getElementById(`tarea-${id}`)
+    if (!fila) return
+    fila.scrollIntoView({ behavior: "smooth", block: "center" })
+    fila.animate(
+      [{ boxShadow: "inset 0 0 0 2px #C2410C" }, { boxShadow: "inset 0 0 0 2px #C2410C" }, { boxShadow: "inset 0 0 0 2px transparent" }],
+      { duration: 4000, easing: "ease-out" },
+    )
+    window.history.replaceState(null, "", window.location.pathname)
+  }, [status, meses])
+
   // Si Todd (el flotante) cambia una tarea, el tablero se refresca solo.
   useEffect(() => {
     const onCambio = () => setTick(t => t + 1)
@@ -1051,8 +1125,9 @@ export default function TableroPlan({ reloadSignal = 0 }: { reloadSignal?: numbe
       <p className="flex items-start gap-2 text-xs leading-snug" style={{ color: MUTED }}>
         <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: MUTED }} />
         <span>
-          Cada responsable sube en <strong className="font-medium" style={{ color: INK }}>Documentos</strong> la
-          evidencia de su tarea. El Auditor la lee en cuanto se sube y te dice si tiene sustento.
+          Sube en <strong className="font-medium" style={{ color: INK }}>Documentos</strong> la evidencia de cada
+          tarea; cada responsable también puede subirla desde el enlace de sus tareas. El Auditor la lee en cuanto
+          se sube y te dice si tiene sustento.
         </span>
       </p>
 

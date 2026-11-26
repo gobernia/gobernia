@@ -7,10 +7,12 @@ import {
   ExplicacionTarea,
   TareaColab,
   ToddMensaje,
+  ValidacionColab,
   enviarToddResponsable,
   explicarTarea,
   getEscritorio,
   getToddChat,
+  subirEvidenciaColab,
 } from "@/lib/colaborador"
 
 const NAVY = "#142849"
@@ -40,7 +42,100 @@ function fmtFecha(iso: string | null): string | null {
   }
 }
 
-function TarjetaTarea({ token, tarea }: { token: string; tarea: TareaColab }) {
+// Lo que dijo el Auditor del documento subido, en palabras para el responsable.
+const VEREDICTO: Record<string, { label: string; color: string }> = {
+  validada: { label: "Validado por el Auditor", color: "#0f766e" },
+  parcial: { label: "Avance parcial", color: "#1d4ed8" },
+  insuficiente: { label: "Falta sustento", color: "#b45309" },
+  sin_revisar: { label: "Sin revisar", color: "#6b7280" },
+  revisando: { label: "El Auditor lo está leyendo…", color: NAVY },
+}
+const ACEPTA = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx,.pptx"
+
+function detalleDelError(err: unknown): string | null {
+  const d = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  return typeof d === "string" ? d : null
+}
+
+function Evidencia({ token, tarea, onSubido }: {
+  token: string
+  tarea: TareaColab
+  onSubido: () => void
+}) {
+  const [subiendo, setSubiendo] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const v: ValidacionColab | null | undefined = tarea.validacion
+  const meta = v ? VEREDICTO[v.estado] : undefined
+  const n = tarea.evidencias ?? 0
+
+  const subir = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendo(true)
+    setError(null)
+    try {
+      await subirEvidenciaColab(token, tarea.id, file)
+      onSubido()
+    } catch (err) {
+      setError(detalleDelError(err) ?? "No se pudo subir el documento. Intenta de nuevo.")
+    } finally {
+      setSubiendo(false)
+      if (inputRef.current) inputRef.current.value = ""
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-black/5 p-4 space-y-2.5" style={{ backgroundColor: BONE }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Evidencia{n > 0 ? ` · ${n} ${n === 1 ? "documento" : "documentos"}` : ""}
+        </p>
+        <button type="button" disabled={subiendo} onClick={() => inputRef.current?.click()}
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+          style={{ backgroundColor: NAVY }}>
+          {subiendo ? "Subiendo…" : n > 0 ? "Subir otro documento" : "Subir documento"}
+        </button>
+        <input ref={inputRef} type="file" className="hidden" accept={ACEPTA} onChange={subir} />
+      </div>
+      {error && <p className="text-xs" style={{ color: "#b45309" }}>{error}</p>}
+      {n === 0 && !v && (
+        <p className="text-xs text-gray-500">
+          Sube aquí el documento que demuestra que la tarea avanzó: PDF, imagen, Excel, Word o PowerPoint (hasta 10 MB).
+          El Auditor lo revisa al momento y te dice si alcanza.
+        </p>
+      )}
+      {v && meta && (
+        <div className="space-y-1.5 text-sm text-gray-700">
+          <p className="text-xs font-semibold" style={{ color: meta.color }}>{meta.label}</p>
+          {v.estado !== "revisando" && (
+            <>
+              {v.otro_documento && (
+                <p>Parece que se subió otro documento{v.documento ? <>: es <strong>{v.documento}</strong></> : ""}.</p>
+              )}
+              {!v.otro_documento && v.documento && <p className="text-xs text-gray-500">Es {v.documento}.</p>}
+              {v.cubre && <p><strong>Ya está:</strong> {v.cubre}</p>}
+              {v.estado !== "validada" && (v.falta || v.motivo) && (
+                <p><strong>{v.otro_documento ? "Lo que se necesita:" : "Falta:"}</strong> {v.falta || v.motivo}</p>
+              )}
+              {v.estado === "validada" && !v.cubre && v.motivo && <p>{v.motivo}</p>}
+              {v.alternativas && v.alternativas.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500">Si no tienes ese documento, también sirve:</p>
+                  <ul className="list-disc pl-5 text-sm">
+                    {v.alternativas.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TarjetaTarea({ token, tarea, onCambio }: { token: string; tarea: TareaColab; onCambio: () => void }) {
   const [abierto, setAbierto] = useState(false)
   const [exp, setExp] = useState<ExplicacionTarea | null>(tarea.explicacion)
   const [cargando, setCargando] = useState(false)
@@ -137,6 +232,8 @@ function TarjetaTarea({ token, tarea }: { token: string; tarea: TareaColab }) {
           )}
         </div>
       )}
+
+      <Evidencia token={token} tarea={tarea} onSubido={onCambio} />
     </div>
   )
 }
@@ -308,6 +405,10 @@ export default function EscritorioPage() {
   const [notFound, setNotFound] = useState(false)
   const aliveRef = useRef(true)
 
+  // Recarga las tareas (al subir un documento y mientras el Auditor lo lee).
+  const [tick, setTick] = useState(0)
+  const recargar = () => setTick(t => t + 1)
+
   useEffect(() => {
     aliveRef.current = true
     getEscritorio(token)
@@ -320,7 +421,15 @@ export default function EscritorioPage() {
     return () => {
       aliveRef.current = false
     }
-  }, [token])
+  }, [token, tick])
+
+  // Mientras el Auditor lee algún documento, se vuelve a consultar cada 6 s hasta tener el resultado.
+  const hayRevisando = !!data?.tareas.some(t => t.validacion?.estado === "revisando")
+  useEffect(() => {
+    if (!hayRevisando) return
+    const id = window.setTimeout(recargar, 6000)
+    return () => window.clearTimeout(id)
+  }, [hayRevisando, tick])
 
   if (notFound) {
     return (
@@ -351,7 +460,8 @@ export default function EscritorioPage() {
             Tus tareas{data.empresa ? ` — ${data.empresa}` : ""}
           </p>
           <p className="mt-2 text-sm text-gray-500">
-            Estas son las tareas que te asignaron. Toca una para ver de qué trata y cómo hacerla.
+            Estas son las tareas que te asignaron. Toca una para ver de qué trata y cómo hacerla, y sube
+            en cada una el documento que demuestra el avance.
           </p>
         </header>
 
@@ -362,7 +472,7 @@ export default function EscritorioPage() {
         ) : (
           <div className="space-y-3">
             {data.tareas.map(t => (
-              <TarjetaTarea key={t.id} token={token} tarea={t} />
+              <TarjetaTarea key={t.id} token={token} tarea={t} onCambio={recargar} />
             ))}
           </div>
         )}

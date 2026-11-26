@@ -54,7 +54,9 @@ def validacion_visible(v: dict | None) -> dict | None:
     return visible
 
 
-async def revisar_evidencia_tarea(task_id: uuid.UUID, user_id: str, revision_id: str) -> None:
+async def revisar_evidencia_tarea(task_id: uuid.UUID, user_id: str, revision_id: str,
+                                  subido_por: str | None = None) -> None:
+    """`subido_por`: nombre del responsable si lo subió desde su enlace (None = el dueño)."""
     # Import diferido: el router de sesiones es pesado y a su vez importa servicios de IA.
     from app.api.v1.board_sessions.router import _validar_evidencias_del_periodo
 
@@ -105,11 +107,11 @@ async def revisar_evidencia_tarea(task_id: uuid.UUID, user_id: str, revision_id:
         flag_modified(task, "validacion")
         tarea = task.title
         await db.commit()  # el veredicto queda guardado antes de avisar
-        await _avisar_con_todd(db, user_id, str(task_id), tarea, archivo, veredicto)
+        await _avisar_con_todd(db, user_id, str(task_id), tarea, archivo, veredicto, subido_por)
 
 
 async def _avisar_con_todd(db, user_id: str, task_id: str, tarea: str, archivo: str,
-                           veredicto: dict) -> None:
+                           veredicto: dict, subido_por: str | None = None) -> None:
     """Deja en el chat de Todd lo que encontró el Auditor (qué está, qué falta, qué más sirve).
     Si falla, el veredicto ya está guardado: el aviso de Todd nunca tumba la revisión."""
     # Import diferido: el servicio de Todd importa este módulo.
@@ -123,11 +125,12 @@ async def _avisar_con_todd(db, user_id: str, task_id: str, tarea: str, archivo: 
             return  # sin sesión de Consejo el chat de Todd no tiene dónde guardarse
         db.add(ChatMessage(
             board_session_id=anchor_id, user_id=user_id, role="assistant", agent=TODD_SECRETARIO_AGENT,
-            content=mensaje_de_todd(veredicto, tarea, archivo),
+            content=mensaje_de_todd(veredicto, tarea, archivo, subido_por=subido_por),
             message_metadata={"revision": {
                 "task_id": task_id, "tarea": tarea, "archivo": archivo, "estado": veredicto.get("estado"),
                 "documento": veredicto.get("documento") or "",
                 "otro_documento": bool(veredicto.get("otro_documento")),
+                "subido_por": subido_por or "",
             }},
         ))
         await db.commit()

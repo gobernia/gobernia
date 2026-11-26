@@ -18,6 +18,11 @@ _ESTADO_LABEL = {
     "completada": "hecha",
 }
 
+_VEREDICTO = {
+    "validada": "validado", "parcial": "avance parcial", "insuficiente": "falta sustento",
+    "revisando": "lo está leyendo", "sin_revisar": "sin revisar",
+}
+
 _FALLBACK = (
     "Ahorita no puedo responder, intenta en un momento. Mientras, abre cada tarea "
     "y toca «¿Qué es y cómo hacerla?» para ver la guía."
@@ -36,6 +41,18 @@ def _render_tarea(t: dict) -> str:
         partes.append(" (" + " · ".join(meta) + ")")
     if t.get("description"):
         partes.append(f"\n    Descripción: {t['description']}")
+    v = t.get("validacion") if isinstance(t.get("validacion"), dict) else None
+    n = int(t.get("evidencias") or 0)
+    if n or v:
+        partes.append(f"\n    Evidencia: {n} documento(s)")
+        if v and v.get("estado"):
+            partes.append(f"; el Auditor dice: {_VEREDICTO.get(v['estado'], v['estado'])}")
+            if v.get("documento"):
+                partes.append(f" (es {v['documento']})")
+            if v.get("falta"):
+                partes.append(f"; falta: {v['falta']}")
+            if v.get("alternativas"):
+                partes.append("; también serviría: " + " / ".join(v["alternativas"]))
     exp = t.get("explicacion")
     if isinstance(exp, dict):
         if exp.get("que_es"):
@@ -63,7 +80,14 @@ def build_system_prompt(nombre: str | None, empresa: str | None, tareas: list[di
         "FORMATO: responde como en un chat de WhatsApp — texto plano, cálido y breve, en "
         "párrafos cortos. NADA de markdown: sin encabezados (#, ##), sin negritas ni asteriscos "
         "(**), sin tablas. Si necesitas enumerar pasos, usa una lista simple con guiones o "
-        "números al inicio de la línea. Ve al grano; no más de 4-5 líneas salvo que pidan detalle.\n\n"
+        "números al inicio de la línea. Ve al grano; no más de 4-5 líneas salvo que pidan detalle.\n"
+        "CÓMO SE USA SU PÁGINA: en cada tarea, «¿Qué es y cómo hacerla?» abre la explicación, y en "
+        "la sección «Evidencia» el botón «Subir documento» sube el documento que demuestra el avance "
+        "(PDF, imagen, Excel, Word o PowerPoint, hasta 10 MB). El Auditor lo revisa al momento y ahí "
+        "mismo dice qué está, qué falta y qué otra cosa también sirve. Desde su página NO puede "
+        "cambiar el estado de la tarea ni borrar documentos: eso lo hace el dueño de la empresa, "
+        "así que para eso, o para cualquier cosa que no se pueda hacer aquí, que lo vea con quien "
+        "le asignó la tarea. No inventes botones ni pasos.\n\n"
         "───────────────────────── SUS TAREAS ─────────────────────────\n"
         + lista
     )

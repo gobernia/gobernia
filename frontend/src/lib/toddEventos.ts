@@ -2,7 +2,7 @@
  * Avisos entre el tablero, la campanita y Todd (el botón flotante y su chat), con eventos de
  * ventana para que ninguna página tenga que conocer a las demás.
  *
- *   todd:abrir          abre el panel de Todd
+ *   todd:abrir          abre el panel de Todd ({ borrador? }: texto ya escrito en su caja)
  *   todd:cerrar         lo cierra
  *   todd:aviso          globo junto al botón de Todd ({ texto, leyendo? })
  *   todd:nuevo-mensaje  Todd dejó un mensaje en su chat (el chat y la campanita se recargan)
@@ -18,7 +18,7 @@ export interface ToddAviso {
 const emitir = (nombre: string, detail?: unknown) =>
   window.dispatchEvent(detail === undefined ? new Event(nombre) : new CustomEvent(nombre, { detail }))
 
-export const abrirTodd = () => emitir("todd:abrir")
+export const abrirTodd = (borrador?: string) => emitir("todd:abrir", borrador ? { borrador } : undefined)
 export const cerrarTodd = () => emitir("todd:cerrar")
 export const avisarTodd = (aviso: ToddAviso) => emitir("todd:aviso", aviso)
 export const nuevoMensajeDeTodd = () => emitir("todd:nuevo-mensaje")

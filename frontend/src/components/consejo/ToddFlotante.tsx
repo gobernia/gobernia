@@ -27,9 +27,15 @@ const LINE  = "#E2E2DC"
 export default function ToddFlotante() {
   const [open, setOpen] = useState(false)
   const [aviso, setAviso] = useState<ToddAviso | null>(null)
+  // Texto que llega ya escrito en la caja de Todd (p. ej. "No puedo con la tarea «…» porque ").
+  const [borrador, setBorrador] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    const abrir = () => { setAviso(null); setOpen(true) }
+    const abrir = (e: Event) => {
+      setBorrador((e as CustomEvent<{ borrador?: string } | undefined>).detail?.borrador)
+      setAviso(null)
+      setOpen(true)
+    }
     const cerrar = () => setOpen(false)
     const avisar = (e: Event) => setAviso((e as CustomEvent<ToddAviso>).detail ?? null)
     window.addEventListener("todd:abrir", abrir)
@@ -44,7 +50,7 @@ export default function ToddFlotante() {
 
   // Con el panel abierto el globo sobra: el mensaje ya está en el chat.
   const globo = open ? null : aviso
-  const abrirDesdeGlobo = () => { setAviso(null); setOpen(true) }
+  const abrirDesdeGlobo = () => { setBorrador(undefined); setAviso(null); setOpen(true) }
 
   return (
     <>
@@ -130,6 +136,7 @@ export default function ToddFlotante() {
               </button>
               <ToddSecretario
                 fill
+                borrador={borrador}
                 onTareaCambiada={() => window.dispatchEvent(new Event("todd:tarea-cambiada"))}
               />
             </motion.div>

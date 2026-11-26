@@ -150,7 +150,8 @@ async def test_al_terminar_todd_deja_en_su_chat_que_esta_que_falta_y_que_mas_sir
     assert "Tabla de cobros y pagos" in msg.content
     assert msg.message_metadata["revision"] == {"task_id": str(tid), "tarea": "Caja y flujo proyectado",
                                                 "archivo": "tu documento", "estado": "parcial",
-                                                "documento": "", "otro_documento": False}
+                                                "documento": "", "otro_documento": False,
+                                                "subido_por": ""}
 
 
 def test_mensaje_de_todd_segun_el_veredicto():
@@ -175,3 +176,12 @@ def test_mensaje_de_todd_si_subieron_otro_documento():
     del_tema = mensaje_de_todd({"estado": "parcial", "motivo": "m", "documento": "saldos al 23 nov",
                                 "falta": "La proyección."}, "Caja y flujo", "s.xlsx")
     assert "(saldos al 23 nov)" in del_tema and "equivocaste" not in del_tema
+
+
+def test_mensaje_de_todd_dice_quien_lo_subio():
+    """Si lo subió el responsable desde su enlace, el dueño sabe quién fue."""
+    from app.services.evidencia_todd import mensaje_de_todd
+    m = mensaje_de_todd({"estado": "insuficiente", "motivo": "x", "documento": "un CV", "otro_documento": True,
+                         "falta": "Saldos."}, "Caja y flujo", "CV.pdf", subido_por="Laura")
+    assert m.startswith("Laura subió «CV.pdf»") and "Creo que Laura se equivocó de documento" in m
+    assert "Pídele a Laura el documento correcto" in m

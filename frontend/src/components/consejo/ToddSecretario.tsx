@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, FormEvent } from "react"
+import { useRouter } from "next/navigation"
 import { Loader2, Send, Check, X, RefreshCw, Upload, MessageSquare } from "lucide-react"
 import {
   ToddMensaje, ToddAccionCambio, ToddRevision,
@@ -137,9 +138,13 @@ function RespuestasRevision({ revision, onResponder }: {
   revision: ToddRevision
   onResponder: (texto: string) => void
 }) {
+  const router = useRouter()
   const subirOtro = () => {
     cerrarTodd()
-    pedirSubirDocumento(revision.task_id)
+    // El tablero (Board IA) abre el selector de archivos de esa tarea. Si no está en pantalla,
+    // se va al tablero y se marca la tarea para que solo falte dar clic en «Subir».
+    if (window.location.pathname.startsWith("/dashboard/consejo")) pedirSubirDocumento(revision.task_id)
+    else router.push(`/dashboard/consejo?tarea=${encodeURIComponent(revision.task_id)}`)
   }
   const boton = "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
   return (
@@ -157,14 +162,16 @@ function RespuestasRevision({ revision, onResponder }: {
   )
 }
 
-export default function ToddSecretario({ onTareaCambiada, fill = false }: {
+export default function ToddSecretario({ onTareaCambiada, fill = false, borrador }: {
   onTareaCambiada?: () => void
+  /** Texto que llega ya escrito en la caja (el dueño lo completa y lo envía). */
+  borrador?: string
   /** Si es true, Todd llena el alto de su contenedor (para el cajón lateral). */
   fill?: boolean
 }) {
   const [mensajes, setMensajes] = useState<ToddMensaje[]>([])
   const [cargandoHistorial, setCargandoHistorial] = useState(true)
-  const [texto, setTexto] = useState("")
+  const [texto, setTexto] = useState(borrador ?? "")
   const [escribiendo, setEscribiendo] = useState(false)
   const [propuesta, setPropuesta] = useState<ToddAccionCambio | null>(null)
   // Documento que Todd está leyendo en este momento (para el aviso "leyendo…").
@@ -324,7 +331,9 @@ export default function ToddSecretario({ onTareaCambiada, fill = false }: {
               void enviar(e)
             }
           }}
-          rows={1}
+          rows={borrador ? 2 : 1}
+          autoFocus={!!borrador}
+          onFocus={e => { const n = e.currentTarget.value.length; e.currentTarget.setSelectionRange(n, n) }}
           placeholder="Escríbele a Todd…"
           className="flex-1 resize-none max-h-28 rounded-xl border border-[var(--gob-rule)] bg-[var(--gob-paper)] px-3 py-2.5 text-[13px] text-[var(--gob-ink)] placeholder:text-[var(--gob-stone)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gob-navy)]"
         />
