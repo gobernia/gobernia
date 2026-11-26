@@ -25,7 +25,7 @@ from app.schemas.colaborador import (
     ToddMsgIn,
     ToddReplyOut,
 )
-from app.services.ai.task_explainer import generate_explicacion
+from app.services.ai.task_explainer import explicacion_visible, generate_explicacion
 from app.services.ai.todd_responsable import run_todd_responsable
 from app.services.documents.storage import generate_storage_key, upload_to_storage
 from app.services.evidencia_revision import marcar_revisando, revisar_evidencia_tarea, validacion_visible
@@ -137,8 +137,8 @@ async def get_escritorio(token: str, db: AsyncSession = Depends(get_db)):
             status=t.status,
             due_date=t.due_date.isoformat() if t.due_date else None,
             objetivo=obj_title,
-            explicacion=t.explicacion,
-            tiene_explicacion=bool(t.explicacion),
+            explicacion=explicacion_visible(t.explicacion),
+            tiene_explicacion=bool(explicacion_visible(t.explicacion)),
             evidencias=int(conteo.get(t.id, 0)),
             validacion=validacion_visible(t.validacion),
         )
@@ -156,15 +156,29 @@ async def explicar_tarea_colaborador(
 ):
     col = await _colaborador_por_token(token, db)
     task, objetivo = await _tarea_del_colaborador(col, task_id, db)
-    if task.explicacion:
+    if explicacion_visible(task.explicacion):
         return task.explicacion
     empresa = await _empresa_nombre(col.user_id, db) or ""
     data = await anyio.to_thread.run_sync(
         lambda: generate_explicacion(task.title, objetivo or "", empresa, task.kpi_ref))
-    task.explicacion = data
+    task.explicacion = {**(task.explicacion or {}), **data}  # conserva el "¿Qué subo?" si ya estaba
     flag_modified(task, "explicacion")
     await db.commit()
     return data
+
+
+# ── POST /t/{token}/tareas/{task_id}/que-subir (público) ─────────────────────
+@router.post("/t/{token}/tareas/{task_id}/que-subir")
+async def que_subir_colaborador(token: str, task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """"¿Qué subo?" para el responsable: el mismo que ve el dueño (se genera una vez por tarea)."""
+    from app.api.v1.action_plans.router import que_subir_guardado
+
+    col = await _colaborador_por_token(token, db)
+    task, objetivo = await _tarea_del_colaborador(col, task_id, db)
+
+    async def objetivo_empresa():
+        return objetivo or "", await _empresa_nombre(col.user_id, db) or ""
+    return await que_subir_guardado(task, db, objetivo_empresa)
 
 
 # ── POST /t/{token}/tareas/{task_id}/evidencia (público) ─────────────────────
@@ -203,6 +217,31 @@ async def subir_evidencia_colaborador(
     return {"ok": True, "filename": filename}
 
 
+_REVISIONES: set = set()  # referencias a las revisiones en curso (para que no se pierdan)
+
+
+async def _guardar_avance_colaborador(col: Colaborador, avance: dict, db: AsyncSession) -> str | None:
+    """Guarda el «Avance contado a Todd» en la tarea (solo si es suya) y lanza la revisión del
+    Auditor. Devuelve el texto de confirmación para el chat, o None si la tarea no es válida."""
+    import asyncio
+
+    from app.services.avance_todd import datos_del_avance, registrar_avance
+
+    try:
+        task_uuid = uuid.UUID(str(avance.get("task_id") or "").strip())
+        task, _ = await _tarea_del_colaborador(col, task_uuid, db)
+    except (ValueError, HTTPException):
+        return None
+    quien = col.nombre or col.email
+    revision_id, _archivo = await registrar_avance(db, task, datos_del_avance(avance), quien)
+    await db.commit()
+    tarea = asyncio.ensure_future(revisar_evidencia_tarea(task.id, col.user_id, revision_id, subido_por=quien))
+    _REVISIONES.add(tarea)
+    tarea.add_done_callback(_REVISIONES.discard)
+    return (f"Listo, guardé lo que me contaste en la tarea «{task.title}» como «Avance contado a Todd». "
+            "El Auditor lo revisa en un momento y lo verás en la tarea.")
+
+
 # ── GET /t/{token}/todd (público) — historial del chat ───────────────────────
 @router.get("/t/{token}/todd", response_model=ToddChatOut)
 async def get_todd_chat(token: str, db: AsyncSession = Depends(get_db)):
@@ -237,7 +276,8 @@ async def post_todd_chat(
             "description": t.description,
             "status": t.status,
             "objetivo": obj_title,
-            "explicacion": t.explicacion,
+            "task_id": str(t.id),
+            "explicacion": explicacion_visible(t.explicacion),
             "evidencias": int(conteo.get(t.id, 0)),
             "validacion": validacion_visible(t.validacion),
         }
@@ -246,12 +286,19 @@ async def post_todd_chat(
 
     historial = list(col.chat or [])
     mensajes = historial + [{"role": "user", "content": mensaje}]
-    reply = await anyio.to_thread.run_sync(
+    turno = await anyio.to_thread.run_sync(
         lambda: run_todd_responsable(mensajes, col.nombre, empresa, tareas)
     )
+    reply = turno["reply"]
+
+    # Si no tenía documento y le contó a Todd qué hicieron, Todd lo guarda en SU tarea como PDF.
+    avance = turno.get("avance")
+    guardado = await _guardar_avance_colaborador(col, avance, db) if avance else None
+    if guardado:
+        reply = (f"{reply}\n\n" if reply else "") + guardado
 
     nuevo = (mensajes + [{"role": "todd", "content": reply}])[-_MAX_CHAT:]
     col.chat = nuevo
     flag_modified(col, "chat")
     await db.commit()
-    return ToddReplyOut(reply=reply, mensajes=nuevo)
+    return ToddReplyOut(reply=reply, mensajes=nuevo, avance_guardado=bool(guardado))

@@ -46,6 +46,8 @@ export interface BoardTask {
   agenda_type?: string | null
   // Decisión/recomendación esperada de la sesión, si aplica.
   decision_expected?: string | null
+  // Documento que pidió el Consejo como evidencia (lo muestra el "¿Qué subo?").
+  required_doc?: string | null
   // Si la tarea se arrastró de un mes anterior, de dónde viene (p.ej. "Marzo 2026").
   viene_de?: string | null
   // Cuántos documentos de evidencia tiene la tarea.
@@ -82,6 +84,18 @@ export async function getBoard(): Promise<BoardMes[]> {
 }
 
 /** El tablero + las tareas pendientes fuera del plan (para el banco del Board). */
+/** "¿Qué subo?": qué documento sirve de evidencia, alternativas y qué contarle a Todd si no hay. */
+export interface QueSubir {
+  pide: string
+  alternativas: string[]
+  sin_documento: string
+}
+
+export async function getQueSubir(taskId: string): Promise<QueSubir> {
+  const r = await api.post<QueSubir>(`/tasks/${taskId}/que-subir`)
+  return r.data
+}
+
 export async function getBoardFull(): Promise<{
   meses: BoardMes[]; pendientes: BoardTask[]; periodicidad: Periodicidad
 }> {

@@ -59,6 +59,14 @@ export async function subirEvidenciaColab(token: string, taskId: string, file: F
   await publicApi.post(`/t/${token}/tareas/${taskId}/evidencia`, fd)
 }
 
+// Público por token: "¿Qué subo?" de una tarea del responsable (se genera una vez y se guarda).
+export async function queSubirColab(
+  token: string, taskId: string,
+): Promise<{ pide: string; alternativas: string[]; sin_documento: string }> {
+  const r = await publicApi.post(`/t/${token}/tareas/${taskId}/que-subir`)
+  return r.data
+}
+
 // Público por token: genera (o devuelve cacheada) la explicación de una tarea.
 export async function explicarTarea(
   token: string,
@@ -85,8 +93,8 @@ export async function getToddChat(
 export async function enviarToddResponsable(
   token: string,
   mensaje: string,
-): Promise<{ reply: string; mensajes: ToddMensaje[] }> {
-  const r = await publicApi.post<{ reply: string; mensajes: ToddMensaje[] }>(
+): Promise<{ reply: string; mensajes: ToddMensaje[]; avance_guardado?: boolean }> {
+  const r = await publicApi.post<{ reply: string; mensajes: ToddMensaje[]; avance_guardado?: boolean }>(
     `/t/${token}/todd`,
     { mensaje },
   )

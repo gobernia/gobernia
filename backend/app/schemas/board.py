@@ -29,6 +29,8 @@ class BoardTaskOut(BaseModel):
     agenda_type: str | None = None
     # Decisión/recomendación esperada de la sesión, si aplica.
     decision_expected: str | None = None
+    # Documento que pidió el Consejo como evidencia (para el "¿Qué subo?").
+    required_doc: str | None = None
     # Cuántas evidencias tiene subidas la tarea.
     evidencias: int = 0
     # Veredicto del Consejo sobre la evidencia: {"estado", "motivo"} o None si nunca se validó.

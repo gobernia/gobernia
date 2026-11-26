@@ -12,8 +12,13 @@ import {
   explicarTarea,
   getEscritorio,
   getToddChat,
+  queSubirColab,
   subirEvidenciaColab,
 } from "@/lib/colaborador"
+
+// Abre el chat de Todd del responsable con un mensaje ya empezado (desde «¿Qué subo?»).
+const abrirToddResponsable = (borrador: string) =>
+  window.dispatchEvent(new CustomEvent("todd-responsable:abrir", { detail: { borrador } }))
 
 const NAVY = "#142849"
 const BONE = "#f7f5ef"
@@ -66,6 +71,17 @@ function Evidencia({ token, tarea, onSubido }: {
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const v: ValidacionColab | null | undefined = tarea.validacion
+  // «¿Qué subo?»: se pide una sola vez al abrirlo.
+  const [guia, setGuia] = useState<{ pide: string; alternativas: string[] } | null>(null)
+  const [verGuia, setVerGuia] = useState(false)
+  const [cargandoGuia, setCargandoGuia] = useState(false)
+  const alternarGuia = async () => {
+    setVerGuia(x => !x)
+    if (guia || cargandoGuia) return
+    setCargandoGuia(true)
+    try { setGuia(await queSubirColab(token, tarea.id)) } catch { /* se muestra el respaldo */ }
+    finally { setCargandoGuia(false) }
+  }
   const meta = v ? VEREDICTO[v.estado] : undefined
   const n = tarea.evidencias ?? 0
 
@@ -99,6 +115,34 @@ function Evidencia({ token, tarea, onSubido }: {
         <input ref={inputRef} type="file" className="hidden" accept={ACEPTA} onChange={subir} />
       </div>
       {error && <p className="text-xs" style={{ color: "#b45309" }}>{error}</p>}
+      <button type="button" onClick={alternarGuia} aria-expanded={verGuia}
+        className="text-xs font-semibold underline-offset-2 hover:underline" style={{ color: NAVY }}>
+        {verGuia ? "Ocultar" : "¿Qué subo?"}
+      </button>
+      {verGuia && (
+        <div className="rounded-lg border border-black/5 bg-white p-3 space-y-2 text-sm text-gray-700">
+          {cargandoGuia && !guia ? (
+            <p className="text-xs text-gray-500">Todd está viendo qué documento te sirve…</p>
+          ) : (
+            <>
+              <p><strong>Qué subir:</strong> {guia?.pide || "Un documento que muestre que la tarea se hizo."}</p>
+              {guia && guia.alternativas.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500">También sirve:</p>
+                  <ul className="list-disc pl-5">{guia.alternativas.map((a, i) => <li key={i}>{a}</li>)}</ul>
+                </div>
+              )}
+            </>
+          )}
+          <p className="text-xs text-gray-500">¿No tienes ningún documento? No subas cualquier cosa:</p>
+          <button type="button"
+            onClick={() => abrirToddResponsable(`Para la tarea «${tarea.title}» no tengo documento. Esto es lo que hicimos: `)}
+            className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium text-white"
+            style={{ backgroundColor: NAVY }}>
+            Cuéntale a Todd qué hicieron
+          </button>
+        </div>
+      )}
       {n === 0 && !v && (
         <p className="text-xs text-gray-500">
           Sube aquí el documento que demuestra que la tarea avanzó: PDF, imagen, Excel, Word o PowerPoint (hasta 10 MB).
@@ -238,10 +282,21 @@ function TarjetaTarea({ token, tarea, onCambio }: { token: string; tarea: TareaC
   )
 }
 
-function ToddChat({ token }: { token: string }) {
+function ToddChat({ token, onAvance }: { token: string; onAvance: () => void }) {
   const [abierto, setAbierto] = useState(false)
   const [mensajes, setMensajes] = useState<ToddMensaje[]>([])
   const [texto, setTexto] = useState("")
+
+  // «Cuéntale a Todd qué hicieron» (desde ¿Qué subo?): abre el chat con el mensaje empezado.
+  useEffect(() => {
+    const abrir = (e: Event) => {
+      const borrador = (e as CustomEvent<{ borrador?: string }>).detail?.borrador
+      if (borrador) setTexto(borrador)
+      setAbierto(true)
+    }
+    window.addEventListener("todd-responsable:abrir", abrir)
+    return () => window.removeEventListener("todd-responsable:abrir", abrir)
+  }, [])
   const [enviando, setEnviando] = useState(false)
   const aliveRef = useRef(true)
   const cargadoRef = useRef(false)
@@ -279,6 +334,7 @@ function ToddChat({ token }: { token: string }) {
     try {
       const d = await enviarToddResponsable(token, msg)
       if (aliveRef.current) setMensajes(d.mensajes)
+      if (d.avance_guardado) onAvance()  // Todd lo guardó en la tarea: se recargan las tareas
     } catch {
       if (aliveRef.current) {
         setMensajes(prev => [
@@ -477,7 +533,7 @@ export default function EscritorioPage() {
           </div>
         )}
       </div>
-      <ToddChat token={token} />
+      <ToddChat token={token} onAvance={recargar} />
     </main>
   )
 }

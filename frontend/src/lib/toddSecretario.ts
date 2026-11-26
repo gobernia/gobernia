@@ -41,7 +41,14 @@ export interface ToddAccionCambio {
   propuesta: ToddPropuesta
 }
 
-export type ToddAccion = ToddAccionCambio | null
+/** Todd guardó en una tarea lo que le contaron (sin documento): el tablero se recarga. */
+export interface ToddAccionAvance {
+  tipo: "registrar_avance"
+  task_id: string
+  tarea: string
+}
+
+export type ToddAccion = ToddAccionCambio | ToddAccionAvance | null
 
 export interface ToddReply {
   reply: string

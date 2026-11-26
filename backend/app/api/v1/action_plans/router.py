@@ -35,7 +35,7 @@ from app.schemas.action_plan import (
 )
 from app.schemas.board_session import normalize_agent_analyses
 from app.services.ai.plan_generator import generate_action_plan
-from app.services.ai.task_explainer import generate_explicacion
+from app.services.ai.task_explainer import explicacion_visible, generate_explicacion, generate_que_subir
 from app.services.ai.task_adapter import adapt_task
 
 router = APIRouter()
@@ -64,7 +64,7 @@ def _task_to_out(t: ActionTask) -> ActionTaskOut:
         order_index=t.order_index,
         created_at=t.created_at,
         updated_at=t.updated_at,
-        explicacion=t.explicacion,
+        explicacion=explicacion_visible(t.explicacion),
     )
 
 
@@ -369,15 +369,26 @@ async def explicar_tarea(
     user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
 ):
     task = await _get_user_task_or_404(task_id, user_id, db)
-    if task.explicacion:
+    if explicacion_visible(task.explicacion):
         return task.explicacion
     objetivo, empresa = await _objetivo_empresa(task, user_id, db)
     data = await anyio.to_thread.run_sync(
         lambda: generate_explicacion(task.title, objetivo, empresa, task.kpi_ref))
-    task.explicacion = data
+    task.explicacion = {**(task.explicacion or {}), **data}  # conserva el "¿Qué subo?" si ya estaba
     flag_modified(task, "explicacion")
     await db.commit()
     return data
+
+
+@router.post("/tasks/{task_id}/que-subir")
+async def que_subir_tarea(
+    task_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db),
+):
+    """"¿Qué subo?": qué documento sirve de evidencia, alternativas y qué contarle a Todd si no hay
+    documento. Se genera la primera vez y se guarda junto a la explicación de la tarea."""
+    task = await _get_user_task_or_404(task_id, user_id, db)
+    return await que_subir_guardado(task, db, lambda: _objetivo_empresa(task, user_id, db))
 
 
 # ── POST /tasks/{task_id}/adaptar ─────────────────────────────────────────────
@@ -480,3 +491,19 @@ def _parse_iso_date(value):
         except (ValueError, TypeError):
             return None
     return value
+
+
+async def que_subir_guardado(task: ActionTask, db: AsyncSession, objetivo_empresa) -> dict:
+    """El "¿Qué subo?" guardado de la tarea, o lo genera (Sonnet) y lo guarda. Lo usan el dueño y
+    el responsable. `objetivo_empresa`: corrutina que da (objetivo, empresa) solo si hace falta."""
+    guardado = (task.explicacion or {}).get("evidencia")
+    if isinstance(guardado, dict) and guardado.get("pide"):
+        return guardado
+    objetivo, empresa = await objetivo_empresa()
+    data = await anyio.to_thread.run_sync(lambda: generate_que_subir(
+        task.title, task.description, objetivo or "", empresa or "", task.required_doc))
+    if data.get("alternativas"):  # si la IA falló, no se guarda el respaldo para reintentar después
+        task.explicacion = {**(task.explicacion or {}), "evidencia": data}
+        flag_modified(task, "explicacion")
+        await db.commit()
+    return data

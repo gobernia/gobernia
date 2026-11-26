@@ -19,7 +19,9 @@ def mensaje_de_todd(veredicto: dict, tarea: str, archivo: str, subido_por: str |
     quien = (subido_por or "").strip()
     otro = bool(veredicto.get("otro_documento")) and estado != "validada"
 
-    nombre = f"«{archivo}»" + (f" ({documento})" if documento and not otro else "")
+    # El PDF «Avance contado a Todd» ya dice qué es en su nombre: no se repite entre paréntesis.
+    dice_que_es = documento and not otro and not archivo.startswith("Avance contado a Todd")
+    nombre = f"«{archivo}»" + (f" ({documento})" if dice_que_es else "")
     inicio = (f"{quien} subió {nombre} para la tarea «{tarea}» y lo revisé." if quien
               else f"Revisé {nombre} para la tarea «{tarea}».")
     tambien_sirve = ("Si no tienes ese documento, también sirve:\n" + "\n".join(f"- {a}" for a in alternativas)

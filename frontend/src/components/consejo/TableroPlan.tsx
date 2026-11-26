@@ -12,6 +12,7 @@ import {
 import {
   BoardMes, BoardTask, Periodicidad, TaskStatus, Validacion, ValidacionEstado,
   getBoardFull, setTaskEstado, setTaskOwner, setTaskIncluida, eliminarTarea, abrirSesionMes,
+  getQueSubir, type QueSubir,
 } from "@/lib/board"
 import {
   Evidence, getEvidence, uploadEvidence, deleteEvidence, downloadEvidenceUrl,
@@ -439,6 +440,71 @@ function ValidacionBadge({ validacion, tieneEvidencia }: {
   )
 }
 
+// ── "¿Qué subo?": qué documento sirve, otras opciones y, sin documento, contarle a Todd ──
+// Pedido del dueño de Gobernia: alguien sin experiencia no sabe qué subir, y si no tiene
+// documento es mejor que le cuente a Todd qué hicieron (Todd lo guarda como evidencia).
+function QueSubo({ tarea }: { tarea: BoardTask }) {
+  const [open, setOpen] = useState(false)
+  const [datos, setDatos] = useState<QueSubir | null>(null)
+  const [cargando, setCargando] = useState(false)
+  const [error, setError] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  const abrir = async () => {
+    setOpen(o => !o)
+    if (datos || cargando) return
+    setCargando(true); setError(false)
+    try { setDatos(await getQueSubir(tarea.id)) } catch { setError(true) } finally { setCargando(false) }
+  }
+  const contarle = () => {
+    setOpen(false)
+    abrirTodd(`Para la tarea «${tarea.title}» no tengo documento. Esto es lo que hicimos: `)
+  }
+  const pide = datos?.pide || tarea.required_doc
+
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={abrir} aria-haspopup="dialog" aria-expanded={open}
+        className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
+        style={{ color: BNAVY, outlineColor: BNAVY }}>
+        <Info className="h-3.5 w-3.5" /> ¿Qué subo?
+      </button>
+      <MenuFlotante anchorRef={btnRef} open={open} onClose={() => setOpen(false)} ancho={300} altoEstimado={300}>
+        <div role="dialog" aria-label="Qué documento subir"
+          className="w-full rounded-xl shadow-lg p-3.5 space-y-2.5 text-xs leading-snug"
+          style={{ border: `1px solid ${LINE}`, backgroundColor: SAND, color: INK }}>
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: MUTED }}>Qué subir</p>
+            {pide ? <p>{pide}</p> : cargando ? null : <p>Un documento que muestre que la tarea se hizo.</p>}
+          </div>
+          {cargando && (
+            <p className="flex items-center gap-1.5" style={{ color: MUTED }}>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Todd está viendo qué otras opciones sirven…
+            </p>
+          )}
+          {datos && datos.alternativas.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: MUTED }}>También sirve</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {datos.alternativas.map((a, i) => <li key={i}>{a}</li>)}
+              </ul>
+            </div>
+          )}
+          {error && <p style={{ color: "#b45309" }}>No pude cargar las opciones. Intenta de nuevo.</p>}
+          <div className="pt-1 space-y-1.5" style={{ borderTop: `1px solid ${LINE}` }}>
+            <p style={{ color: MUTED }}>¿No tienes ningún documento? No subas cualquier cosa:</p>
+            <button type="button" onClick={contarle}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white"
+              style={{ backgroundColor: BNAVY }}>
+              <MessageSquare className="h-3.5 w-3.5" /> Cuéntale a Todd qué hicieron
+            </button>
+          </div>
+        </div>
+      </MenuFlotante>
+    </>
+  )
+}
+
 // ── Celda de Documentos: subir evidencia, ver/descargar/borrar y estado de validación ──
 function DocumentosCelda({ tarea, onRefresh }: {
   tarea: BoardTask
@@ -530,6 +596,8 @@ function DocumentosCelda({ tarea, onRefresh }: {
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
           {busy ? "Subiendo…" : "Subir"}
         </button>
+
+        <QueSubo tarea={tarea} />
 
         {count > 0 && (
           <button ref={verBtnRef} type="button" onClick={abrirLista}

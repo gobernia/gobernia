@@ -24,7 +24,8 @@ def _sin_almacenamiento_real(monkeypatch):
 
     for mod in ("app.services.documents.storage", "app.api.v1.evidence.router",
                 "app.api.v1.documents.router", "app.api.v1.onboarding.etapa7",
-                "app.api.v1.board_sessions.documents", "app.api.v1.colaboradores.router"):
+                "app.api.v1.board_sessions.documents", "app.api.v1.colaboradores.router",
+                "app.services.avance_todd"):
         try:
             monkeypatch.setattr(f"{mod}.upload_to_storage", AsyncMock(side_effect=lambda c, k: k))
         except (AttributeError, ImportError):

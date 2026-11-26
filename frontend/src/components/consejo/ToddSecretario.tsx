@@ -247,6 +247,8 @@ export default function ToddSecretario({ onTareaCambiada, fill = false, borrador
         else if (ev.t === "leyendo") setLeyendo(ev.doc)
         else if (ev.t === "fin") {
           if (ev.accion && ev.accion.tipo === "proponer_cambio") setPropuesta(ev.accion)
+          // Guardó lo que le contaron como «Avance contado a Todd»: el tablero lo muestra.
+          if (ev.accion && ev.accion.tipo === "registrar_avance") onTareaCambiada?.()
         } else if (ev.t === "error") fallo = true
       })
       if (fallo) throw new Error("turno")

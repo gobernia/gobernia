@@ -1,7 +1,8 @@
 """Todd, asistente del responsable (escritorio público /t/{token}).
 
 Un chat scopeado SOLO a las tareas del responsable: cómo hacerlas, en qué orden,
-qué significan, dudas prácticas y siguientes pasos. Sin tools, sin acciones.
+qué significan, dudas prácticas y siguientes pasos. Una sola acción: guardar en una tarea lo
+que hicieron cuando no hay documento (registrar_avance).
 
 Todd NO consulta la base de datos: recibe las `tareas` ya armadas por el router.
 Lógica pura salvo `run_todd_responsable` (la llamada a la IA).
@@ -11,6 +12,7 @@ import anthropic
 from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, sistema_con_cache
 from app.services.ai.modelos import ajustes_ai, pedir_texto
+from app.services.ai.avance_herramienta import REGISTRAR_AVANCE_TOOL
 
 _ESTADO_LABEL = {
     "pendiente": "pendiente",
@@ -31,7 +33,7 @@ _FALLBACK = (
 
 def _render_tarea(t: dict) -> str:
     estado = _ESTADO_LABEL.get(t.get("status") or "", t.get("status") or "")
-    partes = [f"  - {t.get('title', '')}"]
+    partes = [f"  - [id: {t['task_id']}] {t.get('title', '')}" if t.get("task_id") else f"  - {t.get('title', '')}"]
     meta = []
     if estado:
         meta.append(estado)
@@ -87,7 +89,12 @@ def build_system_prompt(nombre: str | None, empresa: str | None, tareas: list[di
         "mismo dice qué está, qué falta y qué otra cosa también sirve. Desde su página NO puede "
         "cambiar el estado de la tarea ni borrar documentos: eso lo hace el dueño de la empresa, "
         "así que para eso, o para cualquier cosa que no se pueda hacer aquí, que lo vea con quien "
-        "le asignó la tarea. No inventes botones ni pasos.\n\n"
+        "le asignó la tarea. No inventes botones ni pasos.\n"
+        "SI NO TIENE DOCUMENTO: que no suba cualquier cosa. Pregúntale qué hicieron (qué se hizo, "
+        "cuándo, quién participó y con qué resultado concreto: cifras, nombres, fechas) en una o dos "
+        "preguntas cortas. Cuando ya lo sepas, usa la herramienta `registrar_avance` con el id EXACTO "
+        "de su tarea y con sus palabras, sin inventar nada: queda guardado en la tarea y el Auditor lo "
+        "revisa. Nunca le muestres los ids.\n\n"
         "───────────────────────── SUS TAREAS ─────────────────────────\n"
         + lista
     )
@@ -120,16 +127,18 @@ def run_todd_responsable(
     nombre: str | None,
     empresa: str | None,
     tareas: list[dict],
-) -> str:
+) -> dict:
     """Un turno del chat de Todd para el responsable.
 
     `mensajes`: transcript [{role, content}] (role: user | assistant | todd).
-    `tareas`: lista de {title, description, status, objetivo, explicacion(dict|None)}.
+    `tareas`: lista de {task_id, title, description, status, objetivo, explicacion, evidencias, validacion}.
 
-    Devuelve SOLO el texto de la respuesta. Sin API key o error → mensaje de fallback amable.
+    Devuelve {"reply": str, "avance": dict | None}. `avance` trae lo que Todd decidió guardar con
+    `registrar_avance` (el router lo convierte en el PDF de la tarea). Sin API key o error →
+    mensaje de respaldo amable y sin avance.
     """
     if not settings.ANTHROPIC_API_KEY:
-        return _FALLBACK
+        return {"reply": _FALLBACK, "avance": None}
 
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=120.0)
@@ -138,9 +147,17 @@ def run_todd_responsable(
             model=settings.AI_MODEL,
             max_tokens=800,
             system=sistema_con_cache(build_system_prompt(nombre, empresa, tareas)),
-            messages=_to_anthropic_messages(mensajes), **ajustes_ai(en_vivo=True),
+            messages=_to_anthropic_messages(mensajes),
+            tools=[REGISTRAR_AVANCE_TOOL],
+            **ajustes_ai(en_vivo=True),
         )
+        avance = next((dict(b.input) for b in (getattr(response, "content", None) or [])
+                       if getattr(b, "type", None) == "tool_use"
+                       and getattr(b, "name", None) == REGISTRAR_AVANCE_TOOL["name"]
+                       and isinstance(getattr(b, "input", None), dict)), None)
         reply = _parse_reply(response)
-        return reply or _FALLBACK
+        if not reply and not avance:
+            reply = _FALLBACK
+        return {"reply": reply, "avance": avance}
     except Exception:
-        return _FALLBACK
+        return {"reply": _FALLBACK, "avance": None}

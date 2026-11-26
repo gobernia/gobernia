@@ -20,6 +20,7 @@ from app.core.config import settings
 from app.services.ai.agents.base import _create_with_retry, sistema_con_cache
 from app.services.ai.modelos import con_espacio_para_pensar, es_generacion_nueva, opciones_del_modelo
 from app.services.ai.prompt_loader import load_prompt
+from app.services.ai.avance_herramienta import REGISTRAR_AVANCE_TOOL
 
 # ── Herramienta: proponer adaptar una tarea que el dueño no puede cumplir ──────
 PROPONER_CAMBIO_TOOL = {
@@ -280,8 +281,15 @@ def build_system_prompt(contexto: dict) -> str:
         "documento que falta, no le repitas que falta: averigua qué SÍ tiene (pregúntale si no lo "
         "dijo) y propón la forma más sencilla de demostrar lo mismo con eso: uno de los documentos "
         "alternativos que sugirió el Auditor, un reporte de su sistema o una tabla sencilla hecha "
-        "por él. Dile exactamente qué debe traer. Si de plano no hay forma de demostrarlo, usa "
+        "por él. Dile exactamente qué debe traer. Si no tiene ningún documento, ofrécele contarte "
+        "qué hicieron (regla 4d). Si de plano no hay forma de demostrarlo, usa "
         "`proponer_cambio_de_tarea` para ajustar la tarea a algo que sí pueda cumplir.\n"
+        "4d. AVANCE CONTADO A TODD: cuando el dueño no tiene documento y te cuenta lo que hicieron "
+        "en una tarea, hazle una o dos preguntas cortas si falta algo (qué se hizo, cuándo, quién "
+        "participó y con qué resultado concreto: cifras, nombres, fechas). Cuando ya lo sepas, usa "
+        "`registrar_avance` con el task_id EXACTO y con sus palabras, sin inventar nada: queda como "
+        "evidencia de la tarea (un PDF «Avance contado a Todd») y el Auditor lo revisa; si es "
+        "concreto y creíble, puede validarlo. No lo registres si solo dice que lo hará después.\n"
         "5. FORMATO DE CHAT: escribe como en una conversación, en párrafos cortos. Puedes usar "
         "**negritas** y listas con guion (-). NO uses tablas, títulos con #, separadores (---) "
         "ni emojis decorativos: la ventana de Todd es angosta y los muestra como texto. Nunca le "
@@ -341,7 +349,7 @@ def _fallback_reply(contexto: dict) -> str:
 
 
 def _herramientas(leer_documento, buscar_expediente) -> list[dict]:
-    return ([PROPONER_CAMBIO_TOOL]
+    return ([PROPONER_CAMBIO_TOOL, REGISTRAR_AVANCE_TOOL]
             + ([LEER_DOCUMENTO_TOOL] if leer_documento else [])
             + ([BUSCAR_EXPEDIENTE_TOOL] if buscar_expediente else []))
 
@@ -368,7 +376,7 @@ _AVISO_ULTIMA_RONDA = {"type": "text", "text": (
 
 def _herramientas_de_la_ronda(tools: list[dict], ultima: bool) -> list[dict]:
     if ultima and not es_generacion_nueva(settings.AI_MODEL):
-        return [PROPONER_CAMBIO_TOOL]  # en la última ronda ya no se permite abrir más documentos
+        return [PROPONER_CAMBIO_TOOL, REGISTRAR_AVANCE_TOOL]  # en la última ronda ya no se abren más documentos
     return tools
 
 
@@ -402,15 +410,28 @@ def _parse_response(response) -> dict:
                 tool_reply = str(data.get("reply") or "").strip()
                 if tool_reply:
                     reply_parts.append(tool_reply)
+        elif btype == "tool_use" and getattr(block, "name", None) == REGISTRAR_AVANCE_TOOL["name"]:
+            accion = _accion_avance(getattr(block, "input", None)) or accion
 
-    reply = "\n\n".join(p for p in reply_parts if p).strip()
-    if not reply:
-        reply = (
-            "Déjame proponerte una alternativa para esa tarea."
-            if accion
-            else "Estoy aquí para ayudarte con el tablero. ¿Qué necesitas?"
-        )
-    return {"reply": reply, "accion": accion}
+    return {"reply": _reply_final(reply_parts, accion), "accion": accion}
+
+
+def _accion_avance(entrada) -> dict | None:
+    """Lo que Todd decidió guardar como «Avance contado a Todd» (el router crea el PDF)."""
+    data = dict(entrada) if isinstance(entrada, dict) else {}
+    if not str(data.get("task_id") or "").strip():
+        return None
+    return {"tipo": "registrar_avance", **data}
+
+
+def _reply_final(partes: list[str], accion: dict | None) -> str:
+    reply = "\n\n".join(p for p in partes if p).strip()
+    if reply:
+        return reply
+    if accion and accion.get("tipo") == "registrar_avance":
+        return ""  # el router agrega la confirmación de que quedó guardado
+    return ("Déjame proponerte una alternativa para esa tarea." if accion
+            else "Estoy aquí para ayudarte con el tablero. ¿Qué necesitas?")
 
 
 def run_todd_secretario_turn(
@@ -541,6 +562,8 @@ def stream_todd_secretario_turn(
                     if tool_reply:
                         emit({"t": "texto", "d": ("\n\n" if partes else "") + tool_reply})
                         partes.append(tool_reply)
+            elif b.name == REGISTRAR_AVANCE_TOOL["name"]:
+                accion = _accion_avance(b.input) or accion
         if not lecturas:
             break
         conversacion.append({"role": "assistant", "content": _para_reenviar(respuesta.content)})
@@ -557,7 +580,4 @@ def stream_todd_secretario_turn(
         if partes:
             emit({"t": "texto", "d": "\n\n"})
 
-    reply = "\n\n".join(partes).strip() or (
-        "Déjame proponerte una alternativa para esa tarea." if accion
-        else "Estoy aquí para ayudarte con el tablero. ¿Qué necesitas?")
-    return {"reply": reply, "accion": accion}
+    return {"reply": _reply_final(partes, accion), "accion": accion}

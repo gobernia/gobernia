@@ -6,6 +6,7 @@ PARA CADA ACUERDO / PUNTO DE SEGUIMIENTO:
 - `parcial`: si el documento demuestra una parte real y concreta de lo pedido, pero no todo (por ejemplo: trae los saldos de bancos pero no la proyección de flujo; trae el estado de resultados pero no el balance general).
 - `insuficiente`: si el documento no alcanza, prueba solo actividad y no resultado, no corresponde a lo solicitado, es genérico, o no puedes leerlo. Explica en el `motivo` por qué no basta y qué haría falta.
 - Si la tarea trae "Documento que pidió el Consejo", juzga contra eso.
+- AVANCE CONTADO A TODD: un documento llamado «Avance contado a Todd» es lo que la persona le contó a Todd que hicieron, porque no tenía un documento para subir. Juzga su contenido: puede quedar `validada` si es concreto y creíble (dice qué se hizo, cuándo, quién participó y un resultado verificable con cifras, nombres o fechas, y corresponde a lo que pide la tarea). Si es vago, solo describe intenciones o no muestra resultado, es `parcial` o `insuficiente`, y en `falta` di qué detalle o documento lo cerraría. En `documento` di «un avance contado a Todd (sin documento de respaldo)».
 
 ADEMÁS DEL VEREDICTO (Todd se lo explicará al dueño en su chat, así que escribe para el dueño):
 - `documento`: SIEMPRE di qué es lo que se subió, en pocas palabras (p. ej. «un currículum (CV) de una persona», «saldos bancarios al 23 de noviembre», «una foto», «la cotización de un sistema de inventarios»).

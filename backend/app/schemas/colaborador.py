@@ -41,3 +41,5 @@ class ToddChatOut(BaseModel):
 class ToddReplyOut(BaseModel):
     reply: str
     mensajes: list[dict]
+    # True si Todd guardó en una tarea lo que le contaron (la página recarga las tareas).
+    avance_guardado: bool = False

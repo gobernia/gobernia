@@ -12,7 +12,7 @@ import logging
 import uuid
 
 import anyio
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -133,6 +133,10 @@ async def enviar_mensaje(
     accion_out: dict | None = None
     if accion and accion.get("tipo") == "proponer_cambio":
         accion_out = await _resolver_propuesta(accion, user_id, db)
+    elif accion and accion.get("tipo") == "registrar_avance":
+        accion_out, confirmacion = await _guardar_avance(accion, user_id, db)
+        if confirmacion:
+            reply = (f"{reply}\n\n" if reply else "") + confirmacion
 
     # Persistir el turno (usuario + Todd), anclado a la sesión de consejo más reciente.
     if anchor_id is not None:
@@ -224,6 +228,16 @@ async def enviar_mensaje_stream(
                     accion_out = await _resolver_propuesta(accion, user_id, sdb)
                 except Exception:
                     _log.exception("no se pudo preparar la propuesta de cambio de Todd")
+            elif accion and accion.get("tipo") == "registrar_avance":
+                try:
+                    accion_out, confirmacion = await _guardar_avance(accion, user_id, sdb)
+                except Exception:
+                    _log.exception("no se pudo guardar el avance contado a Todd")
+                    accion_out, confirmacion = None, None
+                if confirmacion:
+                    extra = (f"\n\n{confirmacion}" if reply else confirmacion)
+                    yield _json.dumps({"t": "texto", "d": extra}, ensure_ascii=False) + "\n"
+                    reply += extra
             if anchor_id is not None:
                 sdb.add(ChatMessage(board_session_id=anchor_id, user_id=user_id, role="user",
                                     agent=TODD_SECRETARIO_AGENT, content=body.content))
@@ -237,6 +251,32 @@ async def enviar_mensaje_stream(
         eventos(), media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+
+
+_REVISIONES: set = set()  # referencias a las revisiones del Auditor en curso
+
+
+async def _guardar_avance(accion: dict, user_id: str, db: AsyncSession) -> tuple[dict | None, str | None]:
+    """Todd guarda lo que el dueño le contó (sin documento) como PDF «Avance contado a Todd» en la
+    tarea y lanza la revisión del Auditor. Una tarea inválida o ajena se ignora."""
+    import asyncio
+
+    from app.services.avance_todd import datos_del_avance, registrar_avance
+    from app.services.evidencia_revision import revisar_evidencia_tarea
+
+    try:
+        task = await _get_user_task_or_404(uuid.UUID(str(accion.get("task_id") or "").strip()), user_id, db)
+    except (ValueError, HTTPException):
+        return None, None
+    revision_id, _archivo = await registrar_avance(db, task, datos_del_avance(accion), "el dueño de la empresa")
+    tarea, task_id = task.title, task.id
+    await db.commit()
+    revision = asyncio.ensure_future(revisar_evidencia_tarea(task_id, user_id, revision_id))
+    _REVISIONES.add(revision)
+    revision.add_done_callback(_REVISIONES.discard)
+    return ({"tipo": "registrar_avance", "task_id": str(task_id), "tarea": tarea},
+            f"Listo, guardé lo que me contaste en la tarea «{tarea}» como «Avance contado a Todd». "
+            "El Auditor lo revisa en un momento y lo verás en el tablero.")
 
 
 async def _resolver_propuesta(accion: dict, user_id: str, db: AsyncSession) -> dict | None:

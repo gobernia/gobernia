@@ -185,7 +185,8 @@ def test_chat_de_todd_ultima_ronda(monkeypatch, model, cambia):
     monkeypatch.setattr(ts.settings, "AI_MODEL", model)
     tools = [ts.LEER_DOCUMENTO_TOOL, ts.BUSCAR_EXPEDIENTE_TOOL, ts.PROPONER_CAMBIO_TOOL]
     assert ts._herramientas_de_la_ronda(tools, ultima=False) == tools
-    assert (ts._herramientas_de_la_ronda(tools, ultima=True) == [ts.PROPONER_CAMBIO_TOOL]) is cambia
+    assert (ts._herramientas_de_la_ronda(tools, ultima=True)
+            == [ts.PROPONER_CAMBIO_TOOL, ts.REGISTRAR_AVANCE_TOOL]) is cambia
     resultados = [{"type": "tool_result", "tool_use_id": "x", "content": "r"}]
     assert ts._resultados_de_la_ronda(resultados, 0) == resultados
     penultima = ts._resultados_de_la_ronda(resultados, ts._MAX_LECTURAS - 1)

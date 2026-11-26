@@ -358,6 +358,7 @@ async def get_board(
             lead_agent=t.lead_agent,
             agenda_type=t.agenda_type,
             decision_expected=t.decision_expected,
+            required_doc=t.required_doc,
             evidencias=evidence_counts.get(t.id, 0),
             validacion=_validacion_out(t.validacion),
         )
