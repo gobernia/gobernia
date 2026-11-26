@@ -40,7 +40,7 @@ function TareaItem({ n, texto, dark = false }: { n: number; texto: string; dark?
         title={abierta ? "Contraer" : "Leer completa"}
       >
         <span
-          className="shrink-0 pt-0.5 text-[11px] font-extrabold tabular-nums"
+          className="shrink-0 pt-0.5 text-[11px] font-medium tabular-nums"
           style={{ color: dark ? "rgba(255,255,255,.5)" : MUTED }}
         >
           {num}
@@ -48,14 +48,14 @@ function TareaItem({ n, texto, dark = false }: { n: number; texto: string; dark?
         <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
           <span
             ref={ref}
-            className={`text-[14.5px] leading-snug ${abierta ? "" : "line-clamp-2"}`}
+            className={`text-sm leading-snug ${abierta ? "" : "line-clamp-2"}`}
             style={{ color: dark ? "#fff" : INK }}
           >
             {texto}
           </span>
           {(truncada || abierta) && (
             <span
-              className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide"
+              className="inline-flex items-center gap-0.5 text-[11px] font-semibold"
               style={{ color: ACCENT }}
             >
               {abierta ? "Ver menos" : "Ver más"}
@@ -213,7 +213,7 @@ function bgStyle(bg: BG): CSSProperties {
 function Eyebrow({ children, dark = false, className = "" }: { children: ReactNode; dark?: boolean; className?: string }) {
   return (
     <p
-      className={`text-[10.5px] font-extrabold uppercase tracking-[0.17em] ${className}`}
+      className={`text-[10px] font-medium uppercase tracking-widest ${className}`}
       style={{ color: dark ? "rgba(255,255,255,.6)" : MUTED }}
     >
       {children}
@@ -244,13 +244,10 @@ function Squiggle({ children }: { children: ReactNode }) {
 function DisplayNum({ value, unit, sm = false }: { value: ReactNode; unit: string; sm?: boolean }) {
   return (
     <div>
-      <p
-        className="font-bold tracking-[-.05em] leading-[.88]"
-        style={{ ...SANS, fontSize: sm ? "clamp(40px,7vw,56px)" : "clamp(46px,9vw,82px)" }}
-      >
+      <p className={`${sm ? "text-lg" : "text-xl"} font-semibold tracking-tight leading-none tabular-nums`} style={SANS}>
         {value}
       </p>
-      <p className="mt-2.5 max-w-[20ch] text-[14px] font-semibold leading-snug" style={{ color: INK2 }}>
+      <p className="mt-1.5 max-w-[20ch] text-xs leading-snug" style={{ color: INK2 }}>
         {unit}
       </p>
     </div>
@@ -260,7 +257,7 @@ function DisplayNum({ value, unit, sm = false }: { value: ReactNode; unit: strin
 function MiniLbl({ children, dark }: { children: ReactNode; dark?: boolean }) {
   return (
     <div
-      className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em]"
+      className="mb-3 text-[10px] font-medium uppercase tracking-widest"
       style={{ color: dark ? "rgba(255,255,255,.55)" : MUTED }}
     >
       {children}
@@ -287,7 +284,7 @@ function PrioTile({ pilar, index, bg, col, boardTasks }: {
     <div id={`prioridad-${index}`} className={`${TILE} ${col} scroll-mt-24`} style={bgStyle(bg)}>
       <div className="relative">
         <div className="flex items-start gap-[18px]">
-          <div className="shrink-0 font-bold leading-[.85] tracking-[-.04em]" style={{ ...SANS, fontSize: "46px", opacity: 0.22 }}>
+          <div className="shrink-0 pt-0.5 text-sm font-semibold tabular-nums" style={{ ...SANS, opacity: 0.45 }}>
             {num}
           </div>
           <div className="min-w-0">
@@ -342,7 +339,7 @@ function PrioTile({ pilar, index, bg, col, boardTasks }: {
                   })}
                 </ul>
                 {vivas.length > 7 && (
-                  <p className="mt-1.5 text-[12px] font-semibold" style={{ color: dark ? "rgba(255,255,255,.55)" : MUTED }}>
+                  <p className="mt-1.5 text-xs" style={{ color: dark ? "rgba(255,255,255,.55)" : MUTED }}>
                     +{vivas.length - 7} tareas más en el Board IA
                   </p>
                 )}
@@ -405,14 +402,14 @@ function RoadmapOnePager({
         )}
         <div className="leading-tight">
           <Eyebrow className="mb-0">{todayLabel()}</Eyebrow>
-          <div className="text-base font-bold tracking-tight" style={{ ...SANS, color: INK }}>
+          <div className="titulo-pagina text-lg sm:text-xl font-bold tracking-tight" style={{ color: INK }}>
             {greeting()}, {companyName || "tu empresa"}.
           </div>
         </div>
         <div className="flex-1" />
         <Link
           href="/dashboard/plan"
-          className="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full px-5 py-3 text-[13px] font-bold tracking-wide text-white transition-colors hover:brightness-90"
+          className="inline-flex items-center gap-2.5 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium text-white transition-colors hover:brightness-90"
           style={{ background: ACCENT }}
         >
           <span className="hidden sm:inline">Editar mi Roadmap</span>
@@ -449,7 +446,7 @@ function RoadmapOnePager({
               Tu roadmap ya está configurado y listo para consultarse.
             </p>
           </div>
-          <a href="#prioridades" className="group inline-flex items-center gap-3 text-[12px] font-extrabold uppercase tracking-[0.09em]">
+          <a href="#prioridades" className="group inline-flex items-center gap-3 text-xs font-medium">
             Ver prioridades
             <span
               className="grid h-7 w-7 place-items-center rounded-full border text-[12px] transition-colors group-hover:border-transparent group-hover:bg-[#C2410C] group-hover:text-white"
@@ -463,7 +460,7 @@ function RoadmapOnePager({
         {/* 4. MISIÓN */}
         <div className={`${TILE} ${COL.c6}`} style={bgStyle("card")}>
           <Eyebrow className="mb-3">Misión</Eyebrow>
-          <h3 className="text-base font-semibold leading-[1.45] tracking-tight" style={SANS}>
+          <h3 className="text-sm font-normal leading-relaxed" style={SANS}>
             {roadmap.mision || "—"}
           </h3>
         </div>
@@ -471,7 +468,7 @@ function RoadmapOnePager({
         {/* 5. VISIÓN */}
         <div className={`${TILE} ${COL.c6}`} style={bgStyle("sand2")}>
           <Eyebrow className="mb-3">Visión</Eyebrow>
-          <h3 className="text-base font-semibold leading-[1.45] tracking-tight" style={SANS}>
+          <h3 className="text-sm font-normal leading-relaxed" style={SANS}>
             {roadmap.vision || "—"}
           </h3>
         </div>
@@ -501,7 +498,7 @@ function RoadmapOnePager({
                     style={activo ? bgStyle("dark") : bgStyle(i % 2 === 0 ? "sand" : "card")}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-[13px] font-extrabold tracking-[0.04em]" style={{ color: ACCENT }}>
+                      <div className="text-xs font-semibold tabular-nums" style={{ color: ACCENT }}>
                         {String(i + 1).padStart(2, "0")}
                       </div>
                       <span
@@ -516,7 +513,7 @@ function RoadmapOnePager({
                       </span>
                     </div>
                     <div
-                      className="mt-3.5 text-sm font-semibold leading-snug tracking-tight"
+                      className="mt-3.5 text-sm leading-snug"
                       style={{ color: activo ? "#fff" : INK }}
                     >
                       {o}

@@ -207,7 +207,7 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
       className="space-y-4 pt-4"
     >
       <div className="px-1">
-        <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em]" style={{ ...SANS, color: MUTED }}>
+        <p className="text-[10px] font-medium uppercase tracking-widest" style={{ ...SANS, color: MUTED }}>
           Los pilares de tu estrategia
         </p>
         <p className="mt-1 text-sm leading-relaxed" style={{ color: INK2, maxWidth: "48em" }}>
@@ -230,7 +230,7 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
               className="group relative flex min-h-[180px] cursor-pointer flex-col rounded-[26px] p-[26px] text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
               style={esActivo ? { background: BNAVY, color: "#fff" } : { background: i % 2 === 0 ? SAND : CARD, border: esActivo ? "none" : `1px solid ${LINE}` }}
             >
-              <div className="text-[13px] font-extrabold tracking-[0.04em]" style={{ color: ACCENT }}>
+              <div className="text-xs font-semibold tabular-nums" style={{ color: ACCENT }}>
                 {String(i + 1).padStart(2, "0")}
               </div>
               <div className="mt-2.5 text-base font-bold leading-tight tracking-tight" style={{ ...SANS, color: esActivo ? "#fff" : INK }}>
@@ -256,7 +256,7 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
         {!editando ? (
           <>
             <div className="flex items-start gap-[18px]">
-              <div className="shrink-0 font-bold leading-[.85] tracking-[-.04em]" style={{ ...SANS, fontSize: "46px", opacity: 0.22 }}>
+              <div className="shrink-0 pt-0.5 text-sm font-semibold tabular-nums" style={{ ...SANS, opacity: 0.45 }}>
                 {num}
               </div>
               <div className="min-w-0 flex-1">
@@ -286,7 +286,7 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
 
             <div className="mt-6 grid grid-cols-1 gap-5 border-t pt-5 sm:grid-cols-2" style={{ borderColor: "rgba(255,255,255,.16)" }}>
               <div>
-                <div className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>
+                <div className="mb-3 text-[10px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,.55)" }}>
                   Indicadores
                 </div>
                 {(pilar.kpis ?? []).filter(k => k.label).length > 0 ? (
@@ -308,7 +308,7 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
                 )}
               </div>
               <div>
-                <div className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>
+                <div className="mb-3 text-[10px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,.55)" }}>
                   Estrategias
                 </div>
                 {(pilar.estrategias ?? []).length > 0 ? (
@@ -329,7 +329,7 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
             {/* Los asuntos que el Consejo revisará en el año por este pilar */}
             {(pilar.temas_consejo ?? []).length > 0 && (
               <div className="mt-5 border-t pt-4" style={{ borderColor: "rgba(255,255,255,.16)" }}>
-                <div className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>
+                <div className="mb-2.5 text-[10px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,.55)" }}>
                   Temas para el Consejo
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -347,32 +347,32 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
           /* ── Modo edición: todo el pilar es editable ── */
           <div className="space-y-5">
             <div className="flex items-center gap-3">
-              <div className="font-bold leading-[.85] tracking-[-.04em]" style={{ ...SANS, fontSize: "34px", opacity: 0.22 }}>{num}</div>
+              <div className="text-sm font-semibold tabular-nums" style={{ ...SANS, opacity: 0.45 }}>{num}</div>
               <h3 className="text-base font-bold tracking-tight" style={SANS}>Editando pilar</h3>
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="space-y-4">
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>Título del pilar</span>
+                  <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,.55)" }}>Título del pilar</span>
                   <input className={inputCls} style={inputStyle} value={draft?.nombre ?? ""} onChange={e => setDraft(d => d ? { ...d, nombre: e.target.value } : d)} />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>Explicación</span>
+                  <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,.55)" }}>Explicación</span>
                   <textarea rows={3} className={inputCls} style={inputStyle} value={draft?.descripcion ?? ""} onChange={e => setDraft(d => d ? { ...d, descripcion: e.target.value } : d)} />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>Objetivo</span>
+                  <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,.55)" }}>Objetivo</span>
                   <textarea rows={2} className={inputCls} style={inputStyle} value={draft?.objetivo ?? ""} onChange={e => setDraft(d => d ? { ...d, objetivo: e.target.value } : d)} />
                 </label>
               </div>
               <div className="space-y-4">
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>Estrategias — una por línea</span>
+                  <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,.55)" }}>Estrategias — una por línea</span>
                   <textarea rows={5} className={inputCls} style={inputStyle} value={draftEstrategias} onChange={e => setDraftEstrategias(e.target.value)} />
                 </label>
                 <div>
-                  <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>Indicadores (nombre · hoy · meta)</span>
+                  <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,.55)" }}>Indicadores (nombre · hoy · meta)</span>
                   <div className="space-y-2">
                     {(draft?.kpis ?? []).map((k, j) => (
                       <div key={j} className="grid grid-cols-[1fr_90px_90px] gap-2">
@@ -489,7 +489,7 @@ function RoadmapTresAnios({ roadmap }: { roadmap: Roadmap }) {
     >
       {/* La pregunta que responde el roadmap + la regla de que solo el año 1 se ejecuta */}
       <div className="max-w-3xl space-y-2">
-        <p className="text-base font-semibold leading-snug tracking-tight" style={{ ...SANS, color: INK }}>
+        <p className="text-sm font-medium leading-snug" style={{ ...SANS, color: INK }}>
           ¿Qué debe conseguir la empresa en los próximos tres años para fortalecerse, crecer y
           asegurar su continuidad?
         </p>

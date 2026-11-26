@@ -97,7 +97,7 @@ function ResumenEjecutivo({ body }: { body: string }) {
   const long = oneLine.length > 320 || paras.length > 2
   return (
     <section className="rounded-[26px] p-6 text-white" style={{ background: BNAVY }}>
-      <p className="mb-2 text-[10.5px] font-extrabold uppercase tracking-[0.17em] text-white/60">Resumen ejecutivo</p>
+      <p className="mb-2 text-[10px] font-medium uppercase tracking-widest text-white/60">Resumen ejecutivo</p>
       {open ? (
         <div className="space-y-2">
           {paras.map((p, i) => <p key={i} className="text-sm leading-relaxed text-white/90">{p}</p>)}
@@ -273,7 +273,7 @@ function FodaSection({ foda }: { foda: Foda }) {
       </div>
       {foda.sintesis && (
         <div className="rounded-[26px] p-6 text-white" style={{ background: BNAVY }}>
-          <p className="mb-2 text-[10.5px] font-extrabold tracking-[0.17em] uppercase text-white/60">Síntesis</p>
+          <p className="mb-2 text-[10px] font-medium tracking-widest uppercase text-white/60">Síntesis</p>
           <p className="text-sm leading-relaxed text-white/90">{foda.sintesis}</p>
         </div>
       )}
@@ -458,7 +458,7 @@ export default function DiagnosticoPage() {
             {/* Header bento — todo en Inter, sin barra sticky, igual que el Inicio */}
             <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em]" style={{ color: MUTED }}>Diagnóstico estratégico</p>
+                <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: MUTED }}>Diagnóstico estratégico</p>
                 <h1 className="mt-1 text-xl font-bold leading-tight tracking-tight" style={{ ...SANS, color: INK }}>La realidad de tu empresa</h1>
               </div>
               <div className="flex items-center gap-2 flex-wrap">

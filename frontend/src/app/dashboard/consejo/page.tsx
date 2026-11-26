@@ -282,7 +282,7 @@ export default function ConsejoPage() {
                         <span className="flex items-center gap-2.5">
                           {mes.label}
                           {mes.es_mes_actual && (
-                            <span className="text-[10px] font-extrabold uppercase tracking-[0.09em]" style={{ color: ACCENT }}>
+                            <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: ACCENT }}>
                               En curso
                             </span>
                           )}

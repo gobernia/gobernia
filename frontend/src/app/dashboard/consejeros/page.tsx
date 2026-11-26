@@ -119,7 +119,7 @@ export default function ConsejerosPage() {
                   </div>
                   <p className="text-xs leading-relaxed flex-1" style={{ color: INK2 }}>{a.desc}</p>
                   <p className="text-[11px] font-semibold leading-snug border-t pt-2.5" style={{ color: MUTED, borderColor: LINE }}>
-                    <span className="font-extrabold uppercase tracking-[0.08em]" style={{ color: ACCENT }}>Lee</span>{" "}
+                    <span className="font-medium uppercase tracking-widest" style={{ color: ACCENT }}>Lee</span>{" "}
                     {a.docs}
                   </p>
                   <Link
@@ -152,7 +152,7 @@ export default function ConsejerosPage() {
             <div className="rounded-[26px] p-6 space-y-4" style={{ background: SAND }}>
               <div className="flex flex-wrap items-end gap-4">
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ ...SANS, color: MUTED }}>
+                  <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-widest" style={{ ...SANS, color: MUTED }}>
                     Tipo de documento
                   </span>
                   <select

@@ -39,7 +39,7 @@ const TILE = "rounded-[26px] p-[30px] relative overflow-hidden"
 function Eyebrow({ children, dark = false, className = "" }: { children: ReactNode; dark?: boolean; className?: string }) {
   return (
     <p
-      className={`text-[10.5px] font-extrabold uppercase tracking-[0.17em] ${className}`}
+      className={`text-[10px] font-medium uppercase tracking-widest ${className}`}
       style={{ ...SANS, color: dark ? "rgba(255,255,255,.6)" : MUTED }}
     >
       {children}
