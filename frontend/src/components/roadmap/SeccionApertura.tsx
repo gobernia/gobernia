@@ -51,7 +51,7 @@ export default function SeccionApertura({ roadmap, editing, setEditing, saving, 
             {roadmap.vision ? (
               <>
                 <p className={`${kickerCls} mb-2`}>Visión</p>
-                <p className="text-2xl sm:text-[1.75rem] font-semibold leading-[1.25] tracking-tight text-balance text-[var(--gob-ink)]">
+                <p className="text-base font-semibold leading-snug tracking-tight text-balance text-[var(--gob-ink)]">
                   {roadmap.vision}
                 </p>
               </>

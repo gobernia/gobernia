@@ -63,7 +63,7 @@ export function EsperaConsejo({ eyebrow, titulo, descripcion, pasos, minutosTipi
       <Loader2 className="h-6 w-6 animate-spin" style={{ color: BNAVY }} aria-hidden />
       <div className="space-y-1">
         <p className="text-[10.5px] font-extrabold tracking-[0.17em] uppercase" style={{ color: ACCENT }}>{eyebrow}</p>
-        <h1 className="text-2xl font-bold text-balance" style={{ ...SANS, color: INK }}>{titulo}</h1>
+        <h1 className="text-xl font-bold text-balance" style={{ ...SANS, color: INK }}>{titulo}</h1>
         <p className="text-sm text-gray-500 text-pretty">{descripcion}</p>
       </div>
 

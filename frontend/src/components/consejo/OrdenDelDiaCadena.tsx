@@ -94,7 +94,7 @@ export default function OrdenDelDiaCadena() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-400">Antes de sesionar</p>
-            <h2 className="text-2xl font-bold tracking-tight text-black">Orden del día</h2>
+            <h2 className="text-base font-bold tracking-tight text-black">Orden del día</h2>
           </div>
           {listo && (
             <button

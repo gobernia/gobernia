@@ -291,11 +291,11 @@ function PrioTile({ pilar, index, bg, col, boardTasks }: {
             {num}
           </div>
           <div className="min-w-0">
-            <h3 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={SANS}>
+            <h3 className="text-base font-bold leading-tight tracking-tight" style={SANS}>
               {pilar.nombre || `Prioridad ${index + 1}`}
             </h3>
             {purpose && (
-              <p className="mt-3 text-[15.5px] leading-relaxed line-clamp-2" style={{ color: dark ? "rgba(255,255,255,.86)" : INK2 }}>
+              <p className="mt-3 text-sm leading-relaxed line-clamp-2" style={{ color: dark ? "rgba(255,255,255,.86)" : INK2 }}>
                 {purpose}
               </p>
             )}
@@ -405,7 +405,7 @@ function RoadmapOnePager({
         )}
         <div className="leading-tight">
           <Eyebrow className="mb-0">{todayLabel()}</Eyebrow>
-          <div className="text-[18px] font-bold tracking-[-.02em]" style={{ ...SANS, color: INK }}>
+          <div className="text-base font-bold tracking-tight" style={{ ...SANS, color: INK }}>
             {greeting()}, {companyName || "tu empresa"}.
           </div>
         </div>
@@ -429,7 +429,7 @@ function RoadmapOnePager({
         <div className={`${TILE} ${COL.c8} flex min-h-[300px] flex-col justify-between`} style={{ background: SAND, color: INK }}>
           <div className="relative">
             <Eyebrow className="mb-3">Tu estrategia</Eyebrow>
-            <h2 className="text-[34px] font-bold leading-[1.08] tracking-[-.03em]" style={SANS}>
+            <h2 className="text-base font-bold leading-tight tracking-tight" style={SANS}>
               Roadmap<br />de un <Squiggle>vistazo</Squiggle>
             </h2>
           </div>
@@ -444,8 +444,8 @@ function RoadmapOnePager({
         <div className={`${TILE} ${COL.c4} flex min-h-[274px] flex-col justify-between`} style={bgStyle("dark")}>
           <div>
             <Eyebrow dark className="mb-3">Onboarding</Eyebrow>
-            <h3 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={SANS}>Completado</h3>
-            <p className="mt-3.5 text-[15px] leading-relaxed" style={{ color: "rgba(255,255,255,.82)" }}>
+            <h3 className="text-base font-bold leading-tight tracking-tight" style={SANS}>Completado</h3>
+            <p className="mt-3.5 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,.82)" }}>
               Tu roadmap ya está configurado y listo para consultarse.
             </p>
           </div>
@@ -463,7 +463,7 @@ function RoadmapOnePager({
         {/* 4. MISIÓN */}
         <div className={`${TILE} ${COL.c6}`} style={bgStyle("card")}>
           <Eyebrow className="mb-3">Misión</Eyebrow>
-          <h3 className="text-[20px] font-semibold leading-[1.45] tracking-[-.015em]" style={SANS}>
+          <h3 className="text-base font-semibold leading-[1.45] tracking-tight" style={SANS}>
             {roadmap.mision || "—"}
           </h3>
         </div>
@@ -471,7 +471,7 @@ function RoadmapOnePager({
         {/* 5. VISIÓN */}
         <div className={`${TILE} ${COL.c6}`} style={bgStyle("sand2")}>
           <Eyebrow className="mb-3">Visión</Eyebrow>
-          <h3 className="text-[20px] font-semibold leading-[1.45] tracking-[-.015em]" style={SANS}>
+          <h3 className="text-base font-semibold leading-[1.45] tracking-tight" style={SANS}>
             {roadmap.vision || "—"}
           </h3>
         </div>
@@ -516,7 +516,7 @@ function RoadmapOnePager({
                       </span>
                     </div>
                     <div
-                      className="mt-3.5 text-[16px] font-semibold leading-snug tracking-[-.015em]"
+                      className="mt-3.5 text-sm font-semibold leading-snug tracking-tight"
                       style={{ color: activo ? "#fff" : INK }}
                     >
                       {o}
@@ -569,7 +569,7 @@ function RoadmapOnePager({
                   <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[14px] text-white" style={{ background: ACCENT }}>
                     <Icon className="h-[22px] w-[22px]" strokeWidth={1.9} />
                   </span>
-                  <p className="text-[15.5px] leading-relaxed" style={{ color: INK }}>{e}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: INK }}>{e}</p>
                 </div>
               )
             })}
@@ -757,7 +757,7 @@ export default function DashboardPage() {
                 <Sparkles className="h-5 w-5 text-black" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-lg font-bold text-black">Configura tu empresa primero</h2>
+                <h2 className="text-base font-bold text-black">Configura tu empresa primero</h2>
                 <p className="text-sm text-gray-500 leading-relaxed">
                   Para que el Consejo de IA te entregue análisis útiles, necesitamos conocer
                   tu empresa: industria, equipo, prioridades, Indicadores y gobierno. Toma unos minutos
@@ -813,7 +813,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-black">Nueva sesión de Consejo</h2>
+                  <h2 className="text-base font-bold text-black">Nueva sesión de Consejo</h2>
                   <p className="text-xs text-gray-400 mt-0.5">Selecciona el periodo a analizar</p>
                 </div>
                 <button
@@ -908,7 +908,7 @@ export default function DashboardPage() {
                   className="h-9 w-9 rounded-lg object-contain bg-white border border-gray-100 shrink-0"
                 />
               )}
-              <h1 className="text-3xl font-bold text-black tracking-tight">
+              <h1 className="titulo-pagina text-xl font-bold text-black tracking-tight">
                 {greeting()}{companyName ? `, ${companyName}` : ""}.
               </h1>
             </div>
@@ -999,7 +999,7 @@ export default function DashboardPage() {
               <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">
                 Tu flujo
               </p>
-              <h2 className="text-2xl font-bold text-black tracking-tight">
+              <h2 className="text-base font-bold text-black tracking-tight">
                 Del diagnóstico al plan
               </h2>
             </div>
@@ -1053,7 +1053,7 @@ export default function DashboardPage() {
             <div className="flex items-end justify-between">
               <div>
                 <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">Historial</p>
-                <h2 className="text-2xl font-bold text-black tracking-tight">Sesiones de Consejo</h2>
+                <h2 className="text-base font-bold text-black tracking-tight">Sesiones de Consejo</h2>
               </div>
               <button
                 onClick={tryCreateSession}

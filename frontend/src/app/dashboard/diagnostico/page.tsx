@@ -50,7 +50,7 @@ function Accordion({ title, defaultOpen = false, badge, children }: {
       <button onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left rounded-[26px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gob-navy)]">
         <span className="flex items-center gap-2.5 min-w-0">
-          <h2 className="text-[20px] font-bold tracking-tight truncate" style={{ ...SANS, color: INK }}>{title}</h2>
+          <h2 className="text-base font-bold tracking-tight truncate" style={{ ...SANS, color: INK }}>{title}</h2>
           {badge}
         </span>
         <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
@@ -100,10 +100,10 @@ function ResumenEjecutivo({ body }: { body: string }) {
       <p className="mb-2 text-[10.5px] font-extrabold uppercase tracking-[0.17em] text-white/60">Resumen ejecutivo</p>
       {open ? (
         <div className="space-y-2">
-          {paras.map((p, i) => <p key={i} className="text-[16px] leading-relaxed text-white/90">{p}</p>)}
+          {paras.map((p, i) => <p key={i} className="text-sm leading-relaxed text-white/90">{p}</p>)}
         </div>
       ) : (
-        <p className="text-[16px] leading-relaxed text-white/90 line-clamp-4">{oneLine}</p>
+        <p className="text-sm leading-relaxed text-white/90 line-clamp-4">{oneLine}</p>
       )}
       {long && <VerMas open={open} onClick={() => setOpen(o => !o)} color="rgba(255,255,255,0.75)" />}
     </section>
@@ -114,7 +114,7 @@ function ResumenEjecutivo({ body }: { body: string }) {
 function Cifra({ value, label, color }: { value: number; label: string; color: string }) {
   return (
     <span className="inline-flex items-baseline gap-1.5">
-      <b className="text-[19px] font-bold tabular-nums" style={{ color }}>{value}</b>
+      <b className="text-base font-bold tabular-nums" style={{ color }}>{value}</b>
       <span className="text-[14px] font-medium" style={{ color: MUTED }}>{label}</span>
     </span>
   )
@@ -134,12 +134,12 @@ function InternalBlock({ title, Icon, color, items }: {
     <section className="rounded-[26px] p-5 flex flex-col" style={{ background: CARD, border: `1px solid ${LINE}` }}>
       <div className="flex items-center gap-2 mb-3">
         <Icon className="h-4 w-4" style={{ color }} />
-        <h3 className="text-[20px] font-bold tracking-tight" style={{ ...SANS, color: INK }}>{title}</h3>
+        <h3 className="text-base font-bold tracking-tight" style={{ ...SANS, color: INK }}>{title}</h3>
         <span className="ml-auto text-xs font-bold tabular-nums" style={{ color, opacity: 0.55 }}>{items.length}</span>
       </div>
       <ul className="space-y-2.5 flex-1">
         {shown.map((h, i) => (
-          <li key={i} className="flex gap-2 text-[16px] text-[var(--gob-charcoal)]">
+          <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
             <span className="mt-2 h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
             <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>{h.texto}</span>
           </li>
@@ -166,14 +166,14 @@ function RiesgosBlock({ riesgos }: { riesgos: { riesgo: string; severidad: strin
     <section className="rounded-[26px] p-5 flex flex-col" style={{ background: CARD, border: `1px solid ${LINE}` }}>
       <div className="flex items-center gap-2 mb-3">
         <ShieldAlert className="h-4 w-4" style={{ color: AMBER }} />
-        <h3 className="text-[20px] font-bold tracking-tight" style={{ ...SANS, color: INK }}>Riesgos</h3>
+        <h3 className="text-base font-bold tracking-tight" style={{ ...SANS, color: INK }}>Riesgos</h3>
         <span className="ml-auto text-xs font-bold tabular-nums" style={{ color: AMBER, opacity: 0.55 }}>{riesgos.length}</span>
       </div>
       <ul className="space-y-2.5 flex-1">
         {shown.map((r, i) => {
           const m = sevHex(r.severidad)
           return (
-            <li key={i} className="flex gap-2 text-[16px] text-[var(--gob-charcoal)]">
+            <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
               <span className="mt-1.5 h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} title={m.label} />
               <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>
                 {r.riesgo}
@@ -199,12 +199,12 @@ function OportunidadesBlock({ items }: { items: string[] }) {
     <section className="rounded-[26px] p-5 flex flex-col" style={{ background: CARD, border: `1px solid ${LINE}` }}>
       <div className="flex items-center gap-2 mb-3">
         <Compass className="h-4 w-4" style={{ color: BNAVY }} />
-        <h3 className="text-[20px] font-bold tracking-tight" style={{ ...SANS, color: INK }}>Oportunidades</h3>
+        <h3 className="text-base font-bold tracking-tight" style={{ ...SANS, color: INK }}>Oportunidades</h3>
         <span className="ml-auto text-xs font-bold tabular-nums" style={{ color: BNAVY, opacity: 0.55 }}>{items.length}</span>
       </div>
       <ul className="space-y-2.5 flex-1">
         {shown.map((o, i) => (
-          <li key={i} className="flex gap-2 text-[16px] text-[var(--gob-charcoal)]">
+          <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
             <span className="mt-2 h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: BNAVY }} />
             <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>{o}</span>
           </li>
@@ -239,7 +239,7 @@ function FodaQuadrant({ def, items }: { def: QuadDef; items: string[] }) {
           <Icon className="h-4 w-4 text-white" />
         </span>
         <div className="min-w-0">
-          <h3 className="text-[20px] font-bold tracking-tight" style={{ ...SANS, color }}>{def.label}</h3>
+          <h3 className="text-base font-bold tracking-tight" style={{ ...SANS, color }}>{def.label}</h3>
           <p className="text-[10px] font-medium uppercase tracking-[0.14em]" style={{ color, opacity: 0.6 }}>{def.sub}</p>
         </div>
         <span className="ml-auto text-xs font-bold tabular-nums" style={{ color, opacity: 0.5 }}>{items.length}</span>
@@ -247,7 +247,7 @@ function FodaQuadrant({ def, items }: { def: QuadDef; items: string[] }) {
       {items.length > 0 ? (
         <ul className="space-y-2 flex-1">
           {shown.map((t, i) => (
-            <li key={i} className="flex gap-2 text-[16px] text-[var(--gob-charcoal)]">
+            <li key={i} className="flex gap-2 text-sm text-[var(--gob-charcoal)]">
               <span className="mt-2 h-1 w-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
               <span className={`leading-snug ${open ? "" : "line-clamp-2"}`}>{t}</span>
             </li>
@@ -264,7 +264,7 @@ function FodaSection({ foda }: { foda: Foda }) {
     <section className="space-y-3">
       <div className="flex items-center gap-2">
         <LayoutGrid className="h-4 w-4" style={{ color: BNAVY }} />
-        <h2 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={{ ...SANS, color: INK }}>Matriz FODA</h2>
+        <h2 className="text-base font-bold leading-tight tracking-tight" style={{ ...SANS, color: INK }}>Matriz FODA</h2>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {FODA_QUADS.map(def => (
@@ -274,7 +274,7 @@ function FodaSection({ foda }: { foda: Foda }) {
       {foda.sintesis && (
         <div className="rounded-[26px] p-6 text-white" style={{ background: BNAVY }}>
           <p className="mb-2 text-[10.5px] font-extrabold tracking-[0.17em] uppercase text-white/60">Síntesis</p>
-          <p className="text-[16px] leading-relaxed text-white/90">{foda.sintesis}</p>
+          <p className="text-sm leading-relaxed text-white/90">{foda.sintesis}</p>
         </div>
       )}
     </section>
@@ -459,7 +459,7 @@ export default function DiagnosticoPage() {
             <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <p className="text-[10.5px] font-extrabold uppercase tracking-[0.17em]" style={{ color: MUTED }}>Diagnóstico estratégico</p>
-                <h1 className="mt-1 text-[32px] font-bold leading-[1.05] tracking-[-.03em]" style={{ ...SANS, color: INK }}>La realidad de tu empresa</h1>
+                <h1 className="mt-1 text-xl font-bold leading-tight tracking-tight" style={{ ...SANS, color: INK }}>La realidad de tu empresa</h1>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={onDownload} disabled={downloading}
@@ -496,7 +496,7 @@ export default function DiagnosticoPage() {
             {/* 4 · Riesgos + Oportunidades (los hallazgos internos quedan
                 ocultos con MOSTRAR_INTERNOS; la IA sigue usando esos datos) */}
             {sinInterno && oportunidades.length === 0 ? (
-              <p className="text-[16px]" style={{ color: MUTED }}>
+              <p className="text-sm" style={{ color: MUTED }}>
                 Aún no hay hallazgos internos. Complétalos platicando con Todd — abajo tienes el contexto de mercado.
               </p>
             ) : (
@@ -521,14 +521,14 @@ export default function DiagnosticoPage() {
                     <div className="grid gap-3 md:grid-cols-2">
                       {contextSections.map(s => (
                         <div key={s.key} className="rounded-[26px] p-5" style={{ background: SAND }}>
-                          <h3 className="text-[20px] font-bold leading-tight tracking-[-.02em]" style={{ ...SANS, color: INK }}>{s.title}</h3>
+                          <h3 className="text-base font-bold leading-tight tracking-tight" style={{ ...SANS, color: INK }}>{s.title}</h3>
                           <div className="mt-3 space-y-3">
                             {s.body.split("\n").filter(p => p.trim()).map((p, j) => {
                               const markerColor = j % 2 === 0 ? BNAVY : ACCENT
                               return (
                                 <div key={j} className="flex gap-3">
                                   <span className="mt-1.5 h-2 w-2 rounded-full shrink-0" style={{ background: markerColor }} />
-                                  <p className="text-[16px] leading-relaxed" style={{ color: INK2 }}>{p.trim()}</p>
+                                  <p className="text-sm leading-relaxed" style={{ color: INK2 }}>{p.trim()}</p>
                                 </div>
                               )
                             })}

@@ -285,7 +285,7 @@ export default function SuscripcionCuenta({ className = "" }: { className?: stri
                       className="rounded-xl p-4 text-left transition"
                       style={{ background: B.CARD, border: `2px solid ${sel ? B.BNAVY : B.LINE}` }}>
                       <p className="text-sm font-bold text-black">{p.nombre}</p>
-                      <p className="mt-1 text-2xl font-bold tabular-nums text-black">
+                      <p className="mt-1 text-base font-bold tabular-nums text-black">
                         {pesos(p.precio, p.moneda)} <span className="text-sm font-medium text-gray-400">{CADA[p.intervalo_meses]}</span>
                       </p>
                       {p.descripcion && <p className="text-sm text-gray-500 mt-1.5">{p.descripcion}</p>}

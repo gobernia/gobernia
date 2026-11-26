@@ -233,7 +233,7 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
               <div className="text-[13px] font-extrabold tracking-[0.04em]" style={{ color: ACCENT }}>
                 {String(i + 1).padStart(2, "0")}
               </div>
-              <div className="mt-2.5 text-[17px] font-bold leading-tight tracking-[-.02em]" style={{ ...SANS, color: esActivo ? "#fff" : INK }}>
+              <div className="mt-2.5 text-base font-bold leading-tight tracking-tight" style={{ ...SANS, color: esActivo ? "#fff" : INK }}>
                 {p.nombre || `Pilar ${i + 1}`}
               </div>
               <p className="mt-2 text-[13px] leading-snug line-clamp-3" style={{ color: esActivo ? "rgba(255,255,255,.75)" : INK2 }}>
@@ -260,11 +260,11 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
                 {num}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={SANS}>
+                <h3 className="text-base font-bold leading-tight tracking-tight" style={SANS}>
                   {pilar.nombre || `Pilar ${activo + 1}`}
                 </h3>
                 {pilar.descripcion && (
-                  <p className="mt-3 text-[15.5px] leading-relaxed" style={{ color: "rgba(255,255,255,.86)" }}>{pilar.descripcion}</p>
+                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,.86)" }}>{pilar.descripcion}</p>
                 )}
                 {pilar.objetivo && (
                   <p className="mt-2 text-[14px] leading-relaxed" style={{ color: "rgba(255,255,255,.65)" }}>
@@ -348,7 +348,7 @@ function PilaresEstrategia({ roadmap, onChange }: { roadmap: Roadmap; onChange: 
           <div className="space-y-5">
             <div className="flex items-center gap-3">
               <div className="font-bold leading-[.85] tracking-[-.04em]" style={{ ...SANS, fontSize: "34px", opacity: 0.22 }}>{num}</div>
-              <h3 className="text-[18px] font-bold tracking-[-.02em]" style={SANS}>Editando pilar</h3>
+              <h3 className="text-base font-bold tracking-tight" style={SANS}>Editando pilar</h3>
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -489,7 +489,7 @@ function RoadmapTresAnios({ roadmap }: { roadmap: Roadmap }) {
     >
       {/* La pregunta que responde el roadmap + la regla de que solo el año 1 se ejecuta */}
       <div className="max-w-3xl space-y-2">
-        <p className="text-lg font-semibold leading-snug tracking-tight" style={{ ...SANS, color: INK }}>
+        <p className="text-base font-semibold leading-snug tracking-tight" style={{ ...SANS, color: INK }}>
           ¿Qué debe conseguir la empresa en los próximos tres años para fortalecerse, crecer y
           asegurar su continuidad?
         </p>
@@ -542,7 +542,7 @@ function ColumnaAnio({
             <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ ...SANS, color: activo ? "rgba(255,255,255,0.55)" : MUTED }}>
               Año {orden}
             </p>
-            <p className="text-xl font-bold tabular-nums" style={{ ...SANS, color: activo ? "#fff" : INK }}>{anio.n}</p>
+            <p className="text-base font-bold tabular-nums" style={{ ...SANS, color: activo ? "#fff" : INK }}>{anio.n}</p>
           </div>
           <span
             className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]"

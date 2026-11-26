@@ -435,7 +435,7 @@ export default function PlanPage() {
       <main className="max-w-3xl mx-auto px-[var(--px-fluid)] py-10 space-y-8">
         <div className="bg-[var(--gob-navy)] text-[var(--gob-bone)] rounded-2xl p-6">
           <p className="text-[10px] font-medium tracking-widest uppercase opacity-70">Tu plan · {plan.horizon_years} años</p>
-          <h1 className="text-2xl font-bold mt-1">{plan.title || "Roadmap estratégico"}</h1>
+          <h1 className="text-xl font-bold mt-1">{plan.title || "Roadmap estratégico"}</h1>
           <div className="mt-4 h-2 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-white rounded-full" style={{ width: `${pct}%` }} /></div>
           <p className="text-xs opacity-90 mt-1.5">Mes {active ?? 1} de {total} · {pct}% completado</p>
         </div>
@@ -465,7 +465,7 @@ export default function PlanPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[10px] font-medium tracking-widest uppercase text-gray-400">Este mes · {MONTH_NAMES[activeMonth.period_month]} {activeMonth.period_year}</p>
-                    <h2 className="text-lg font-bold">{activeMonth.focus || "Objetivo del mes"}</h2>
+                    <h2 className="text-base font-bold">{activeMonth.focus || "Objetivo del mes"}</h2>
                   </div>
                   <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium shrink-0">{doneCount} de {monthTasks.length} hechas</span>
                 </div>

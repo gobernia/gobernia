@@ -88,7 +88,7 @@ export default function PilarCard({ pilar, indice, color, editing, saving, valid
         ) : (
           <div className="min-w-0">
             <p className={kickerCls} style={{ color }}>Prioridad estratégica {indice + 1}</p>
-            <h3 className="text-lg font-bold leading-tight tracking-tight text-[var(--gob-ink)]">
+            <h3 className="text-base font-bold leading-tight tracking-tight text-[var(--gob-ink)]">
               {pilar.nombre || `Prioridad estratégica ${indice + 1}`}
             </h3>
           </div>

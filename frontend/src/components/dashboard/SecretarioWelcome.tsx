@@ -78,7 +78,7 @@ export default function SecretarioWelcome({
             </div>
 
             <div className="space-y-2">
-              <h2 id="sw-title" className="text-lg font-bold text-black">
+              <h2 id="sw-title" className="text-base font-bold text-black">
                 {isFull
                   ? `Hola${userName ? `, ${userName}` : ""}. ¡Bienvenida/o a Gobernia!`
                   : "Aún falta completar tus datos"}

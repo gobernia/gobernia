@@ -26,7 +26,7 @@ export default function SesionDelMesPage() {
       <PageShell className="space-y-6">
         <div>
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Tu sesión de</p>
-          <h1 className="text-3xl font-bold text-black tracking-tight">
+          <h1 className="titulo-pagina text-xl font-bold text-black tracking-tight">
             {MONTH_NAMES[now.getMonth() + 1]} {now.getFullYear()}
           </h1>
         </div>

@@ -72,7 +72,7 @@ export default function WelcomeTour() {
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                   <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Bienvenido</p>
-                  <h2 className="text-xl font-bold text-black tracking-tight">Así funciona Gobernia</h2>
+                  <h2 className="text-base font-bold text-black tracking-tight">Así funciona Gobernia</h2>
                 </div>
                 <button onClick={close} aria-label="Cerrar" className="text-gray-400 hover:text-black transition-colors">
                   <X className="h-5 w-5" />

@@ -254,7 +254,7 @@ function TaskEditor({
             onChange={e => setLocal(p => ({ ...p, title: e.target.value }))}
             onBlur={() => local.title !== task.title && save({ title: local.title })}
             rows={2}
-            className="w-full text-lg font-bold text-black resize-none focus:outline-none placeholder:text-gray-300"
+            className="w-full text-base font-bold text-black resize-none focus:outline-none placeholder:text-gray-300"
             placeholder="Título de la tarea"
           />
 
@@ -577,7 +577,7 @@ export default function PlanPage() {
             className="space-y-1"
           >
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Plan de acción</p>
-            <h1 className="text-3xl font-bold text-black tracking-tight">
+            <h1 className="titulo-pagina text-xl font-bold text-black tracking-tight">
               {plan?.title ?? "Sin plan aún"}
             </h1>
             {plan && (

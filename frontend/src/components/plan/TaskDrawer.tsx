@@ -77,7 +77,7 @@ export default function TaskDrawer({
             onChange={e => setLocal(p => ({ ...p, title: e.target.value }))}
             onBlur={() => local.title !== task.title && save({ title: local.title })}
             rows={2}
-            className="w-full text-lg font-bold text-black resize-none focus:outline-none placeholder:text-gray-300"
+            className="w-full text-base font-bold text-black resize-none focus:outline-none placeholder:text-gray-300"
             placeholder="Título de la tarea"
           />
 

@@ -188,7 +188,7 @@ export default function ConsejoPage() {
                 <Sparkles className="h-5 w-5" style={{ color: INK }} />
               </div>
               <div className="space-y-2">
-                <h2 className="text-lg font-bold" style={{ ...SANS, color: INK }}>Configura tu empresa primero</h2>
+                <h2 className="text-base font-bold" style={{ ...SANS, color: INK }}>Configura tu empresa primero</h2>
                 <p className="text-sm leading-relaxed" style={{ color: INK2 }}>
                   Para que el Consejo de IA te entregue análisis útiles, necesitamos conocer tu empresa: industria, equipo, prioridades, Indicadores y gobierno. Toma unos minutos y solo se hace una vez. Después podrás iniciar sesiones cuando quieras.
                 </p>
@@ -229,7 +229,7 @@ export default function ConsejoPage() {
               className="fixed z-50 inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto rounded-[26px] shadow-xl p-8 space-y-6" style={{ background: CARD }}>
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-lg font-bold" style={{ ...SANS, color: INK }}>
+                  <h2 className="text-base font-bold" style={{ ...SANS, color: INK }}>
                     {areaSesion ? `Sesión con el consejero de ${AREA_LABEL[areaSesion]}` : "Nueva sesión de Consejo"}
                   </h2>
                   <p className="text-xs mt-0.5" style={{ color: MUTED }}>
@@ -341,7 +341,7 @@ export default function ConsejoPage() {
           <section className="space-y-5">
             <div>
               <p className="text-xs font-medium tracking-widest uppercase mb-1" style={{ color: MUTED }}>Historial</p>
-              <h2 className="text-2xl font-bold tracking-tight" style={{ ...SANS, color: INK }}>Sesiones de Consejo</h2>
+              <h2 className="text-base font-bold tracking-tight" style={{ ...SANS, color: INK }}>Sesiones de Consejo</h2>
             </div>
 
             {sessions.length > 0 ? (

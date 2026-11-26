@@ -141,7 +141,7 @@ export default function ConsejerosPage() {
           <section className="space-y-5">
             <div>
               <p className="text-xs font-medium tracking-widest uppercase mb-1" style={{ color: MUTED }}>Documentos</p>
-              <h2 className="text-2xl font-bold tracking-tight" style={{ ...SANS, color: INK }}>Alimenta a tu Consejo</h2>
+              <h2 className="text-base font-bold tracking-tight" style={{ ...SANS, color: INK }}>Alimenta a tu Consejo</h2>
               <p className="text-sm leading-relaxed mt-2 max-w-[68ch]" style={{ color: INK2 }}>
                 Sube aquí los documentos de tu empresa (estados financieros, organigrama, plan de
                 negocios…). Tus consejeros los leen y sus análisis mejoran con cada documento.

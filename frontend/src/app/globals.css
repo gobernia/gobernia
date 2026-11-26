@@ -207,6 +207,14 @@
   h1, h2 {
     font-family: var(--font-heading);
   }
+  /* Dashboard: una sola letra (Inter) y tamaños chicos, como el Plan anual. Solo el título de
+     cada página (.titulo-pagina) conserva la serif. */
+  .zona-app h1, .zona-app h2, .zona-app h3 {
+    font-family: var(--font-sans);
+  }
+  .zona-app .titulo-pagina {
+    font-family: var(--font-heading);
+  }
   /* Tailwind v4 deja la flecha normal en los botones: todo lo pulsable muestra la manito,
      y lo deshabilitado dice que no se puede. Una clase cursor-* en el elemento gana. */
   button, [role="button"], a[href], select, summary, label[for],

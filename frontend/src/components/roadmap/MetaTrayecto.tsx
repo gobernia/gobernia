@@ -106,7 +106,7 @@ export function MetaTrayecto({ meta, indice, editable, saving, onSetTarget }: {
             {String(indice + 1).padStart(2, "0")}
           </span>
           <div className="min-w-0 space-y-1">
-            <p className="text-[15px] font-medium leading-snug text-[var(--gob-ink)]">{meta.meta}</p>
+            <p className="text-sm font-medium leading-snug text-[var(--gob-ink)]">{meta.meta}</p>
             {meta.kpi && (
               <p className="text-xs text-[var(--gob-muted)]">
                 <span className="font-semibold text-[var(--gob-stone)]">Indicador</span> · {meta.kpi}

@@ -38,7 +38,7 @@ export function PageHeader({
           {eyebrow && (
             <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase">{eyebrow}</p>
           )}
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">{title}</h1>
+          <h1 className="titulo-pagina text-lg sm:text-xl font-bold tracking-tight truncate">{title}</h1>
         </div>
         {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
       </PageShell>

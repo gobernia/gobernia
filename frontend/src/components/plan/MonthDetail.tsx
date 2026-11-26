@@ -38,7 +38,7 @@ export default function MonthDetail({
         <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
           {MONTH_NAMES[month.period_month]} {month.period_year} · Mes {month.month_index}
         </p>
-        {month.focus && <h2 className="text-xl font-bold text-black mt-1">{month.focus}</h2>}
+        {month.focus && <h2 className="text-base font-bold text-black mt-1">{month.focus}</h2>}
       </div>
 
       {kpis.length > 0 && (

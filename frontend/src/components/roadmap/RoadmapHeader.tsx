@@ -25,7 +25,7 @@ export default function RoadmapHeader({
             Documento del Consejo · plan a {anios} años
           </p>
           <div className="flex items-center gap-2.5">
-            <h1 className="truncate text-lg font-bold tracking-tight text-[var(--gob-ink)] sm:text-xl">
+            <h1 className="titulo-pagina truncate text-lg font-bold tracking-tight text-[var(--gob-ink)] sm:text-xl">
               Roadmap estratégico{anioObjetivo ? ` al ${anioObjetivo}` : ""}
             </h1>
             {listo && (

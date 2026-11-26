@@ -247,7 +247,7 @@ export default function PerspectivasPage() {
 
         {sintesis?.status === "active" && (
           <section className="space-y-6 pt-2">
-            <h2 className="text-xl font-bold tracking-tight">Síntesis de perspectivas</h2>
+            <h2 className="text-base font-bold tracking-tight">Síntesis de perspectivas</h2>
 
             {/* Su forma natural: tres lecturas en paralelo, no apiladas. */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">

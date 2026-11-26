@@ -83,7 +83,7 @@ export default function GraciasPage() {
                   <CheckCircle2 className="h-9 w-9 text-green-600" />
                 </span>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold tracking-tight text-black">¡Gracias! Tu suscripción está activa</h2>
+                  <h2 className="text-base font-bold tracking-tight text-black">¡Gracias! Tu suscripción está activa</h2>
                   <p className="text-sm leading-relaxed text-gray-500">
                     Pagaste <strong className="text-black">{pesos(compra.monto, compra.moneda)}</strong>
                     {compra.plan ? <> por el plan <strong className="text-black">{compra.plan}</strong></> : null}.
@@ -106,7 +106,7 @@ export default function GraciasPage() {
                   <Clock className="h-8 w-8 text-amber-600" />
                 </span>
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold tracking-tight text-black">Estamos confirmando tu pago</h2>
+                  <h2 className="text-base font-bold tracking-tight text-black">Estamos confirmando tu pago</h2>
                   <p className="text-sm leading-relaxed text-gray-500">
                     Puede tardar unos minutos. No necesitas volver a pagar: en cuanto Stripe lo confirme, tu
                     suscripción aparecerá como activa en Mi perfil.
@@ -122,7 +122,7 @@ export default function GraciasPage() {
             {vista === "error" && (
               <div className="space-y-6 py-6">
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold tracking-tight text-black">No encontramos ese pago</h2>
+                  <h2 className="text-base font-bold tracking-tight text-black">No encontramos ese pago</h2>
                   <p className="text-sm leading-relaxed text-gray-500">
                     Revisa el estado de tu suscripción en Mi perfil. Si ya pagaste y no aparece, escríbenos.
                   </p>

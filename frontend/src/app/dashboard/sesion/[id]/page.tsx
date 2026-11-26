@@ -375,7 +375,7 @@ export default function SessionPage() {
                       <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">
                         Diagnóstico del periodo
                       </p>
-                      <h2 className="text-2xl font-bold text-black tracking-tight">
+                      <h2 className="text-base font-bold text-black tracking-tight">
                         {session.period_label}
                       </h2>
                     </div>
@@ -481,7 +481,7 @@ export default function SessionPage() {
                 {threadMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                     <div className="w-14 h-14 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
-                      <span className="text-xl font-bold text-gray-200">
+                      <span className="text-base font-bold text-gray-200">
                         {activeAgent[0]}
                       </span>
                     </div>

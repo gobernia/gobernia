@@ -9,7 +9,7 @@ export default function CompromisosPage() {
       <PageShell className="space-y-6">
         <div>
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Seguimiento</p>
-          <h1 className="text-3xl font-bold text-black tracking-tight">Compromisos</h1>
+          <h1 className="titulo-pagina text-xl font-bold text-black tracking-tight">Compromisos</h1>
           <Prose>
             <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
               Acuerdos del Consejo con responsable y seguimiento. Copia el link para que el

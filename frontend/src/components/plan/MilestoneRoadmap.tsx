@@ -12,7 +12,7 @@ export default function MilestoneRoadmap({ milestones }: { milestones: AnnualPla
     <div className="space-y-4">
       <div>
         <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Roadmap estratégico</p>
-        <h2 className="text-xl font-bold text-black tracking-tight">Tus hitos</h2>
+        <h2 className="text-base font-bold text-black tracking-tight">Tus hitos</h2>
       </div>
       <div className="space-y-5">
         {years.map(year => (

@@ -45,7 +45,7 @@ export default function CloseMonthModal({
         ) : (
           <div className="p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-black">Cerrar mes y revisar</h2>
+              <h2 className="text-base font-bold text-black">Cerrar mes y revisar</h2>
               <button onClick={onClose} className="text-gray-400 hover:text-[var(--gob-navy)]"><X className="h-4 w-4" /></button>
             </div>
             <p className="text-sm text-gray-500 leading-relaxed">

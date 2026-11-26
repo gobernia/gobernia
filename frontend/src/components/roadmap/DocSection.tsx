@@ -21,7 +21,7 @@ export default function DocSection({ id, orden, titulo, nota, actions, children 
           {orden && (
             <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-[var(--gob-stone)] mb-1">{orden}</p>
           )}
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--gob-ink)]">{titulo}</h2>
+          <h2 className="text-base font-bold tracking-tight text-[var(--gob-ink)]">{titulo}</h2>
           {nota && <p className="text-sm text-[var(--gob-muted)] mt-1 max-w-2xl leading-relaxed">{nota}</p>}
         </div>
         {actions}

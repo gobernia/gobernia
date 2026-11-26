@@ -238,7 +238,7 @@ export default function DatosPage() {
                 {buffer.governance?.score != null && (
                   <Section icon={ShieldCheck} title="Gobierno corporativo">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold tracking-tight text-[var(--gob-navy)]">{buffer.governance.score}</span>
+                      <span className="text-xl font-bold tracking-tight text-[var(--gob-navy)]">{buffer.governance.score}</span>
                       <span className="text-sm text-gray-400">/ 100</span>
                     </div>
                     {buffer.governance.level && (

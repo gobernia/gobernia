@@ -49,7 +49,7 @@ export default function ThemesPanel() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-black flex items-center gap-2">
+        <h2 className="text-base font-bold text-black flex items-center gap-2">
           Temas del Consejo
           <InfoHint text="Las responsabilidades que el Consejo debe cubrir en el año. La frecuencia indica cada cuántas sesiones se revisa cada tema." />
         </h2>

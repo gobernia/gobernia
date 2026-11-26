@@ -35,15 +35,15 @@ export default function MonthReviewPanel({
 
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl border border-gray-100 py-2">
-          <p className="text-lg font-bold text-black">{review.signals.completion_pct}%</p>
+          <p className="text-base font-bold text-black">{review.signals.completion_pct}%</p>
           <p className="text-[10px] text-gray-400">tareas completadas</p>
         </div>
         <div className="rounded-xl border border-gray-100 py-2">
-          <p className="text-lg font-bold text-black">{review.signals.tasks_overdue}</p>
+          <p className="text-base font-bold text-black">{review.signals.tasks_overdue}</p>
           <p className="text-[10px] text-gray-400">atrasadas</p>
         </div>
         <div className="rounded-xl border border-gray-100 py-2">
-          <p className="text-lg font-bold text-black">{review.signals.kpis.filter(k => k.on_track).length}/{review.signals.kpis.length}</p>
+          <p className="text-base font-bold text-black">{review.signals.kpis.filter(k => k.on_track).length}/{review.signals.kpis.length}</p>
           <p className="text-[10px] text-gray-400">Indicadores en rumbo</p>
         </div>
       </div>

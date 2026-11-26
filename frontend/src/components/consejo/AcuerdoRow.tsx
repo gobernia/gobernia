@@ -89,7 +89,7 @@ export default function AcuerdoRow({
           aria-hidden
         />
         <div className="min-w-0 flex-1 space-y-2.5">
-          <p className="text-sm sm:text-[15px] font-medium leading-relaxed text-[var(--gob-ink)] max-w-[80ch]">
+          <p className="text-sm font-medium leading-relaxed text-[var(--gob-ink)] max-w-[80ch]">
             {acuerdo.texto}
           </p>
 

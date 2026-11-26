@@ -147,7 +147,7 @@ export default function InicioBetaPage() {
           {/* Saludo */}
           <div className="px-1 pb-2">
             <Eyebrow className="mb-0">{todayLabel()} · Secretario</Eyebrow>
-            <h1 className="text-[26px] font-bold tracking-[-.02em]" style={{ ...SANS, color: INK }}>
+            <h1 className="text-xl font-bold tracking-tight" style={{ ...SANS, color: INK }}>
               {greeting()}{userName ? `, ${userName}` : ""}.
             </h1>
           </div>
@@ -159,7 +159,7 @@ export default function InicioBetaPage() {
             <div className={`${TILE} col-span-12 lg:col-span-8 flex min-h-[220px] flex-col justify-between`} style={{ background: SAND }}>
               <div className="flex items-start gap-5">
                 <span
-                  className="grid h-14 w-14 shrink-0 place-items-center rounded-full text-[20px] font-bold text-white"
+                  className="grid h-14 w-14 shrink-0 place-items-center rounded-full text-base font-bold text-white"
                   style={{ ...SANS, background: BNAVY }}
                   aria-hidden
                 >
@@ -167,10 +167,10 @@ export default function InicioBetaPage() {
                 </span>
                 <div className="min-w-0">
                   <Eyebrow className="mb-2">Todd · tu Secretario</Eyebrow>
-                  <h2 className="text-[23px] font-bold leading-tight tracking-[-.025em]" style={{ ...SANS, color: INK }}>
+                  <h2 className="text-base font-bold leading-tight tracking-tight" style={{ ...SANS, color: INK }}>
                     ¿En qué te puedo ayudar hoy?
                   </h2>
-                  <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: INK2, maxWidth: "38em" }}>
+                  <p className="mt-2.5 text-sm leading-relaxed" style={{ color: INK2, maxWidth: "38em" }}>
                     Pregúntame por tus tareas, tus acuerdos o lo que sigue en tu plan.
                     Si no puedes cumplir una tarea, te propongo cómo cambiarla, y te explico cómo hacer cualquier cosa en Gobernia.
                   </p>
@@ -198,7 +198,7 @@ export default function InicioBetaPage() {
                 <Eyebrow dark className="mb-2">Última minuta</Eyebrow>
                 {ultimaSesion ? (
                   <>
-                    <h3 className="text-[20px] font-bold leading-tight tracking-[-.02em]" style={SANS}>
+                    <h3 className="text-base font-bold leading-tight tracking-tight" style={SANS}>
                       {ultimaSesion.period_label ?? `Sesión ${ultimaSesion.period_year}`}
                     </h3>
                     <p className="mt-2 text-[13px] font-semibold" style={{ color: "rgba(255,255,255,.6)" }}>
@@ -207,7 +207,7 @@ export default function InicioBetaPage() {
                   </>
                 ) : (
                   <>
-                    <h3 className="text-[20px] font-bold leading-tight tracking-[-.02em]" style={SANS}>
+                    <h3 className="text-base font-bold leading-tight tracking-tight" style={SANS}>
                       Aún no hay sesiones
                     </h3>
                     <p className="mt-2 text-[13px] font-semibold" style={{ color: "rgba(255,255,255,.6)" }}>
@@ -254,7 +254,7 @@ export default function InicioBetaPage() {
                   <Eyebrow className="mb-2">
                     Acciones de este mes{mesActual ? ` · ${mesActual.label}` : ""}
                   </Eyebrow>
-                  <h3 className="text-[20px] font-bold leading-tight tracking-[-.02em]" style={{ ...SANS, color: INK }}>
+                  <h3 className="text-base font-bold leading-tight tracking-tight" style={{ ...SANS, color: INK }}>
                     {tareasMes.length > 0
                       ? `${hechasMes} de ${tareasMes.length} hechas`
                       : "Sin tareas asignadas a este mes"}
@@ -320,7 +320,7 @@ export default function InicioBetaPage() {
                       </span>
                     </div>
                     <div>
-                      <p className="text-[16px] font-bold tracking-[-.015em]" style={{ ...SANS, color: INK }}>{a.label}</p>
+                      <p className="text-sm font-bold tracking-tight" style={{ ...SANS, color: INK }}>{a.label}</p>
                       <p className="mt-1 text-[12.5px] font-semibold leading-snug" style={{ ...SANS, color: INK2 }}>{a.resumen}</p>
                     </div>
                   </Link>

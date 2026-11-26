@@ -5,7 +5,7 @@ import ToddFlotante from "@/components/consejo/ToddFlotante"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh" style={{ background: "#F2F2F0" }}>
+    <div className="zona-app min-h-dvh" style={{ background: "#F2F2F0" }}>
       <Sidebar />
       <Campanita />
       <div className="md:ml-56">{children}</div>

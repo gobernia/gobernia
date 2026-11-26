@@ -87,7 +87,7 @@ export default function ConclusionConsejo({
         <div className="mt-4 space-y-3 max-w-[72ch]">
           <Parrafos
             texto={conclusion.conclusion || "El Consejo no emitió conclusión en esta sesión."}
-            className="text-base sm:text-[17px] leading-relaxed text-[var(--gob-ink)]"
+            className="text-base leading-relaxed text-[var(--gob-ink)]"
           />
         </div>
       </div>
@@ -96,7 +96,7 @@ export default function ConclusionConsejo({
       {revision.length > 0 && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-lg font-bold tracking-tight text-[var(--gob-ink)]">
+            <h3 className="text-base font-bold tracking-tight text-[var(--gob-ink)]">
               Revisión del orden del día
             </h3>
             <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
@@ -182,7 +182,7 @@ export default function ConclusionConsejo({
       <div className="space-y-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h3 className="text-lg font-bold tracking-tight text-[var(--gob-ink)]">
+            <h3 className="text-base font-bold tracking-tight text-[var(--gob-ink)]">
               Acuerdos del Consejo
             </h3>
             <p className="mt-1 text-xs text-[var(--gob-muted)] max-w-[60ch] leading-relaxed">
